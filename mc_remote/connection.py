@@ -3,16 +3,10 @@ import select
 import sys
 from .util import flatten_parameters_to_bytestring
 
-""" @author: Aron Nieminen, Mojang AB"""
-
-class RequestError(Exception):
-    pass
-
-class ConnectionError(Exception):
-    pass
 
 class Connection:
     """Connection to a Minecraft Pi game"""
+
     RequestFailed = "Fail"
 
     def __init__(self, address, port, debug=False):
@@ -44,11 +38,11 @@ class Connection:
                     break
                 data = self.socket.recv(1500)
                 if self.debug:
-                    e =  "Drained Data: <%s>\n"%data.strip()
-                    e += "Last Message: <%s>\n"%self.lastSent.strip()
+                    e = f"Drained Data: <{data.strip()}>\n"
+                    e += f"Last Message: <{self.lastSent.strip()}>\n"
                     sys.stderr.write(e)
             except socket.error as e:
-                sys.stderr.write("Connection lost during draining: %s\n" % e)
+                sys.stderr.write(f"Connection lost during draining: {e}\n")
                 sys.exit(1)
 
     def send(self, f, *data):
@@ -80,10 +74,11 @@ class Connection:
         try:
             s = self.socket.makefile("r").readline().rstrip("\n")
             if s == Connection.RequestFailed:
-                raise RequestError("%s failed" % self.lastSent.strip())
+                sys.stderr.write(f"{self.lastSent.strip()} failed\n")
+                sys.exit(1)
             return s
         except socket.error as e:
-            sys.stderr.write("Failed to receive data: %s\n" % e)
+            sys.stderr.write(f"Failed to receive data: {e}\n")
             sys.exit(1)
 
     def sendReceive(self, *data):
