@@ -1,2 +1,7 @@
 # mc_remote
-refreshed Python Client/API for Minecraft Remote
+
+Python Client/API for Minecraft Remote
+
+==================================
+=x=x=x= UNDER CONSTRUCTION =x=x=x=
+==================================
