@@ -2,7 +2,7 @@ import sys
 import os
 import math
 
-from ..mcje.connection import Connection
+from .connection import Connection
 from .vec3 import Vec3
 from .event import BlockEvent, ChatEvent, ProjectileEvent
 from .util import flatten
