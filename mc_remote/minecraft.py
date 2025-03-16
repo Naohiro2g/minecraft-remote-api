@@ -1,35 +1,16 @@
+import sys
 import os
 import math
 
-from .connection import Connection
+from ..mcje.connection import Connection
 from .vec3 import Vec3
 from .event import BlockEvent, ChatEvent, ProjectileEvent
 from .util import flatten
 
-""" Minecraft PI low level api v0.1_1
-
-    Note: many methods have the parameter *arg. This solution makes it
-    simple to allow different types, and variable number of arguments.
-    The actual magic is a mix of flatten_parameters() and __iter__. Example:
-    A Cube class could implement __iter__ to work in Minecraft.setBlocks(c, id).
-
-    (Because of this, it's possible to "erase" arguments. CmdPlayer removes
-     entityId, by injecting [] that flattens to nothing)
-
-    @author: Aron Nieminen, Mojang AB"""
-
-""" Updated to include functionality provided by RaspberryJuice:
-- getBlocks()
-- getDirection()
-- getPitch()
-- getRotation()
-- getPlayerEntityId()
-- pollChatPosts()
-- setSign()
-- spawnEntity()"""
 
 def intFloor(*args):
     return [int(math.floor(x)) for x in flatten(args)]
+
 
 class CmdPositioner:
     """Methods for setting and getting positions"""
@@ -37,52 +18,53 @@ class CmdPositioner:
         self.conn = connection
         self.pkg = packagePrefix
 
-    def getPos(self, id):
+    def getPos(self, entityId):
         """Get entity position (entityId:int) => Vec3"""
-        s = self.conn.sendReceive(self.pkg + b".getPos", id)
+        s = self.conn.sendReceive(self.pkg + b".getPos", entityId)
         return Vec3(*list(map(float, s.split(","))))
 
-    def setPos(self, id, *args):
+    def setPos(self, entityId, *args):
         """Set entity position (entityId:int, x,y,z)"""
-        self.conn.send(self.pkg + b".setPos", id, args)
+        self.conn.send(self.pkg + b".setPos", entityId, args)
 
-    def getTilePos(self, id):
+    def getTilePos(self, entityId):
         """Get entity tile position (entityId:int) => Vec3"""
-        s = self.conn.sendReceive(self.pkg + b".getTile", id)
+        s = self.conn.sendReceive(self.pkg + b".getTile", entityId)
         return Vec3(*list(map(int, s.split(","))))
 
-    def setTilePos(self, id, *args):
+    def setTilePos(self, entityId, *args):
         """Set entity tile position (entityId:int) => Vec3"""
-        self.conn.send(self.pkg + b".setTile", id, intFloor(*args))
+        self.conn.send(self.pkg + b".setTile", entityId, intFloor(*args))
 
-    def setDirection(self, id, *args):
+    def setDirection(self, entityId, *args):
         """Set entity direction (entityId:int, x,y,z)"""
-        self.conn.send(self.pkg + b".setDirection", id, args)
+        self.conn.send(self.pkg + b".setDirection", entityId, args)
 
-    def getDirection(self, id):
+    def getDirection(self, entityId):
         """Get entity direction (entityId:int) => Vec3"""
-        s = self.conn.sendReceive(self.pkg + b".getDirection", id)
+        s = self.conn.sendReceive(self.pkg + b".getDirection", entityId)
         return Vec3(*map(float, s.split(",")))
 
-    def setRotation(self, id, yaw):
+    def setRotation(self, entityId, yaw):
         """Set entity rotation (entityId:int, yaw)"""
-        self.conn.send(self.pkg + b".setRotation", id, yaw)
+        self.conn.send(self.pkg + b".setRotation", entityId, yaw)
 
-    def getRotation(self, id):
+    def getRotation(self, entityId):
         """get entity rotation (entityId:int) => float"""
-        return float(self.conn.sendReceive(self.pkg + b".getRotation", id))
+        return float(self.conn.sendReceive(self.pkg + b".getRotation", entityId))
 
-    def setPitch(self, id, pitch):
+    def setPitch(self, entityId, pitch):
         """Set entity pitch (entityId:int, pitch)"""
-        self.conn.send(self.pkg + b".setPitch", id, pitch)
+        self.conn.send(self.pkg + b".setPitch", entityId, pitch)
 
-    def getPitch(self, id):
+    def getPitch(self, entityId):
         """get entity pitch (entityId:int) => float"""
-        return float(self.conn.sendReceive(self.pkg + b".getPitch", id))
+        return float(self.conn.sendReceive(self.pkg + b".getPitch", entityId))
 
     def setting(self, setting, status):
         """Set a player setting (setting, status). keys: autojump"""
         self.conn.send(self.pkg + b".setting", setting, 1 if bool(status) else 0)
+
 
 class CmdEntity(CmdPositioner):
     """Methods for entities"""
@@ -104,26 +86,37 @@ class Entity:
         self.p = CmdPositioner(conn, b"entity")
         self.id = entity_uuid
         self.type = typeName
+
     def getPos(self):
         return self.p.getPos(self.id)
+
     def setPos(self, *args):
         return self.p.setPos(self.id, args)
+
     def getTilePos(self):
         return self.p.getTilePos(self.id)
+
     def setTilePos(self, *args):
         return self.p.setTilePos(self.id, args)
+
     def setDirection(self, *args):
         return self.p.setDirection(self.id, args)
+
     def getDirection(self):
         return self.p.getDirection(self.id)
+
     def setRotation(self, yaw):
         return self.p.setRotation(self.id, yaw)
+
     def getRotation(self):
         return self.p.getRotation(self.id)
+
     def setPitch(self, pitch):
         return self.p.setPitch(self.id, pitch)
+
     def getPitch(self):
         return self.p.getPitch(self.id)
+
     def remove(self):
         self.p.conn.send(b"entity.remove", self.id)
 
@@ -136,24 +129,34 @@ class CmdPlayer(CmdPositioner):
 
     def getPos(self):
         return CmdPositioner.getPos(self, [])
+
     def setPos(self, *args):
         return CmdPositioner.setPos(self, [], args)
+
     def getTilePos(self):
         return CmdPositioner.getTilePos(self, [])
+
     def setTilePos(self, *args):
         return CmdPositioner.setTilePos(self, [], args)
+
     def setDirection(self, *args):
         return CmdPositioner.setDirection(self, [], args)
+
     def getDirection(self):
         return CmdPositioner.getDirection(self, [])
+
     def setRotation(self, yaw):
         return CmdPositioner.setRotation(self, [], yaw)
+
     def getRotation(self):
         return CmdPositioner.getRotation(self, [])
+
     def setPitch(self, pitch):
         return CmdPositioner.setPitch(self, [], pitch)
+
     def getPitch(self):
         return CmdPositioner.getPitch(self, [])
+
 
 class CmdCamera:
     def __init__(self, connection):
@@ -220,27 +223,32 @@ class Minecraft:
 
     def getBlockWithData(self, *args):
         """Get block with data (x,y,z) => Block"""
-        return self.conn.sendReceive(b"world.getBlockWithData", intFloor(args)).split(",")
+        s = self.conn.sendReceive(b"world.getBlockWithData", intFloor(args)).split(",")
+        if s[-1] == "":
+            s.pop()
+        return s
 
     def getBlocks(self, *args):
         """Get a cuboid of blocks (x0,y0,z0,x1,y1,z1) => [id:int]"""
-        # s = self.conn.sendReceive(b"world.getBlocks", intFloor(args))
-        s = self.conn.sendReceive(b"world.getBlocks", *args)
-        return s.split(",")
+        s = self.conn.sendReceive(b"world.getBlocks", *args).split(",")
+        if s[-1] == "":
+            s.pop()
+        return s
 
     def setBlock(self, *args):
         """Set block (x,y,z,id,[data])"""
-        self.conn.send(b"world.setBlock", *args)
+        # self.conn.send(b"world.setBlock", *args)
+        return self.conn.sendReceive(b"world.setBlock", *args)
 
     def setBlocks(self, *args):
         """Set a cuboid of blocks (x0,y0,z0,x1,y1,z1,id,[data])"""
-        self.conn.send(b"world.setBlocks", *args)
+        return self.conn.sendReceive(b"world.setBlocks", *args)
 
     def setSign(self, *args):
         """Set a sign (x,y,z,sign_type,direction,line1,line2,line3,line4)
         direction: 0-north, 1-east, 2-south 3-west
         """
-        self.conn.send(b"world.setSign", args)
+        self.conn.send(b"world.setSign", *args)
 
     def spawnEntity(self, *args):
         """Spawn entity (x,y,z,id,[data])"""
@@ -293,7 +301,14 @@ class Minecraft:
         self.conn.send(b"world.setting", setting, 1 if bool(status) else 0)
 
     def setPlayer(self, *args):
-        return self.conn.sendReceive(b"setPlayer", *args)
+        """Set player position (name, x,y,z) this is the first remote command to call"""
+        result = self.conn.sendReceive(b"setPlayer", *args)
+        if "Error" in result:
+            sys.exit(result)
+        else:
+            print(result)
+            return result
+        # return self.conn.sendReceive(b"setPlayer", *args)
 
     @staticmethod
     def create(address="localhost", port=4711, debug=False):
