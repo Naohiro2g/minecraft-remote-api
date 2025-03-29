@@ -25,7 +25,7 @@ class CmdPositioner:
 
     def setPos(self, entityId, *args):
         """Set entity position (entityId:int, x,y,z)"""
-        self.conn.send(self.pkg + b".setPos", entityId, args)
+        return self.conn.sendReceive(self.pkg + b".setPos", entityId, args)
 
     def getTilePos(self, entityId):
         """Get entity tile position (entityId:int) => Vec3"""
@@ -238,10 +238,13 @@ class Minecraft:
     def setBlock(self, *args):
         """Set block (x,y,z,id,[data])"""
         # self.conn.send(b"world.setBlock", *args)
+        # return
         return self.conn.sendReceive(b"world.setBlock", *args)
 
     def setBlocks(self, *args):
         """Set a cuboid of blocks (x0,y0,z0,x1,y1,z1,id,[data])"""
+        # self.conn.send(b"world.setBlocks", *args)
+        # return
         return self.conn.sendReceive(b"world.setBlocks", *args)
 
     def setSign(self, *args):
@@ -257,7 +260,7 @@ class Minecraft:
 
     def spawnParticle(self, *args):
         """Spawn entity (x,y,z,x1,y1,z1,id,speed,count,[force,data])"""
-        return self.conn.send(b"world.spawnParticle", *args)
+        return self.conn.sendReceive(b"world.spawnParticle", *args)
 
     def getNearbyEntities(self, *args):
         """get nearby entities (x,y,z)"""
@@ -272,7 +275,8 @@ class Minecraft:
         return self.conn.sendReceive(b"world.removeEntity", *args)
 
     def getHeight(self, *args):
-        """Get the height of the world (x,z) => int"""
+        """Get the height(=y) of the world at (x,z) => int"""
+        print(*args)
         return int(self.conn.sendReceive(b"world.getHeight", intFloor(args)))
 
     def getPlayerEntityIds(self):

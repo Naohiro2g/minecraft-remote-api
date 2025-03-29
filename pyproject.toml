@@ -1,16 +1,16 @@
-[project]
+[tool.poetry]
 name = "minecraft-remote"
-version = "0.1.0"
-description = "Python Client-API for Minecraft"
-authors = [
-    {name = "Naohiro2g",email = "587586+Naohiro2g@users.noreply.github.com"}
-]
-license = {text = "MIT"}
+version = "1.21.4+19"
+description = "Python Client-API for Minecraft Remote or mc-remote"
+authors = ["Naohiro2g <587586+Naohiro2g@users.noreply.github.com>"]
+license = "MIT"
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = [
+packages = [
+    { include = "mc_remote", from = "." }
 ]
 
+[tool.poetry.dependencies]
+python = ">=3.11"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
