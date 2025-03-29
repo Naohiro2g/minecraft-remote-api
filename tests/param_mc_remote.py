@@ -7,8 +7,7 @@ import mc_remote.block_1_21_4 as block
 import mc_remote.entity_1_21_4 as entity
 import mc_remote.particle_1_21_4 as particle
 
-# PLAYER_NAME = "PLAYER_NAME"  # set your player name in Minecraft
-PLAYER_NAME = "nao2g"  # set your player name in Minecraft
+PLAYER_NAME = "PLAYER_NAME"  # set your player name in Minecraft
 PLAYER_ORIGIN = Vec3(0, 0, 0)  # po.x, po.y, po.z
 print(f"param_MCJE loaded for {PLAYER_NAME} at {PLAYER_ORIGIN.x}, {PLAYER_ORIGIN.y}, {PLAYER_ORIGIN.z}")
 

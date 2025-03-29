@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "minecraft-remote-api"
-version = "1.21.4+0"
+version = "1214.10.0"
 description = "Python Client-API for Minecraft Remote or mc-remote"
 authors = ["Naohiro2g <587586+Naohiro2g@users.noreply.github.com>"]
 license = "MIT"
