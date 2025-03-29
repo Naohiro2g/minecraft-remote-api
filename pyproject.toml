@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "minecraft-remote"
-version = "1.21.4+19"
+name = "minecraft-remote-api"
+version = "1.21.4+0"
 description = "Python Client-API for Minecraft Remote or mc-remote"
 authors = ["Naohiro2g <587586+Naohiro2g@users.noreply.github.com>"]
 license = "MIT"
@@ -8,9 +8,22 @@ readme = "README.md"
 packages = [
     { include = "mc_remote", from = "." }
 ]
+keywords = ["minecraft", "remote", "API", "client"]
+classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.poetry.urls]
+Homepage = "https://example.com"
+Repository = "https://github.com/Naohiro2g/minecraft-remote-api"
+Documentation = "https://docs.example.com"
 
 [tool.poetry.dependencies]
-python = ">=3.11"
+python = ">=3.9"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

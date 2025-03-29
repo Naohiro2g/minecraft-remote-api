@@ -1,25 +1,33 @@
-MC_DIR := $${HOME}/Documents/MINECRAFT_SERVERS/PaperMC
-PLUGIN_VERSION := 1.21.4
+# Makefile for Minecraft server management for Ubuntu or MacOS
+#  requires GNU Make
+#  requires screen
+# Author: Naohiro Tsuji
 
-update:
-	./gradlew clean build -Pversion=$(PLUGIN_VERSION) && \
-	rm -fr  $(MC_DIR)/plugins/JuicyRaspberryPie && \
-	rm -f $(MC_DIR)/plugins/juicyraspberrypie*.jar && \
-	cp build/libs/juicyraspberrypie-$(PLUGIN_VERSION).jar $(MC_DIR)/plugins/
+# Minecraft server settings
+MC_DIR := $(HOME)/MINECRAFT_SERVERS/PaperMC
+SERVER_FILE := paper.jar
 
-run:
-	cd $(MC_DIR) && \
-	screen -dmS minecraft java -Xmx8G -Xms8G -jar paper.jar
+ifeq ($(OS),Windows_NT)
+    RUN_SERVER_CMD = cd $(MC_DIR) && java -Xmx8G -Xms8G -jar $(SERVER_FILE)
+    STOP_SERVER_CMD = echo "Stop command for Windows not implemented. Please stop the server manually."
+else
+    RUN_SERVER_CMD = cd $(MC_DIR) && screen -dmS minecraft java -Xmx8G -Xms8G -jar $(SERVER_FILE) && echo "Minecraft server started successfully."
+    STOP_SERVER_CMD = cd $(MC_DIR) && \
+        if screen -list | grep -q minecraft; then \
+            screen -S minecraft -X stuff "stop\r" && sleep 5; \
+        else \
+            echo "No screen session found for 'minecraft'"; \
+        fi
+endif
 
-stop:
-	cd $(MC_DIR) && \
-	screen -S minecraft -X stuff "stop\015"
+.PHONY: runServer stopServer restartServer
 
-restart:
-	-make stop
-	sleep 5
-	make run
+runServer:  # Start the server
+	@echo "Starting Minecraft server..."
+    $(RUN_SERVER_CMD)
 
-update-restart:
-	make update
-	make restart
+stopServer:  # Stop the server
+	@echo "Stopping Minecraft server..."
+    $(STOP_SERVER_CMD)
+
+restartServer: stopServer runServer
