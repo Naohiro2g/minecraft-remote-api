@@ -16,6 +16,22 @@ class Connection:
         self.socket.settimeout(60)  # doc suggests None for makefile
         self.lastSent = ""
         self.debug = debug
+        self.reader = self.socket.makefile("r")
+
+    def close(self):
+        """Closes the socket and associated resources"""
+        if self.debug:
+            sys.stderr.write("Closing connection... ")
+        try:
+            self.reader.close()
+        except Exception as e:
+            sys.stderr.write(f"Failed to close reader: {e}\n")
+        try:
+            self.socket.close()
+        except Exception as e:
+            sys.stderr.write(f"Failed to close socket: {e}\n")
+        finally:
+            sys.stderr.write("Connection closed\n")
 
     def is_connected(self):
         """Checks if the connection to the server is still active"""
@@ -28,6 +44,7 @@ class Connection:
             return True
         except socket.error:
             return False
+        # return True
 
     def drain(self):
         """Drains the socket of incoming data"""
@@ -72,7 +89,7 @@ class Connection:
             sys.stderr.write("Connection to the server is lost\n")
             sys.exit(1)
         try:
-            s = self.socket.makefile("r").readline().rstrip("\n")
+            s = self.reader.readline().rstrip("\n")
             if s == Connection.RequestFailed:
                 sys.stderr.write(f"{self.lastSent.strip()} failed\n")
                 sys.exit(1)

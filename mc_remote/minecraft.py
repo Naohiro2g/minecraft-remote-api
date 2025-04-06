@@ -237,15 +237,15 @@ class Minecraft:
 
     def setBlock(self, *args):
         """Set block (x,y,z,id,[data])"""
-        # self.conn.send(b"world.setBlock", *args)
-        # return
-        return self.conn.sendReceive(b"world.setBlock", *args)
+        self.conn.send(b"world.setBlock", *args)
+        return
+        # return self.conn.sendReceive(b"world.setBlock", *args)
 
     def setBlocks(self, *args):
         """Set a cuboid of blocks (x0,y0,z0,x1,y1,z1,id,[data])"""
-        # self.conn.send(b"world.setBlocks", *args)
-        # return
-        return self.conn.sendReceive(b"world.setBlocks", *args)
+        self.conn.send(b"world.setBlocks", *args)
+        return
+        # return self.conn.sendReceive(b"world.setBlocks", *args)
 
     def setSign(self, *args):
         """Set a sign (x,y,z,sign_type,direction,line1,line2,line3,line4)
@@ -313,6 +313,11 @@ class Minecraft:
             print(result)
             return result
         # return self.conn.sendReceive(b"setPlayer", *args)
+
+    def close(self):
+        """Close the connection to the Minecraft server"""
+        self.conn.close()
+        return True
 
     @staticmethod
     def create(address="localhost", port=4711, debug=False):

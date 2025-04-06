@@ -4,7 +4,7 @@ Python Client/API for Minecraft Remote
 
 - package name: `minecraft-remote-api`
 - description: `Python Client/API for Minecraft Remote`
-- version: `1214.10.0`
+- version: `1214.10.1`
 - module name: `mc_remote`
 
 ==================================

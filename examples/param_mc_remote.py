@@ -12,8 +12,8 @@ PLAYER_ORIGIN = Vec3(0, 0, 0)  # po.x, po.y, po.z
 print(f"param_MCJE loaded for {PLAYER_NAME} at {PLAYER_ORIGIN.x}, {PLAYER_ORIGIN.y}, {PLAYER_ORIGIN.z}")
 
 # minecraft remote connection to the host at address:port
-ADRS_MCR = "localhost"  # Minecraft server running on your pc
-# ADRS_MCR = "mc-remote.xgames.jp"  # mc-remote sandbox server
+# ADRS_MCR = "localhost"  # Minecraft server running on your pc
+ADRS_MCR = "mc-remote.xgames.jp"  # mc-remote sandbox server
 # ADRS_MCR = "c2cc.mydns.jp"
 PORT_MCR = 25575  # socket server port
 
