@@ -1,6 +1,6 @@
 [project]
 name = "minecraft-remote-api"
-version = "1214.10.1"
+version = "1214.10.3"
 description = "Python Client-API for Minecraft Remote or mc-remote"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -15,12 +15,12 @@ classifiers = [
 authors = [
     { name = "Naohiro2g", email = "587586+Naohiro2g@users.noreply.github.com" }
 ]
-dependencies = []
+dependencies = ["pygame-ce (>=2.5.3,<3.0.0)"]
 
 [project.urls]
 Homepage = "https://github.com/Naohiro2g/minecraft-remote-api"
 Repository = "https://github.com/Naohiro2g/minecraft-remote-api"
-Documentation = "https://github.com/Naohiro2g/minecraft-remote-api/docs"
+Documentation = "https://github.com/Naohiro2g/minecraft-remote-api/README.md"
 
 [tool.poetry]
 packages = [
@@ -30,3 +30,4 @@ packages = [
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
