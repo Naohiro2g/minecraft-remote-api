@@ -16,6 +16,8 @@ Pythonコードを使って最新のマインクラフトの世界で自動建�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）: `1214.10.8`
 - module name（モジュール名）: `mc_remote`
+- author（著者）: `Naohiro2g` from Code2Create.Club
+- license（ライセンス）: `MIT`
 
 **Works with [Minecraft Remote (`McRemote`) plugin](https://github.com/Naohiro2g/McRemote) for [PaperMC](https://papermc.io/) servers. A sandbox server is available for testing.**
 You can find the latest version of the package on [PyPI](https://pypi.org/project/minecraft-remote-api/).
@@ -166,4 +168,5 @@ Minecraft Remote / mc-remote（マイクラリモコン、あるいは、エム�
 - 3D世界への出力に加え入力対応も計画中 — これにより、デジタル世界、現実世界、およびその他の仮想環境と連携するインタラクティブな体験を実現する
 - 人工知能技術の応用、例えば、コンピュータービジョンと機械学習を利用し、マインクラフト世界の中の手とじゃんけんができる仕組みなど。
 
-<img src="https://raw.githubusercontent.com/Naohiro2g/minecraft-remote-api/refs/heads/main/images/hacking_coding_tinkering.png" width="440">
+Hacking, coding, and tinkering are the core of this project. We aim to create a system that allows users to explore and learn through their own experiences. The project is open to everyone, and we welcome contributions from all who share our vision.
+<img src="https://raw.githubusercontent.com/Naohiro2g/minecraft-remote-api/refs/heads/main/images/hacking_coding_tinkering.png" width="440" alt="Hacking Coding Tinkering" title="Hacking Coding Tinkering" />
