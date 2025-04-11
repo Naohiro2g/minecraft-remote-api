@@ -24,10 +24,10 @@ endif
 
 runServer:  # Start the server
 	@echo "Starting Minecraft server..."
-    $(RUN_SERVER_CMD)
+	$(RUN_SERVER_CMD)
 
 stopServer:  # Stop the server
 	@echo "Stopping Minecraft server..."
-    $(STOP_SERVER_CMD)
+	$(STOP_SERVER_CMD)
 
 restartServer: stopServer runServer
