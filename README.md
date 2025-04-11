@@ -14,7 +14,7 @@ Pythonコードを使って最新のマインクラフトの世界で自動建�
 
 - package name（パッケージ名）: `minecraft-remote-api`
 - description（概要）: `Python Client/API for Minecraft Remote`
-- version（バージョン）: `1214.10.8`
+- version（バージョン）: `1214.10.9`
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` from Code2Create.Club
 - license（ライセンス）: `MIT`
@@ -137,7 +137,7 @@ References:
 
 Minecraft Remote / mc-remote（マイクラリモコン、あるいは、エムシーリモート） は、Minecraftのリモコンシステムです。クライアントは、PaperMCサーバーと併走して稼働する [McRemoteプラグイン](https://github.com/Naohiro2g/McRemote/) が提供する専用サーバーと通信を行い、一方、APIはユーザーとのやり取りを円滑にする役割を果たし、ユーザーがコードを記述して自動建築を実現できるようにします。
 
-このプロジェクトは、zhoweiによる`RaspberryJuice`、martinohanlonによる`mcpi`、およびwenshengによる`JuicyraspberryPie`などの、知識注入型の **「教育」** というよりも**「学習支援」** の意図を強く持ったプロジェクト群および、そのコミュニティの知恵と努力の成果に基づいています。**また、Dr. Mitchel Resnick(MIT)のライフロングキンダーガーテンの影響を強く受けています。**
+このプロジェクトは、zhoweiによる`RaspberryJuice`、martinohanlonによる`mcpi`、およびwenshengによる`JuicyraspberryPie`などの、知識注入型の **「教育」** というよりも **「学習支援」** の意図を強く持ったプロジェクト群および、そのコミュニティの知恵と努力の成果に基づいています。**また、Dr. Mitchel Resnick(MIT)のライフロングキンダーガーテンの影響を強く受けています。**
 
 リファレンス：
 
@@ -169,4 +169,5 @@ Minecraft Remote / mc-remote（マイクラリモコン、あるいは、エム�
 - 人工知能技術の応用、例えば、コンピュータービジョンと機械学習を利用し、マインクラフト世界の中の手とじゃんけんができる仕組みなど。
 
 Hacking, coding, and tinkering are the core of this project. We aim to create a system that allows users to explore and learn through their own experiences. The project is open to everyone, and we welcome contributions from all who share our vision.
+
 <img src="https://raw.githubusercontent.com/Naohiro2g/minecraft-remote-api/refs/heads/main/images/hacking_coding_tinkering.png" width="440" alt="Hacking Coding Tinkering" title="Hacking Coding Tinkering" />

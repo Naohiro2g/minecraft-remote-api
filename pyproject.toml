@@ -1,6 +1,6 @@
 [project]
 name = "minecraft-remote-api"
-version = "1214.10.7"
+version = "1214.10.9"
 description = "Python Client-API for Minecraft Remote or mc-remote"
 readme = "README.md"
 requires-python = ">=3.9"
