@@ -42,9 +42,15 @@ PORT_MCR = 25575  # socket server port
 ```
 
 - **You must be logged in as the Minecraft server player with the same name as `PLAYER_NAME` to use this API.**
+  Server address: `mc-remote.xgames.jp`
+  Server port: `25565` (No need to specify because it is the default port for Minecraft.)
+- `PORT_MCR` is the port for the socket server. The default value is `25575`, but you can change it to any port you like. If you are using your own PaperMC server, make sure to set the same port in the `plugins/McRemote/config.yml`.
 - `PLAYER_ORIGIN` defines the origin of the building coordinate system. Building coordinates are computed relative to this origin. For example, executing `setBlock(5, 68, 5, block.GOLD_BLOCK)` will place a gold block at coordinates `(2005, 68, 2005)`.
 
 - **APIを利用するには、PLAYER_NAME と同じ名前でMinecraftサーバーにログインしている必要があります。**
+  サーバーアドレス: `mc-remote.xgames.jp`
+  ポート番号: `25565` （マインクラフトのデフォルトポートなので指定不要）
+- `PORT_MCR` はソケットサーバーのポート番号です。デフォルト値は `25575` ですが、任意のポートに変更可能です。自前のPaperMCサーバーを利用する場合は、`plugins/McRemote/config.yml` に同じポートを設定してください。
 - `PLAYER_ORIGIN` は建築座標系の原点となり、設定値からの相対座標でブロックが配置されます。たとえば、`setBlock(5, 68, 5, block.GOLD_BLOCK)` を実行すると、実際には座標`（2005, 68, 2005）`に金ブロックが設置されます。
 
 If you are using your own PaperMC server, be sure to load the `McRemote` plugin. While running the server on your own PC offers a compact setup, if your PC is underpowered, it is preferable to use a server on another machine.
