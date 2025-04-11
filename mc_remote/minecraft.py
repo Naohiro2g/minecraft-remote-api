@@ -25,7 +25,7 @@ class CmdPositioner:
 
     def setPos(self, entityId, *args):
         """Set entity position (entityId:int, x,y,z)"""
-        return self.conn.sendReceive(self.pkg + b".setPos", entityId, args)
+        self.conn.send(self.pkg + b".setPos", entityId, *args)
 
     def getTilePos(self, entityId):
         """Get entity tile position (entityId:int) => Vec3"""
@@ -73,7 +73,6 @@ class CmdEntity(CmdPositioner):
 
     def getName(self, id):
         """Get the list name of the player with entity id => [name:str]
-
         Also can be used to find name of entity if entity is not a player."""
         return self.conn.sendReceive(b"entity.getName", id)
 
@@ -91,28 +90,28 @@ class Entity:
         return self.p.getPos(self.id)
 
     def setPos(self, *args):
-        return self.p.setPos(self.id, args)
+        self.p.setPos(self.id, *args)
 
     def getTilePos(self):
         return self.p.getTilePos(self.id)
 
     def setTilePos(self, *args):
-        return self.p.setTilePos(self.id, args)
+        self.p.setTilePos(self.id, *args)
 
     def setDirection(self, *args):
-        return self.p.setDirection(self.id, args)
+        self.p.setDirection(self.id, *args)
 
     def getDirection(self):
         return self.p.getDirection(self.id)
 
     def setRotation(self, yaw):
-        return self.p.setRotation(self.id, yaw)
+        self.p.setRotation(self.id, yaw)
 
     def getRotation(self):
         return self.p.getRotation(self.id)
 
     def setPitch(self, pitch):
-        return self.p.setPitch(self.id, pitch)
+        self.p.setPitch(self.id, pitch)
 
     def getPitch(self):
         return self.p.getPitch(self.id)
@@ -131,28 +130,28 @@ class CmdPlayer(CmdPositioner):
         return CmdPositioner.getPos(self, [])
 
     def setPos(self, *args):
-        return CmdPositioner.setPos(self, [], args)
+        CmdPositioner.setPos(self, [], *args)
 
     def getTilePos(self):
         return CmdPositioner.getTilePos(self, [])
 
     def setTilePos(self, *args):
-        return CmdPositioner.setTilePos(self, [], args)
+        CmdPositioner.setTilePos(self, [], *args)
 
     def setDirection(self, *args):
-        return CmdPositioner.setDirection(self, [], args)
+        CmdPositioner.setDirection(self, [], *args)
 
     def getDirection(self):
         return CmdPositioner.getDirection(self, [])
 
     def setRotation(self, yaw):
-        return CmdPositioner.setRotation(self, [], yaw)
+        CmdPositioner.setRotation(self, [], yaw)
 
     def getRotation(self):
         return CmdPositioner.getRotation(self, [])
 
     def setPitch(self, pitch):
-        return CmdPositioner.setPitch(self, [], pitch)
+        CmdPositioner.setPitch(self, [], pitch)
 
     def getPitch(self):
         return CmdPositioner.getPitch(self, [])
@@ -164,7 +163,7 @@ class CmdCamera:
 
     def setNormal(self, *args):
         """Set camera mode to normal Minecraft view ([entityId])"""
-        self.conn.send(b"camera.mode.setNormal", args)
+        self.conn.send(b"camera.mode.setNormal", *args)
 
     def setFixed(self):
         """Set camera mode to fixed view"""
@@ -172,11 +171,11 @@ class CmdCamera:
 
     def setFollow(self, *args):
         """Set camera mode to follow an entity ([entityId])"""
-        self.conn.send(b"camera.mode.setFollow", args)
+        self.conn.send(b"camera.mode.setFollow", *args)
 
     def setPos(self, *args):
         """Set camera entity position (x,y,z)"""
-        self.conn.send(b"camera.setPos", args)
+        self.conn.send(b"camera.setPos", *args)
 
 
 class CmdEvents:
@@ -260,7 +259,7 @@ class Minecraft:
 
     def spawnParticle(self, *args):
         """Spawn entity (x,y,z,x1,y1,z1,id,speed,count,[force,data])"""
-        return self.conn.sendReceive(b"world.spawnParticle", *args)
+        self.conn.send(b"world.spawnParticle", *args)
 
     def getNearbyEntities(self, *args):
         """get nearby entities (x,y,z)"""
@@ -271,8 +270,8 @@ class Minecraft:
         return entities
 
     def removeEntity(self, *args):
-        """Spawn entity (x,y,z,id,[data])"""
-        return self.conn.sendReceive(b"world.removeEntity", *args)
+        """Remove entity (x,y,z,id,[data])"""
+        self.conn.send(b"world.removeEntity", *args)
 
     def getHeight(self, *args):
         """Get the height(=y) of the world at (x,z) => int"""
