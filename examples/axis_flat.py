@@ -1,12 +1,11 @@
-import sys
 from time import sleep
 
-from mc_remote.minecraft import Minecraft
 import param_mc_remote as param
 from param_mc_remote import PLAYER_ORIGIN as po
 from param_mc_remote import block
 from param_mc_remote import entity
 from param_mc_remote import particle
+from mc_remote.minecraft import Minecraft
 
 # axis parameters
 AXIS_WIDTH = 40  # x, z: -40 .. 0 .. 40
@@ -43,23 +42,25 @@ def draw_XYZ_axis(mc, wait=0.5):
 def clear_XYZ_axis(mc, wait=0.5):
     mc.postToChat("Clearing x-axis from negative to positive region")
     for x in range(-AXIS_WIDTH, AXIS_WIDTH + 1):
-        mc.setBlock(x, block.AIR, 0, debug=True)
+        mc.setBlock(x, AXIS_Y_V_ORG, 0, block.AIR)
         sleep(wait)
 
     mc.postToChat("Clearing y-axis from bottom to top")
     for y in range(AXIS_BOTTOM, AXIS_TOP + 1):
-        mc.setBlock(x, block.AIR, 0, debug=True)
+        mc.setBlock(0, y, 0, block.AIR)
         sleep(wait)
 
     mc.postToChat("Clearing z-axis from negative to positive region")
     for z in range(-AXIS_WIDTH, AXIS_WIDTH + 1):
-        mc.setBlock(x, block.AIR, 0, debug=True)
+        mc.setBlock(0, AXIS_Y_V_ORG, z, block.AIR)
         sleep(wait)
 
 
 def reset_minecraft_world(mc, width=48):
-    mc.setBlocks(-width, param.Y_SEA + 1, -width, width, AXIS_TOP, width, block.AIR)
-    sleep(1)
+    mc.setBlocks(-width, param.Y_SEA + 32, -width, width, AXIS_TOP, width, block.AIR)
+    sleep(2)
+    mc.setBlocks(-width, param.Y_SEA + 1, -width, width, param.Y_SEA + 31, width, block.AIR)
+    sleep(3)
     mc.setBlocks(-width, param.Y_SEA, -width, width, param.Y_SEA, width, block.GRASS_BLOCK)
     sleep(1)
 
@@ -94,5 +95,6 @@ if __name__ == "__main__":
 
     # mc.setBlocks(82, 139, -80,    8, 63, -81, block.AIR)
 
-    reset_minecraft_world(mc)
-    draw_XYZ_axis(mc, wait=0)
+    # reset_minecraft_world(mc)
+    draw_XYZ_axis(mc, wait=0.1)
+    # clear_XYZ_axis(mc, wait=0)
