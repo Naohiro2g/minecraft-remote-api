@@ -1,6 +1,6 @@
 [project]
 name = "minecraft-remote-api"
-version = "1214.10.3"
+version = "1214.10.7"
 description = "Python Client-API for Minecraft Remote or mc-remote"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -20,7 +20,7 @@ dependencies = ["pygame-ce (>=2.5.3,<3.0.0)"]
 [project.urls]
 Homepage = "https://github.com/Naohiro2g/minecraft-remote-api"
 Repository = "https://github.com/Naohiro2g/minecraft-remote-api"
-Documentation = "https://github.com/Naohiro2g/minecraft-remote-api/README.md"
+Documentation = "https://github.com/Naohiro2g/minecraft-remote-api/blob/main/README.md"
 
 [tool.poetry]
 packages = [
