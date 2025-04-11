@@ -14,7 +14,7 @@ Pythonコードを使って最新のマインクラフトの世界で自動建�
 
 - package name（パッケージ名）: `minecraft-remote-api`
 - description（概要）: `Python Client/API for Minecraft Remote`
-- version（バージョン）: `1214.10.7`
+- version（バージョン）: `1214.10.8`
 - module name（モジュール名）: `mc_remote`
 
 **Works with [Minecraft Remote (`McRemote`) plugin](https://github.com/Naohiro2g/McRemote) for [PaperMC](https://papermc.io/) servers. A sandbox server is available for testing.**
@@ -22,8 +22,7 @@ You can find the latest version of the package on [PyPI](https://pypi.org/projec
 
 **[PaperMC](https://papermc.io/)サーバー用の[Minecraft Remote（`McRemote`）プラグイン](https://github.com/Naohiro2g/McRemote)と連携します。テスト用にサンドボックスサーバーもご利用いただけます。** このパッケージの最新版は [PyPI](https://pypi.org/project/minecraft-remote-api/) にあります。
 
-
-<img src="https://raw.githubusercontent.com/Naohiro2g/minecraft-remote-api/refs/heads/main/images/mc-remote.png" width="440">
+<img src="https://raw.githubusercontent.com/Naohiro2g/minecraft-remote-api/refs/heads/main/images/mc-remote.png" width="440" alt="Minecraft Remote World" title="Minecraft Remote World" />
 
 ***
 
@@ -40,10 +39,10 @@ ADRS_MCR = "mc-remote.xgames.jp"  # mc-remote sandbox server
 PORT_MCR = 25575  # socket server port
 ```
 
-- You must be logged in as the Minecraft server player with the same name as `PLAYER_NAME` to use this API.
+- **You must be logged in as the Minecraft server player with the same name as `PLAYER_NAME` to use this API.**
 - `PLAYER_ORIGIN` defines the origin of the building coordinate system. Building coordinates are computed relative to this origin. For example, executing `setBlock(5, 68, 5, block.GOLD_BLOCK)` will place a gold block at coordinates `(2005, 68, 2005)`.
 
-- APIを利用するには、PLAYER_NAME と同じ名前でMinecraftサーバーにログインしている必要があります。
+- **APIを利用するには、PLAYER_NAME と同じ名前でMinecraftサーバーにログインしている必要があります。**
 - `PLAYER_ORIGIN` は建築座標系の原点となり、設定値からの相対座標でブロックが配置されます。たとえば、`setBlock(5, 68, 5, block.GOLD_BLOCK)` を実行すると、実際には座標`（2005, 68, 2005）`に金ブロックが設置されます。
 
 If you are using your own PaperMC server, be sure to load the `McRemote` plugin. While running the server on your own PC offers a compact setup, if your PC is underpowered, it is preferable to use a server on another machine.
@@ -58,23 +57,23 @@ Join our Discord community for Minecraft Remote to ask questions and share your 
 
 ## Installation and Update / インストールと更新
 
-### If you have pyenv / poetry installed（pyenv / poetryがインストールされている場合）:
+### If you have pyenv / poetry installed（pyenv / poetryがインストールされている場合）
 
 ```bash
 poetry install
 
-# Make sure the virtual environment (.venv/) is created, and from now on, please work in that environment.
+# Make sure the virtual environment (.venv/) is created,
+# and from now on, please work in that environment.
 # 仮想環境(.venv/)が作成されたのを確認し、今後は、その環境内で作業してください。
 ```
 
 to update the package, run (パッケージを更新するには、次のコマンドを実行):
 
-
 ```bash
 poetry update
 ```
 
-### If you don't have pyenv / poetry installed（pyenv / poetryがインストールされていない場合）:
+### If you don't have pyenv / poetry installed（pyenv / poetryがインストールされていない場合）
 
 ```bash
 pip install minecraft-remote-api
@@ -87,7 +86,6 @@ pip install minecraft-remote-api -U
 ```
 
 ## Run Examples  (サンプルを実行)
-
 
 ```bash
 cd examples
@@ -104,6 +102,7 @@ Minecraft Remote (or mc-remote) is a remote control system for Minecraft. The cl
 It is based on projects such as `RaspberryJuice` by zhowei, `mcpi` by martinohanlon, and `JuicyraspberryPie` by wensheng—all of which are designed to **"support LEARNING"** rather than conventional **"EDUCATION"**, and reflect the collective wisdom and effort of their communities. **The project is also strongly influenced by Dr. Mitchel Resnick (MIT)'s Lifelong Kindergarten.**
 
 References:
+
 - https://github.com/zhuowei/RaspberryJuice
 - https://github.com/martinohanlon/mcpi
 - https://github.com/wensheng/JuicyraspberryPie
@@ -117,9 +116,9 @@ References:
 
 ### Technical Skills Acquired Through the Self-Learning Approach
 
- - Coding concepts and techniques
- - Techniques for open source development using Git/GitHub
- - Techniques for realizing/expressing one's own ideas
+- Coding concepts and techniques
+- Techniques for open source development using Git/GitHub
+- Techniques for realizing/expressing one's own ideas
 
 ### Key Points for Maintaining Motivation in Self-Learning
 
@@ -139,11 +138,11 @@ Minecraft Remote / mc-remote（マイクラリモコン、あるいは、エム�
 このプロジェクトは、zhoweiによる`RaspberryJuice`、martinohanlonによる`mcpi`、およびwenshengによる`JuicyraspberryPie`などの、知識注入型の **「教育」** というよりも**「学習支援」** の意図を強く持ったプロジェクト群および、そのコミュニティの知恵と努力の成果に基づいています。**また、Dr. Mitchel Resnick(MIT)のライフロングキンダーガーテンの影響を強く受けています。**
 
 リファレンス：
+
 - https://github.com/zhuowei/RaspberryJuice
 - https://github.com/martinohanlon/mcpi
 - https://github.com/wensheng/JuicyraspberryPie
 - https://www.media.mit.edu/groups/lifelong-kindergarten
-
 
 ## Minecraft Remoteプロジェクトの明確なミッション
 
@@ -152,20 +151,19 @@ Minecraft Remote / mc-remote（マイクラリモコン、あるいは、エム�
 技術スキル習得は二の次とし、**自発的な学びの姿勢を育むことを目的とします。**
 
 ### 自学自習アプローチ習得の題材とする技術スキル
- - コーディングの概念と手法
- - Git/GitHubを活用したオープンソース開発の手法
- - 自分のアイデアを実現／表現する技術
+
+- コーディングの概念と手法
+- Git/GitHubを活用したオープンソース開発の手法
+- 自分のアイデアを実現／表現する技術
 
 ### 自学自習のモチベーション維持における重要なポイント
-  - 魅力的なプレイグラウンド、サンドボックスとして**最新版マインクラフト**を利用可能にすること
-  - 過去のプロジェクトで培われてきたコード資産を活用できるようにすること
-  - Python、Scratch、C#、Java他、幅広い言語の利用を可能にすること
-  **（Scratch版の準備を急務としている。）**
-  - マインクラフト世界だけでなく、Unity、Blender、Houdiniなどの3D世界の利用を可能にすること
-  - 3D世界への出力に加え入力対応も計画中 — これにより、デジタル世界、現実世界、およびその他の仮想環境と連携するインタラクティブな体験を実現する
-  - 人工知能技術の応用、例えば、コンピュータービジョンと機械学習を利用し、マインクラフト世界の中の手とじゃんけんができる仕組みなど。
 
+- 魅力的なプレイグラウンド、サンドボックスとして**最新版マインクラフト**を利用可能にすること
+- 過去のプロジェクトで培われてきたコード資産を活用できるようにすること
+- Python、Scratch、C#、Java他、幅広い言語の利用を可能にすること
+  **（Scratch版の準備を急務としている。）**
+- マインクラフト世界だけでなく、Unity、Blender、Houdiniなどの3D世界の利用を可能にすること
+- 3D世界への出力に加え入力対応も計画中 — これにより、デジタル世界、現実世界、およびその他の仮想環境と連携するインタラクティブな体験を実現する
+- 人工知能技術の応用、例えば、コンピュータービジョンと機械学習を利用し、マインクラフト世界の中の手とじゃんけんができる仕組みなど。
 
 <img src="https://raw.githubusercontent.com/Naohiro2g/minecraft-remote-api/refs/heads/main/images/hacking_coding_tinkering.png" width="440">
-
-

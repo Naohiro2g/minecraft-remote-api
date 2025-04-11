@@ -3,8 +3,6 @@ from time import sleep
 import param_mc_remote as param
 from param_mc_remote import PLAYER_ORIGIN as po
 from param_mc_remote import block
-from param_mc_remote import entity
-from param_mc_remote import particle
 from mc_remote.minecraft import Minecraft
 
 # axis parameters
@@ -80,21 +78,7 @@ if __name__ == "__main__":
     mc.setPlayer(param.PLAYER_NAME, po.x, po.y, po.z)
 
     mc.postToChat("axis_flat.py")
-    # reset_minecraft_world(mc)
-    # reset_minecraft_world(mc, width=100)
-    # sleep(20)
-    # reset_minecraft_world(mc, width=200)
-    # draw_XYZ_axis(mc)
-    # clear_XYZ_axis(mc, wait=0.05)
-    # draw_XYZ_axis(mc, wait=0.02)
 
-    # mc.postToChat("farm and fields")
-    # construction_fields(mc, -1000, 1000)
-    # construction_fields(mc, 0000, 0000)
-    # construction_fields(mc, 1000, 1000)
-
-    # mc.setBlocks(82, 139, -80,    8, 63, -81, block.AIR)
-
-    # reset_minecraft_world(mc)
-    draw_XYZ_axis(mc, wait=0.1)
+    reset_minecraft_world(mc)
     # clear_XYZ_axis(mc, wait=0)
+    draw_XYZ_axis(mc, wait=0.25)
