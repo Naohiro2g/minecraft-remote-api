@@ -14,7 +14,7 @@ Pythonコードを使って最新のマインクラフトの世界で自動建�
 
 - package name（パッケージ名）: `minecraft-remote-api`
 - description（概要）: `Python Client/API for Minecraft Remote`
-- version（バージョン）: `1214.10.9`
+- version（バージョン）: `1214.10.11`
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` from Code2Create.Club
 - license（ライセンス）: `MIT`
