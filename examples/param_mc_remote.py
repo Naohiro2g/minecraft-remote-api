@@ -12,7 +12,7 @@ print(f"param_mc_remote loaded for {PLAYER_NAME} at {PLAYER_ORIGIN.x}, {PLAYER_O
 
 # minecraft remote connection to the host at address:port
 # ADRS_MCR = "localhost"  # Minecraft server running on your pc
-ADRS_MCR = "mc-remote.xgames.jp"  # mc-remote sandbox server
+ADRS_MCR = "sb.mc-remote.com"  # mc-remote sandbox server
 PORT_MCR = 25575  # socket server port
 
 # vertical levels in Minecraft 1.20+
