@@ -1,23 +1,33 @@
 # minecraft-remote-api / Naohiro2g
 
+---
+
 ## Python Client/API package for Minecraft Remote
 
 Write Python code to build automatically in the latest Minecraft world. This repository is dedicated to API development. If you intend to write user code, please refer to [the sample repository `mc_remote_samples`](https://github.com/Naohiro2g/mc_remote_samples).
 
+Regarding the Minecraft Remote project, please refer to the section below, or visit the [project homepage at mc-remote.com](https://mc-remote.com).
+
+--
+
 ## マイクラリモコンのためのPythonクライアント/APIパッケージ
 
-Pythonコードを使って最新のマインクラフトの世界で自動建築が可能になります。 このリポジトリはAPI開発用です。ユーザーコードを記述したい場合は、[サンプルリポジトリ `mc_remote_samples`](https://github.com/Naohiro2g/mc_remote_samples) をご参照ください。
+Pythonコードを使って最新のマインクラフトの世界で自動建築が可能になります。 このリポジトリはAPI開発用です。ユーザーコードを書きたい場合は、[サンプルリポジトリ `mc_remote_samples`](https://github.com/Naohiro2g/mc_remote_samples) をご参照ください。
 
-***
+Minecraft Remoteプロジェクトについては、以下のセクションをご覧いただくか、[mc-remote.comのプロジェクトホームページ](https://mc-remote.com)をご覧ください。
+
+---
 
 ## Package Information
 
 - package name（パッケージ名）: `minecraft-remote-api`
 - description（概要）: `Python Client/API for Minecraft Remote`
-- version（バージョン）: `1214.10.11`
+- version（バージョン）: `2000.0.0`
 - module name（モジュール名）: `mc_remote`
-- author（著者）: `Naohiro2g` from Code2Create.Club
+- author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: `MIT`
+
+--
 
 **Works with [Minecraft Remote (`McRemote`) plugin](https://github.com/Naohiro2g/McRemote) for [PaperMC](https://papermc.io/) servers. A sandbox server is available for testing.**
 You can find the latest version of the package on [PyPI](https://pypi.org/project/minecraft-remote-api/).
@@ -25,6 +35,8 @@ You can find the latest version of the package on [PyPI](https://pypi.org/projec
 **[PaperMC](https://papermc.io/)サーバー用の[Minecraft Remote（`McRemote`）プラグイン](https://github.com/Naohiro2g/McRemote)と連携します。テスト用にサンドボックスサーバーもご利用いただけます。** このパッケージの最新版は [PyPI](https://pypi.org/project/minecraft-remote-api/) にあります。
 
 <img src="https://raw.githubusercontent.com/Naohiro2g/minecraft-remote-api/refs/heads/main/images/mc-remote.png" width="440" alt="Minecraft Remote World" title="Minecraft Remote World" />
+
+---
 
 ***
 
@@ -37,18 +49,18 @@ Edit these parameters in `param_mc_remote.py` to suit your environment.
 ```python
 PLAYER_NAME = "PLAYER_NAME"  # set your player name in Minecraft
 PLAYER_ORIGIN = Vec3(2000, 0, 2000)  # PO.x, PO.y, PO.z
-ADRS_MCR = "mc-remote.xgames.jp"  # mc-remote sandbox server
+ADRS_MCR = "sb.mc-remote.com"  # mc-remote sandbox server
 PORT_MCR = 25575  # socket server port
 ```
 
 - **You must be logged in as the Minecraft server player with the same name as `PLAYER_NAME` to use this API.**
-  - Server address: `mc-remote.xgames.jp`
+  - Server address: `sb.mc-remote.com`
   - Server port: `25565` (No need to specify because it is the default port for Minecraft.)
 - `PORT_MCR` is the port for the socket server. The default value is `25575`, but you can change it to any port you like. If you are using your own PaperMC server, make sure to set the same port in the `plugins/McRemote/config.yml`.
 - `PLAYER_ORIGIN` defines the origin of the building coordinate system. Building coordinates are computed relative to this origin. For example, executing `setBlock(5, 68, 5, block.GOLD_BLOCK)` will place a gold block at coordinates `(2005, 68, 2005)`.
 
 - **APIを利用するには、PLAYER_NAME と同じ名前でMinecraftサーバーにログインしている必要があります。**
-  - サーバーアドレス: `mc-remote.xgames.jp`
+  - サーバーアドレス: `sb.mc-remote.com`
   - ポート番号: `25565` （マインクラフトのデフォルトポートなので指定不要）
 - `PORT_MCR` はソケットサーバーのポート番号です。デフォルト値は `25575` ですが、任意のポートに変更可能です。自前のPaperMCサーバーを利用する場合は、`plugins/McRemote/config.yml` に同じポートを設定してください。
 - `PLAYER_ORIGIN` は建築座標系の原点となり、設定値からの相対座標でブロックが配置されます。たとえば、`setBlock(5, 68, 5, block.GOLD_BLOCK)` を実行すると、実際には座標`（2005, 68, 2005）`に金ブロックが設置されます。
@@ -65,23 +77,26 @@ Join our Discord community for Minecraft Remote to ask questions and share your 
 
 ## Installation and Update / インストールと更新
 
-### If you have pyenv / poetry installed（pyenv / poetryがインストールされている場合）
+### For development / contributing — with uv（開発・貢献向け：uv を使う場合）
 
 ```bash
-poetry install
+uv sync
 
 # Make sure the virtual environment (.venv/) is created,
 # and from now on, please work in that environment.
 # 仮想環境(.venv/)が作成されたのを確認し、今後は、その環境内で作業してください。
 ```
 
-to update the package, run (パッケージを更新するには、次のコマンドを実行):
+to update dependencies, run (依存を更新するには、次のコマンドを実行):
 
 ```bash
-poetry update
+uv lock --upgrade && uv sync
 ```
 
-### If you don't have pyenv / poetry installed（pyenv / poetryがインストールされていない場合）
+> Poetry (2.x) でも開発できます。`pyproject.toml` は PEP 621 標準なので `poetry install` で
+> 同様に `.venv/` を作成して作業できます（ビルド／公開は uv を使用）。
+
+### Just use the package — with pip（パッケージを使うだけ：pip の場合）
 
 ```bash
 pip install minecraft-remote-api
@@ -111,10 +126,10 @@ It is based on projects such as `RaspberryJuice` by zhowei, `mcpi` by martinohan
 
 References:
 
-- https://github.com/zhuowei/RaspberryJuice
-- https://github.com/martinohanlon/mcpi
-- https://github.com/wensheng/JuicyraspberryPie
-- https://www.media.mit.edu/groups/lifelong-kindergarten
+- <https://github.com/zhuowei/RaspberryJuice>
+- <https://github.com/martinohanlon/mcpi>
+- <https://github.com/wensheng/JuicyraspberryPie>
+- <https://www.media.mit.edu/groups/lifelong-kindergarten>
 
 ## The Clear Mission of the Minecraft Remote Project
 
@@ -147,10 +162,10 @@ Minecraft Remote / mc-remote（マイクラリモコン、あるいは、エム�
 
 リファレンス：
 
-- https://github.com/zhuowei/RaspberryJuice
-- https://github.com/martinohanlon/mcpi
-- https://github.com/wensheng/JuicyraspberryPie
-- https://www.media.mit.edu/groups/lifelong-kindergarten
+- <https://github.com/zhuowei/RaspberryJuice>
+- <https://github.com/martinohanlon/mcpi>
+- <https://github.com/wensheng/JuicyraspberryPie>
+- <https://www.media.mit.edu/groups/lifelong-kindergarten>
 
 ## Minecraft Remoteプロジェクトの明確なミッション
 

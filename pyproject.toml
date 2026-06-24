@@ -1,12 +1,11 @@
 [project]
 name = "minecraft-remote-api"
-version = "1214.10.11"
+version = "2000.0.0"
 description = "Python Client-API for Minecraft Remote or mc-remote"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = ["minecraft", "remote", "API", "client"]
 classifiers = [
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -16,19 +15,21 @@ classifiers = [
 authors = [
     { name = "Naohiro2g", email = "587586+Naohiro2g@users.noreply.github.com" }
 ]
-dependencies = ["pygame-ce (>=2.5.3,<3.0.0)"]
+dependencies = [
+    "pygame-ce>=2.5.7,<3",
+]
 
 [project.urls]
 Homepage = "https://github.com/Naohiro2g/minecraft-remote-api"
 Repository = "https://github.com/Naohiro2g/minecraft-remote-api"
 Documentation = "https://github.com/Naohiro2g/minecraft-remote-api/blob/main/README.md"
 
-[tool.poetry]
-packages = [
-    { include = "mc_remote", from = "." }
-]
-
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
 
+[tool.uv.build-backend]
+# 配布名(minecraft-remote-api) と import名(mc_remote) が異なるため明示
+module-name = "mc_remote"
+# src/ を使わずリポ直下に mc_remote/ を置くフラット配置のため
+module-root = ""

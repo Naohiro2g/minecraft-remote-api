@@ -1,3 +1,8 @@
+POCKET/
+
+# AI セッション用ローカル指示（公開しない / 正本は private knowledge リポのテンプレ）
+CLAUDE.md
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -169,3 +174,4 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+NOTES_ja.md
