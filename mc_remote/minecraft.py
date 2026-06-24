@@ -313,6 +313,24 @@ class Minecraft:
             return result
         # return self.conn.sendReceive(b"setPlayer", *args)
 
+    def setWorld(self, dimension):
+        """Set the build world/dimension (overworld, nether, end, or an exact
+        world name). Build state is independent of setPlayer."""
+        result = self.conn.sendReceive(b"setWorld", dimension)
+        if "Error" in result:
+            sys.exit(result)
+        print(result)
+        return result
+
+    def setBuildOrigin(self, *args):
+        """Set the build origin (x, y, z). Default is (200, 0, 200).
+        Coordinates are absolute; no implicit Y offset is applied."""
+        result = self.conn.sendReceive(b"setBuildOrigin", intFloor(args))
+        if "Error" in result:
+            sys.exit(result)
+        print(result)
+        return result
+
     def close(self):
         """Close the connection to the Minecraft server"""
         self.conn.close()
