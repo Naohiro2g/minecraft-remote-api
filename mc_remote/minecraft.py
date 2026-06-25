@@ -1,8 +1,7 @@
-import sys
 import os
 import math
 
-from .connection import Connection
+from .connection import Connection, RequestFailedError
 from .vec3 import Vec3
 from .event import BlockEvent, ChatEvent, ProjectileEvent
 from .util import flatten
@@ -211,6 +210,12 @@ class Minecraft:
     def __init__(self, connection):
         self.conn = connection
 
+        # Build state, scoped to this connection/stream (one instance = one
+        # stream = one build state). Kept as a local record of what this stream
+        # last set; the server is authoritative and applies the origin.
+        self._world = "overworld"
+        self._origin = Vec3(200, 0, 200)
+
         self.camera = CmdCamera(connection)
         self.entity = CmdEntity(connection)
         self.player = CmdPlayer(connection)
@@ -275,7 +280,6 @@ class Minecraft:
 
     def getHeight(self, *args):
         """Get the height(=y) of the world at (x,z) => int"""
-        print(*args)
         return int(self.conn.sendReceive(b"world.getHeight", intFloor(args)))
 
     def getPlayerEntityIds(self):
@@ -303,32 +307,24 @@ class Minecraft:
         """Set a world setting (setting, status). keys: world_immutable, nametags_visible"""
         self.conn.send(b"world.setting", setting, 1 if bool(status) else 0)
 
-    def setPlayer(self, *args):
-        """Set player position (name, x,y,z) this is the first remote command to call"""
-        result = self.conn.sendReceive(b"setPlayer", *args)
-        if "Error" in result:
-            sys.exit(result)
-        else:
-            print(result)
-            return result
-        # return self.conn.sendReceive(b"setPlayer", *args)
-
     def setWorld(self, dimension):
         """Set the build world/dimension (overworld, nether, end, or an exact
-        world name). Build state is independent of setPlayer."""
+        world name). Build state is scoped to this connection/stream."""
         result = self.conn.sendReceive(b"setWorld", dimension)
         if "Error" in result:
-            sys.exit(result)
-        print(result)
+            raise RequestFailedError(result)
+        self._world = dimension
         return result
 
     def setBuildOrigin(self, *args):
         """Set the build origin (x, y, z). Default is (200, 0, 200).
-        Coordinates are absolute; no implicit Y offset is applied."""
-        result = self.conn.sendReceive(b"setBuildOrigin", intFloor(args))
+        Coordinates are absolute; no implicit Y offset is applied (abs y =
+        origin y + dy)."""
+        coords = intFloor(args)
+        result = self.conn.sendReceive(b"setBuildOrigin", coords)
         if "Error" in result:
-            sys.exit(result)
-        print(result)
+            raise RequestFailedError(result)
+        self._origin = Vec3(*coords)
         return result
 
     def close(self):

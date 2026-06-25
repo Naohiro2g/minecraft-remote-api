@@ -4,6 +4,21 @@ import sys
 from .util import flatten_parameters_to_bytestring
 
 
+class McRemoteError(Exception):
+    """Base class for mc_remote client errors."""
+
+
+class ConnectionLostError(McRemoteError):
+    """Raised when the connection to the server is lost.
+
+    Replaces the old ``sys.exit(1)`` so that one failed stream does not take
+    down the whole process (build state is scoped per stream)."""
+
+
+class RequestFailedError(McRemoteError):
+    """Raised when the server reports a failed request."""
+
+
 class Connection:
     """Connection to a Minecraft Pi game"""
 
@@ -59,16 +74,14 @@ class Connection:
                     e += f"Last Message: <{self.lastSent.strip()}>\n"
                     sys.stderr.write(e)
             except socket.error as e:
-                sys.stderr.write(f"Connection lost during draining: {e}\n")
-                sys.exit(1)
+                raise ConnectionLostError(f"Connection lost during draining: {e}") from e
 
     def send(self, f, *data):
         """
         Sends data. Note that a trailing newline '\n' is added here
         """
         if not self.is_connected():
-            sys.stderr.write("Connection to the server is lost\n")
-            sys.exit(1)
+            raise ConnectionLostError("Connection to the server is lost")
         s = b"".join([f, b"(", flatten_parameters_to_bytestring(data), b")", b"\n"])
         # print(s)
         self._send(s)
@@ -86,17 +99,14 @@ class Connection:
     def receive(self):
         """Receives data. Note that the trailing newline '\n' is trimmed"""
         if not self.is_connected():
-            sys.stderr.write("Connection to the server is lost\n")
-            sys.exit(1)
+            raise ConnectionLostError("Connection to the server is lost")
         try:
             s = self.reader.readline().rstrip("\n")
             if s == Connection.RequestFailed:
-                sys.stderr.write(f"{self.lastSent.strip()} failed\n")
-                sys.exit(1)
+                raise RequestFailedError(f"{self.lastSent.strip()} failed")
             return s
         except socket.error as e:
-            sys.stderr.write(f"Failed to receive data: {e}\n")
-            sys.exit(1)
+            raise ConnectionLostError(f"Failed to receive data: {e}") from e
 
     def sendReceive(self, *data):
         """Sends and receives data"""

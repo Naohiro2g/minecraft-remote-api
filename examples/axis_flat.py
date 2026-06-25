@@ -67,15 +67,16 @@ def construction_fields(mc, x=0, z=0):
     mc.postToChat(f"Construction fields at x={x}, z={z}")
     for _x in range(-400 + x, 400 + x, 200):
         for _z in range(-400 + z, 400 + z, 200):
-            mc.setPlayer(param.PLAYER_NAME, _x, 0, _z)
+            mc.setBuildOrigin(_x, 0, _z)
             reset_minecraft_world(mc)
             draw_XYZ_axis(mc, wait=0)
 
 
 if __name__ == "__main__":
-    # Connect to minecraft and open a session as player with origin location
+    # Connect to Minecraft and set the build world/origin for this session
     mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
-    mc.setPlayer(param.PLAYER_NAME, po.x, po.y, po.z)
+    mc.setWorld("overworld")
+    mc.setBuildOrigin(po.x, po.y, po.z)
 
     mc.postToChat("axis_flat.py")
 

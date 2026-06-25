@@ -118,6 +118,72 @@ python axis_flat.py
 
 ***
 
+## Migration Guide: `setPlayer` → `setWorld` / `setBuildOrigin` (Draft) / 移行ガイド（ドラフト）
+
+> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b1`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b1` is published as a **GitHub pre-release tag only (not on PyPI)**.
+>
+> protocol **21.0.0**（`2100.0.0b1`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b1` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
+
+### What changed / 変更点
+
+Build state (world + origin) is now **separate from player identity** and **scoped per connection/stream**. The single `setPlayer(name, x, y, z)` call is replaced by two methods.
+
+建築状態（ワールド＋原点）が**プレイヤーの識別情報から分離**され、**接続（ストリーム）ごと**に保持されるようになりました。`setPlayer(name, x, y, z)` の1メソッドが、2つのメソッドに置き換わります。
+
+| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b1`) |
+| --- | --- |
+| `mc.setPlayer(PLAYER_NAME, x, y, z)` | `mc.setWorld("overworld")` then `mc.setBuildOrigin(x, y, z)` |
+
+- `setWorld(dimension)` — `"overworld"` / `"nether"` / `"end"`（または正確なワールド名）。既定は `overworld`。セッション中に変更可。
+- `setBuildOrigin(x, y, z)` — 建築座標系の原点。既定は `(200, 0, 200)`。セッション中に変更可。
+- `setPlayer` is **removed** / **削除**。プレイヤー名は建築状態の一部ではなくなりました。
+- Coordinates stay relative to the origin: absolute `y = origin y + dy` (no implicit Y offset). / 座標は原点からの相対。絶対 `y ＝ 原点 y ＋ dy`（暗黙の Y オフセットなし）。
+- Each `Minecraft` instance = one connection = one independent build state, so multiple streams build in parallel without clobbering each other. / `Minecraft` インスタンス1つ＝1接続＝独立した建築状態。複数ストリームが互いに干渉せず並行建築できます。
+
+### Error handling / エラー処理
+
+Connection/request failures no longer call `sys.exit()`; they raise catchable exceptions.
+接続・リクエストの失敗で `sys.exit()` せず、捕捉可能な例外を送出します。
+
+```python
+from mc_remote.connection import ConnectionLostError, RequestFailedError
+
+try:
+    mc.setBuildOrigin(0, 0, 0)
+except RequestFailedError as e:   # server reported a failed request / サーバーが失敗を返した
+    ...
+except ConnectionLostError as e:  # connection to the server was lost / 接続が失われた
+    ...
+```
+
+Both subclass `McRemoteError`, so `except McRemoteError:` catches either. / どちらも `McRemoteError` のサブクラスなので、`except McRemoteError:` で両方を捕捉できます。
+
+### Before / after / 変更前後
+
+```python
+# Before / 変更前
+mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
+mc.setPlayer(param.PLAYER_NAME, PO.x, PO.y, PO.z)
+
+# After / 変更後
+mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
+mc.setWorld("overworld")
+mc.setBuildOrigin(PO.x, PO.y, PO.z)
+```
+
+### Installing the beta / ベータの導入
+
+`2100.0.0b1` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag (tag name TBD).
+
+`2100.0.0b1` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します（タグ名は未確定）。
+
+```bash
+# exact-pin from the GitHub tag / GitHub タグを明示指定（draft）
+uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@<tag>"
+```
+
+***
+
 # About the Minecraft Remote Project
 
 Minecraft Remote (or mc-remote) is a remote control system for Minecraft. The client communicates with a dedicated server provided by [the McRemote plugin](https://github.com/Naohiro2g/McRemote/)—which runs alongside your PaperMC server—while the API facilitates user interaction, allowing users to write code and perform automatic construction.
