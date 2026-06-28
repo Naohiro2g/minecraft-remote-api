@@ -21,6 +21,11 @@ __all__ = [
 ]
 
 
+# Wire protocol version this client speaks (sent in the hello handshake and
+# checked by the server). Distinct from the PyPI/distribution version.
+PROTOCOL = "21.0.0"
+
+
 def intFloor(*args):
     return [int(math.floor(x)) for x in flatten(args)]
 
@@ -29,8 +34,11 @@ class Minecraft:
     """Client for a running Minecraft server speaking protocol 21.x.
 
     protocol 21.0.0 b1 surface: ``hello`` handshake plus ``setBlock`` /
-    ``getBlock`` / ``setBlocks`` over block_state_ref strings, and the
-    connection-scoped build state (``setWorld`` / ``setBuildOrigin``). The
+    ``getBlock`` / ``setBlocks`` over block_state_ref strings, ``postToChat``
+    (wire ``chat.post``), and the connection-scoped build state (``setWorld``
+    / ``setBuildOrigin``). In b1 every call is an id-bearing JSON-RPC request
+    (synchronous result/error); the default send-only notification form for
+    setBlock / setBlocks / chat.post arrives in bN/debug integration. The
     legacy MCPI methods (entity / player / camera / events / sign /
     checkpoint / particle ...) were removed in the payload flip and will be
     re-introduced per protocol bump as they are ported to JSON-RPC."""
@@ -46,22 +54,34 @@ class Minecraft:
 
         # Populated by hello(); the server is the source of truth.
         self.protocol = None
-        self.server = {}
-        self.catalogs = {}
+        self.mc_version = None
+        self.supported_mc_versions = []
+        self.y_sea = None
+        self.catalog_hash = None
 
     def hello(self):
-        """Handshake. Returns the server's hello response and caches the
-        protocol string, server info and catalog manifest on this instance.
+        """Handshake. Declares this client's protocol and caches the server's
+        flat hello response on this instance.
 
-        In b1 the manifest is the envelope only: ``catalogs.block`` is always
-        present with ``format`` set, ``hash=null`` and ``namespaces=[]`` until
-        a later bump fills it in (client always falls back to its bundled
-        catalog while ``hash`` is null)."""
-        resp = self.conn.rpc("hello")
+        The request sends the client protocol in an object param
+        (``{"protocol": ...}``, the §6.1 canonical form); the server rejects a
+        missing protocol (``protocol_required``) or a mismatch
+        (``protocol_mismatch``). The response is flat: ``protocol``,
+        ``mc_version``, ``supported_mc_versions``, ``y_sea``, ``catalogHash``
+        (a scalar; ``null`` in b1 -> always a cache miss), plus the current
+        build state (``world`` / ``origin``), which is synced locally."""
+        resp = self.conn.rpc("hello", {"protocol": PROTOCOL})
         if isinstance(resp, dict):
             self.protocol = resp.get("protocol")
-            self.server = resp.get("server", {})
-            self.catalogs = resp.get("catalogs", {})
+            self.mc_version = resp.get("mc_version")
+            self.supported_mc_versions = resp.get("supported_mc_versions", [])
+            self.y_sea = resp.get("y_sea")
+            self.catalog_hash = resp.get("catalogHash")
+            if resp.get("world"):
+                self._world = resp["world"]
+            origin = resp.get("origin")
+            if isinstance(origin, (list, tuple)) and len(origin) == 3:
+                self._origin = Vec3(*origin)
         return resp
 
     def setBlock(self, x, y, z, block):
@@ -100,6 +120,10 @@ class Minecraft:
         result = self.conn.rpc("build.setOrigin", coords)
         self._origin = Vec3(*coords)
         return result
+
+    def postToChat(self, message):
+        """Post a chat message to the server (wire method ``chat.post``)."""
+        return self.conn.rpc("chat.post", [message])
 
     def close(self):
         """Close the connection to the Minecraft server"""

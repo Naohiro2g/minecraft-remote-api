@@ -22,7 +22,9 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 
 - package name（パッケージ名）: `minecraft-remote-api`
 - description（概要）: `Python Client/API for Minecraft Remote`
-- version（バージョン）: `2000.0.0`
+- version（バージョン）:
+  - stable（PyPI）: `2000.0.0` — protocol 20.0.0
+  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b1` — protocol 21.0.0 b1（下記 Migration Guide 参照）
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: `MIT`

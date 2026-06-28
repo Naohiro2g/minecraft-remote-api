@@ -1,12 +1,13 @@
 """protocol 21.0.0 b1 round-trip tests.
 
 Covers the b1 reachability checklist:
-  1. hello succeeds (manifest envelope cached)
+  1. hello succeeds (flat response cached)
   2. setBlock("minecraft:stone") succeeds
   3. setBlock("minecraft:oak_log[axis=y]") succeeds
   4. getBlock returns the full canonical block_state_ref
-  5. namespace omission / invalid state / unloaded chunk return the right reason
-plus: error responses echo the request id.
+  5. b1 error reasons (unknown_block / invalid_property_value / build_denied)
+     surface with the right reason / data
+plus: error responses echo the request id; postToChat maps to chat.post.
 
 The Minecraft layer is tested against a fake connection; the JSON-RPC wire
 (request build + response/error parsing) is tested directly on Connection's
@@ -41,30 +42,49 @@ class FakeConn:
         pass
 
 
+# Live server hello response is flat (catalog is a single catalogHash scalar).
 HELLO = {
     "protocol": "21.0.0",
-    "server": {"mc_version": "1.21.11", "loader": "paper"},
-    "catalogs": {
-        "block": {
-            "format": "mcremote-block-catalog-v1",
-            "hash": None,
-            "namespaces": [],
-            "inline": False,
-        }
-    },
+    "mc_version": "1.21.11",
+    "supported_mc_versions": ["1.21.11"],
+    "y_sea": 63,
+    "catalogHash": None,
+    "world": "world",
+    "origin": [200, 0, 200],
 }
 
 
-# 1. hello succeeds and the manifest envelope is cached.
-def test_hello_caches_manifest():
-    mc = Minecraft(FakeConn({"hello": HELLO}))
+# 1. hello declares the client protocol and caches the flat response.
+def test_hello_declares_protocol_and_caches():
+    from mc_remote.minecraft import PROTOCOL
+
+    conn = FakeConn({"hello": HELLO})
+    mc = Minecraft(conn)
     resp = mc.hello()
     assert resp == HELLO
+    assert conn.calls == [("hello", {"protocol": PROTOCOL})]  # §6.1 object params
     assert mc.protocol == "21.0.0"
-    assert mc.server["mc_version"] == "1.21.11"
-    block = mc.catalogs["block"]
-    assert block["format"] == "mcremote-block-catalog-v1"
-    assert block["hash"] is None and block["namespaces"] == []
+    assert mc.mc_version == "1.21.11"
+    assert mc.supported_mc_versions == ["1.21.11"]
+    assert mc.y_sea == 63
+    assert mc.catalog_hash is None  # null -> always a cache miss
+    assert mc._world == "world"  # build state synced from hello
+    assert (mc._origin.x, mc._origin.y, mc._origin.z) == (200, 0, 200)
+
+
+# hello negotiation failures surface as reasons (protocol_required / mismatch).
+def test_hello_protocol_mismatch_error():
+    line = ('{"jsonrpc":"2.0","id":1,"error":{"code":-32600,'
+            '"message":"protocol_mismatch","data":{"reason":"protocol_mismatch",'
+            '"server":"21.0.0","client_requires":"2100.0.0b1"}}}')
+    try:
+        Connection._parse_response(line, 1)
+    except McRpcError as e:
+        assert e.reason == "protocol_mismatch"
+        assert e.data["server"] == "21.0.0"
+        assert e.data["client_requires"] == "2100.0.0b1"
+    else:
+        raise AssertionError("expected McRpcError")
 
 
 # 2 & 3. setBlock sends coords + block_state_ref string verbatim.
@@ -96,6 +116,14 @@ def test_setblocks_payload():
     ]
 
 
+# postToChat maps to the chat.post wire method (params = [message]).
+def test_posttochat_payload():
+    conn = FakeConn({"chat.post": "ok"})
+    mc = Minecraft(conn)
+    mc.postToChat("hi there")
+    assert conn.calls == [("chat.post", ["hi there"])]
+
+
 # Build setters: API name is camelCase, wire method is build.* (knowledge
 # DECISIONS 2026-06-26-04). Lock the non-obvious mapping.
 def test_build_setters_wire_names():
@@ -121,13 +149,16 @@ def _error_line(req_id, code, reason, **data):
 
 
 # 5. ref-validation and world-state errors carry the right reason / data.
-def test_missing_namespace_error():
+# (missing_namespace was abolished: a bare name is valid and gets minecraft:
+# prepended -- DECISIONS 2026-06-27-02/03.)
+def test_unknown_block_error():
     try:
-        Connection._parse_response(_error_line(1, -32602, "missing_namespace", ref="stone"), 1)
+        Connection._parse_response(
+            _error_line(1, -32602, "unknown_block", ref="definitely_not_a_block"), 1)
     except McRpcError as e:
         assert e.code == -32602
-        assert e.reason == "missing_namespace"
-        assert e.data["ref"] == "stone"
+        assert e.reason == "unknown_block"
+        assert e.data["ref"] == "definitely_not_a_block"
     else:
         raise AssertionError("expected McRpcError")
 
@@ -145,14 +176,17 @@ def test_invalid_property_value_error_with_allowed():
         raise AssertionError("expected McRpcError")
 
 
-def test_unloaded_chunk_error_carries_pos():
-    line = _error_line(9, -32001, "unloaded_chunk", pos=[123, 64, -50])
+# world-state family. unloaded_chunk was dropped in b1 (auto-load), and
+# build_denied was promoted into b1 (config default_build_range): -32000 band
+# with data.ref -- knowledge wire-format §7.3 (2026-06-28).
+def test_build_denied_error():
+    line = _error_line(9, -32000, "build_denied", ref=[7000, 120, 7000])
     try:
         Connection._parse_response(line, 9)
     except McRpcError as e:
-        assert e.code == -32001
-        assert e.reason == "unloaded_chunk"
-        assert e.data["pos"] == [123, 64, -50]
+        assert e.code == -32000
+        assert e.reason == "build_denied"
+        assert e.data["ref"] == [7000, 120, 7000]
     else:
         raise AssertionError("expected McRpcError")
 
