@@ -42,12 +42,13 @@ class FakeConn:
         pass
 
 
-# Live server hello response is flat (catalog is a single catalogHash scalar).
+# Live server hello: catalog is a single catalogHash scalar; y_sea is bundled
+# under world_constants (knowledge DECISIONS 2026-07-02-02).
 HELLO = {
     "protocol": "21.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
-    "y_sea": 63,
+    "world_constants": {"y_sea": 63},
     "catalogHash": None,
     "world": "world",
     "origin": [200, 0, 200],
@@ -70,6 +71,23 @@ def test_hello_declares_protocol_and_caches():
     assert mc.catalog_hash is None  # null -> always a cache miss
     assert mc._world == "world"  # build state synced from hello
     assert (mc._origin.x, mc._origin.y, mc._origin.z) == (200, 0, 200)
+
+
+# y_sea is read from world_constants, never from a top-level key: an un-flipped
+# server (legacy top-level y_sea, no world_constants) must surface as None so the
+# b1 gate catches the drift (knowledge DECISIONS 2026-07-02-02, atomic flip).
+def test_y_sea_only_from_world_constants():
+    legacy = dict(HELLO)
+    legacy.pop("world_constants")
+    legacy["y_sea"] = 63  # top-level only, as an un-flipped server would send
+    mc = Minecraft(FakeConn({"hello": legacy}))
+    mc.hello()
+    assert mc.y_sea is None
+    # null world_constants.y_sea is a valid b1 value (number | null)
+    nullwc = dict(HELLO, world_constants={"y_sea": None})
+    mc2 = Minecraft(FakeConn({"hello": nullwc}))
+    mc2.hello()
+    assert mc2.y_sea is None
 
 
 # hello negotiation failures surface as reasons (protocol_required / mismatch).

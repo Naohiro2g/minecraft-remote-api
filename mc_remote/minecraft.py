@@ -66,16 +66,22 @@ class Minecraft:
         The request sends the client protocol in an object param
         (``{"protocol": ...}``, the §6.1 canonical form); the server rejects a
         missing protocol (``protocol_required``) or a mismatch
-        (``protocol_mismatch``). The response is flat: ``protocol``,
-        ``mc_version``, ``supported_mc_versions``, ``y_sea``, ``catalogHash``
-        (a scalar; ``null`` in b1 -> always a cache miss), plus the current
-        build state (``world`` / ``origin``), which is synced locally."""
+        (``protocol_mismatch``). The response carries ``protocol``,
+        ``mc_version``, ``supported_mc_versions``, ``catalogHash`` (a scalar;
+        ``null`` in b1 -> always a cache miss) and ``world_constants`` (an
+        object bundling informational world constants; b1 exposes
+        ``world_constants.y_sea`` as ``number | null``, knowledge DECISIONS
+        2026-07-02-02), plus the current build state (``world`` / ``origin``),
+        which is synced locally. ``y_sea`` is informational only; the
+        coordinate formula stays ``absolute_y = origin.y + dy``."""
         resp = self.conn.rpc("hello", {"protocol": PROTOCOL})
         if isinstance(resp, dict):
             self.protocol = resp.get("protocol")
             self.mc_version = resp.get("mc_version")
             self.supported_mc_versions = resp.get("supported_mc_versions", [])
-            self.y_sea = resp.get("y_sea")
+            # y_sea lives under world_constants in b1 (DECISIONS 2026-07-02-02);
+            # no top-level fallback -> an un-flipped server surfaces as None.
+            self.y_sea = (resp.get("world_constants") or {}).get("y_sea")
             self.catalog_hash = resp.get("catalogHash")
             if resp.get("world"):
                 self._world = resp["world"]
