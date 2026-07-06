@@ -53,14 +53,36 @@ class Connection:
     synchronous request/response with id correlation."""
 
     def __init__(self, address, port, debug=False):
+        self.address = address
+        self.port = port
+        self.debug = debug
+        self.lastSent = b""
+        self._connect()
+
+    def _connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(10)
-        self.socket.connect((address, port))
+        self.socket.connect((self.address, self.port))
         self.socket.settimeout(60)  # doc suggests None for makefile
-        self.lastSent = b""
-        self.debug = debug
         self.reader = self.socket.makefile("r")
         self._id = 0
+
+    def reconnect(self):
+        """Open a fresh stream to the same server, resetting the id counter.
+
+        Needed by the b2 auth flow: the server drops the TCP stream after
+        rejecting an unauthenticated hello with ``auth_required``, and ``hello``
+        is once per connection -- so the client reconnects before pairing and
+        again for the authenticated hello."""
+        try:
+            self.reader.close()
+        except Exception:
+            pass
+        try:
+            self.socket.close()
+        except Exception:
+            pass
+        self._connect()
 
     def close(self):
         """Closes the socket and associated resources"""

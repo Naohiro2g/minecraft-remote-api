@@ -8,6 +8,13 @@ from .connection import (
     ConnectionLostError,
     RequestFailedError,
 )
+from .auth import (
+    pair as run_pairing,
+    is_auth_discard,
+    load_token,
+    save_token,
+    clear_token,
+)
 from .vec3 import Vec3
 from .util import flatten
 
@@ -33,10 +40,13 @@ def intFloor(*args):
 class Minecraft:
     """Client for a running Minecraft server speaking protocol 21.x.
 
-    protocol 21.0.0 b1 surface: ``hello`` handshake plus ``setBlock`` /
-    ``getBlock`` / ``setBlocks`` over block_state_ref strings, ``postToChat``
-    (wire ``chat.post``), and the connection-scoped build state (``setWorld``
-    / ``setBuildOrigin``). In b1 every call is an id-bearing JSON-RPC request
+    protocol 21.0.0 b2 surface: ``hello`` handshake (now carrying an optional
+    ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
+    block_state_ref strings, ``postToChat`` (wire ``chat.post``), and the
+    connection-scoped build state (``setWorld`` / ``setBuildOrigin``). Tokens
+    are obtained by pairing (``auth.pairBegin`` / ``auth.pairPoll``, §6.5);
+    :meth:`create` drives the unified connect flow (hello first, pair only on
+    ``auth_required``). Every call is an id-bearing JSON-RPC request
     (synchronous result/error); the default send-only notification form for
     setBlock / setBlocks / chat.post arrives in bN/debug integration. The
     legacy MCPI methods (entity / player / camera / events / sign /
@@ -58,31 +68,48 @@ class Minecraft:
         self.supported_mc_versions = []
         self.y_sea = None
         self.catalog_hash = None
+        self.session = None
+        self.player = None
+        self.permissions = None
 
-    def hello(self):
-        """Handshake. Declares this client's protocol and caches the server's
-        flat hello response on this instance.
+    def hello(self, auth_token=None):
+        """Handshake. Declares this client's protocol (and, if held, its auth
+        token) and caches the server's hello response on this instance.
 
         The request sends the client protocol in an object param
         (``{"protocol": ...}``, the §6.1 canonical form); the server rejects a
         missing protocol (``protocol_required``) or a mismatch
-        (``protocol_mismatch``). The response carries ``protocol``,
-        ``mc_version``, ``supported_mc_versions``, ``catalogHash`` (a scalar;
-        ``null`` in b1 -> always a cache miss) and ``world_constants`` (an
-        object bundling informational world constants; b1 exposes
-        ``world_constants.y_sea`` as ``number | null``, knowledge DECISIONS
-        2026-07-02-02), plus the current build state (``world`` / ``origin``),
-        which is synced locally. ``y_sea`` is informational only; the
+        (``protocol_mismatch``). When ``auth_token`` is given it is sent as
+        ``auth: {token}`` (§6.1); it is omitted otherwise, so a token-less
+        hello stays ``{protocol}``-only and succeeds against a server running
+        enforcement OFF. Under enforcement ON a missing/invalid token yields
+        ``auth_required`` / ``token_invalid`` (§6.3) -- :meth:`create` catches
+        these and pairs.
+
+        The response carries ``protocol``, ``mc_version``,
+        ``supported_mc_versions``, ``catalogHash`` (a scalar; ``null`` until a
+        catalog lands -> a cache miss), ``world_constants`` (an object bundling
+        informational world constants; ``world_constants.y_sea`` as
+        ``number | null``, knowledge DECISIONS 2026-07-02-02), the current
+        build state (``world`` / ``origin``), and the authenticated
+        ``session`` / ``player`` / ``permissions`` (§6.2, the single source for
+        identity and permissions). ``y_sea`` is informational only; the
         coordinate formula stays ``absolute_y = origin.y + dy``."""
-        resp = self.conn.rpc("hello", {"protocol": PROTOCOL})
+        params = {"protocol": PROTOCOL}
+        if auth_token:
+            params["auth"] = {"token": auth_token}
+        resp = self.conn.rpc("hello", params)
         if isinstance(resp, dict):
             self.protocol = resp.get("protocol")
             self.mc_version = resp.get("mc_version")
             self.supported_mc_versions = resp.get("supported_mc_versions", [])
-            # y_sea lives under world_constants in b1 (DECISIONS 2026-07-02-02);
-            # no top-level fallback -> an un-flipped server surfaces as None.
+            # y_sea lives under world_constants (DECISIONS 2026-07-02-02); no
+            # top-level fallback -> an un-flipped server surfaces as None.
             self.y_sea = (resp.get("world_constants") or {}).get("y_sea")
             self.catalog_hash = resp.get("catalogHash")
+            self.session = resp.get("session")
+            self.player = resp.get("player")
+            self.permissions = resp.get("permissions")
             if resp.get("world"):
                 self._world = resp["world"]
             origin = resp.get("origin")
@@ -136,8 +163,54 @@ class Minecraft:
         self.conn.close()
         return True
 
+    def authenticate(self, server_key, token_type="session", pair=True):
+        """Run the unified b2 auth flow (§6.5) and return the hello response.
+
+        Tries ``hello`` first, reusing a stored token for ``server_key`` if one
+        exists. Under enforcement OFF a token-less hello just succeeds and
+        pairing never runs. Under ON (or when the stored token is stale) the
+        server answers with an auth-family reason (§6.3); we discard the bad
+        token, pair once (printing the pair code to stdout and blocking until
+        the player approves), persist the fresh token, and retry hello exactly
+        once. Non-auth errors (``permission_denied``, ``protocol_mismatch``)
+        propagate. ``pair=False`` disables the interactive pairing fallback."""
+        token = load_token(server_key)
+        try:
+            return self.hello(token)
+        except McRpcError as e:
+            if not (pair and is_auth_discard(e)):
+                raise
+            # Auth-family failure: drop the bad token and pair. The server
+            # drops the stream after auth_required (hello is once per
+            # connection), so reconnect before pairing and again for the
+            # authenticated hello.
+            clear_token(server_key)
+            self.conn.reconnect()
+            token = run_pairing(self.conn, token_type=token_type)
+            save_token(server_key, token)
+            self.conn.reconnect()
+            return self.hello(token)
+
     @staticmethod
-    def create(address="localhost", port=4711, debug=False, handshake=True):
+    def create(
+        address="localhost",
+        port=4711,
+        debug=False,
+        handshake=True,
+        sandbox=None,
+        token_type="session",
+        pair=True,
+    ):
+        """Connect and run the unified b2 auth flow (§6.5).
+
+        Tries ``hello`` first, reusing a stored token if one exists for this
+        server. Under enforcement OFF a token-less hello just succeeds and
+        pairing never runs. Under ON (or when the stored token is stale) the
+        server answers with an auth-family reason; we discard the bad token,
+        pair once (printing the pair code to stdout and blocking until the
+        player approves), persist the fresh token, and retry hello. Non-auth
+        errors (``permission_denied``, ``protocol_mismatch``) propagate. Set
+        ``pair=False`` to disable the interactive pairing fallback."""
         if "JRP_API_HOST" in os.environ:
             address = os.environ["JRP_API_HOST"]
         if "JRP_API_PORT" in os.environ:
@@ -147,7 +220,8 @@ class Minecraft:
                 pass
         mc = Minecraft(Connection(address, port, debug))
         if handshake:
-            mc.hello()
+            server_key = sandbox or f"{address}:{port}"
+            mc.authenticate(server_key, token_type=token_type, pair=pair)
         return mc
 
 
