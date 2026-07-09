@@ -103,6 +103,9 @@ unzip -p dist/minecraft_remote_api-2100.0.0b2-py3-none-any.whl '*/METADATA' | gr
 であり、`hello.params` には送らない。`sb-dev` のような権限検証用サーバーでは
 `permission_denied` が token 破棄に繋がらないことも確認する。
 
+Python client repo には現時点で専用 lint 設定を置いていないため、b2 の Python 側 gate は
+unit tests + build + live smoke を blocker とする。lint は設定追加時に gate へ組み込む。
+
 ---
 
 ## 4. TestPyPI で確認
