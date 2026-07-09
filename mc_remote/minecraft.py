@@ -37,14 +37,22 @@ def intFloor(*args):
     return [int(math.floor(x)) for x in flatten(args)]
 
 
+def _env_first(*names):
+    for name in names:
+        if name in os.environ:
+            return os.environ[name]
+    return None
+
+
 class Minecraft:
     """Client for a running Minecraft server speaking protocol 21.x.
 
     protocol 21.0.0 b2 surface: ``hello`` handshake (now carrying an optional
     ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
-    block_state_ref strings, ``postToChat`` (wire ``chat.post``), and the
-    connection-scoped build state (``setWorld`` / ``setBuildOrigin``). Tokens
-    are obtained by pairing (``auth.pairBegin`` / ``auth.pairPoll``, §6.5);
+    block_state_ref strings, ``postToChat`` (wire ``chat.post``), paired-player
+    position helpers (``getPos`` / ``setPos``), and the connection-scoped build
+    state (``setWorld`` / ``setBuildOrigin``). Tokens are obtained by pairing
+    (``auth.pairBegin`` / ``auth.pairPoll``, §6.5);
     :meth:`create` drives the unified connect flow (hello first, pair only on
     ``auth_required``). Every call is an id-bearing JSON-RPC request
     (synchronous result/error); the default send-only notification form for
@@ -158,6 +166,25 @@ class Minecraft:
         """Post a chat message to the server (wire method ``chat.post``)."""
         return self.conn.rpc("chat.post", [message])
 
+    def getPos(self):
+        """Get the paired player's current world and position.
+
+        Returns ``{"world": ..., "pos": [x, y, z]}``, with ``pos`` expressed
+        relative to this stream's build origin. The target player is the
+        authenticated/pair-bound player; the client never sends a player name.
+        """
+        return self.conn.rpc("player.getPos", [])
+
+    def setPos(self, world, x, y, z):
+        """Move the paired player to a world and origin-relative position.
+
+        ``world`` is explicit and does not depend on this stream's build world.
+        The server applies ``absolute = stream.origin + [x, y, z]`` and returns
+        the same shape as :meth:`getPos`.
+        """
+        coords = intFloor(x, y, z)
+        return self.conn.rpc("player.setPos", [world] + coords)
+
     def close(self):
         """Close the connection to the Minecraft server"""
         self.conn.close()
@@ -194,12 +221,13 @@ class Minecraft:
     @staticmethod
     def create(
         address="localhost",
-        port=4711,
+        port=25575,
         debug=False,
         handshake=True,
         sandbox=None,
         token_type="session",
         pair=True,
+        token_key=None,
     ):
         """Connect and run the unified b2 auth flow (§6.5).
 
@@ -210,17 +238,23 @@ class Minecraft:
         pair once (printing the pair code to stdout and blocking until the
         player approves), persist the fresh token, and retry hello. Non-auth
         errors (``permission_denied``, ``protocol_mismatch``) propagate. Set
-        ``pair=False`` to disable the interactive pairing fallback."""
-        if "JRP_API_HOST" in os.environ:
-            address = os.environ["JRP_API_HOST"]
-        if "JRP_API_PORT" in os.environ:
+        ``pair=False`` to disable the interactive pairing fallback.
+
+        ``token_key`` controls the local token-store entry. By default it is
+        ``"{address}:{port}"``. ``sandbox`` is kept as a compatibility alias for
+        this local key only; it is never sent in ``hello.params`` (§6.1)."""
+        env_host = _env_first("MCREMOTE_API_HOST", "JRP_API_HOST")
+        if env_host is not None:
+            address = env_host
+        env_port = _env_first("MCREMOTE_API_PORT", "JRP_API_PORT")
+        if env_port is not None:
             try:
-                port = int(os.environ["JRP_API_PORT"])
+                port = int(env_port)
             except ValueError:
                 pass
         mc = Minecraft(Connection(address, port, debug))
         if handshake:
-            server_key = sandbox or f"{address}:{port}"
+            server_key = token_key or sandbox or f"{address}:{port}"
             mc.authenticate(server_key, token_type=token_type, pair=pair)
         return mc
 

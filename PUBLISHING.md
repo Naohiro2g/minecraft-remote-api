@@ -13,9 +13,10 @@
 > `uv sync` で開発環境を作り、コードを動かし／テストして push するだけです。
 > 本書は「PyPI へ配布する人」向けです。
 >
-> **ベータ（b1）は PyPI に出しません。** `2100.0.0b1`（protocol 21.0.0 b1）は
-> **GitHub の pre-release タグのみ**で配布します（両リポ同一文字列 `…2100.0.0b1`）。
-> 本書は安定版 PyPI ライン（`2000.0.0`〜）専用です。採番・配布チャンネルの正本は
+> **ベータ（bN）は PyPI に出しません。** `2100.0.0b2`（protocol 21.0.0 b2）は
+> **GitHub の pre-release タグのみ**で配布します。Python API の tag は
+> `v2100.0.0b2`、package は `minecraft-remote-api==2100.0.0b2` です。
+> PyPI 公開は rc/stable 以降です。採番・配布チャンネルの正本は
 > ナレッジ `10-protocol/versioning-design_ja.md`。
 
 ---
@@ -86,6 +87,21 @@ uv build
 unzip -l dist/minecraft_remote_api-*-py3-none-any.whl | grep mc_remote
 unzip -p dist/minecraft_remote_api-*-py3-none-any.whl '*/METADATA' | grep -iE '^Version:|^Requires-Dist:'
 ```
+
+### b2 GitHub pre-release 確認
+
+`2100.0.0b2` は PyPI に publish しない。release gate では、少なくとも次を確認する。
+
+```bash
+uv --cache-dir /tmp/uv-cache run python tests/test_b1.py
+uv --cache-dir /tmp/uv-cache run python tests/test_b2.py
+uv --cache-dir /tmp/uv-cache build
+unzip -p dist/minecraft_remote_api-2100.0.0b2-py3-none-any.whl '*/METADATA' | grep -iE '^Name:|^Version:|^Requires-Dist:'
+```
+
+実機確認は `scripts/auth_smoke.py` を使う。`token_key` / `sandbox` はローカル token-store key
+であり、`hello.params` には送らない。`sb-dev` のような権限検証用サーバーでは
+`permission_denied` が token 破棄に繋がらないことも確認する。
 
 ---
 

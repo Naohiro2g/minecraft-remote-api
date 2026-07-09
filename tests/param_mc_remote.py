@@ -5,7 +5,7 @@ import mc_remote.block_id as block
 import mc_remote.entity_id as entity
 import mc_remote.particle_id as particle
 
-PLAYER_NAME = "PLAYER_NAME"  # set your player name in Minecraft
+PLAYER_NAME = "PLAYER_NAME"  # optional local memo; b2 identity comes from pairing
 PLAYER_ORIGIN = Vec3(2000, 0, 2000)  # PO.x, PO.y, PO.z
 print(
     f"param_MCJE loaded for {PLAYER_NAME} at {PLAYER_ORIGIN.x}, {PLAYER_ORIGIN.y}, {PLAYER_ORIGIN.z}"

@@ -24,7 +24,7 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）:
   - stable（PyPI）: `2000.0.0` — protocol 20.0.0
-  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b1` — protocol 21.0.0 b1（下記 Migration Guide 参照）
+  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b2` — protocol 21.0.0 b2（下記 Migration Guide 参照）
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: `MIT`
@@ -49,19 +49,19 @@ Edit these parameters in `param_mc_remote.py` to suit your environment.
 `param_mc_remote.py`のパラメータを自分の環境に合わせて編集してください。
 
 ```python
-PLAYER_NAME = "PLAYER_NAME"  # set your player name in Minecraft
+PLAYER_NAME = "PLAYER_NAME"  # optional local memo; b2 identity comes from pairing
 PLAYER_ORIGIN = Vec3(2000, 0, 2000)  # PO.x, PO.y, PO.z
 ADRS_MCR = "sb.mc-remote.com"  # mc-remote sandbox server
 PORT_MCR = 25575  # socket server port
 ```
 
-- **You must be logged in as the Minecraft server player with the same name as `PLAYER_NAME` to use this API.**
+- **For b2 auth, run the pairing command shown by the Python client in Minecraft. The paired in-game player becomes the authenticated identity.**
   - Server address: `sb.mc-remote.com`
   - Server port: `25565` (No need to specify because it is the default port for Minecraft.)
 - `PORT_MCR` is the port for the socket server. The default value is `25575`, but you can change it to any port you like. If you are using your own PaperMC server, make sure to set the same port in the `plugins/McRemote/config.yml`.
 - `PLAYER_ORIGIN` defines the origin of the building coordinate system. Building coordinates are computed relative to this origin. For example, executing `setBlock(5, 68, 5, block.GOLD_BLOCK)` will place a gold block at coordinates `(2005, 68, 2005)`.
 
-- **APIを利用するには、PLAYER_NAME と同じ名前でMinecraftサーバーにログインしている必要があります。**
+- **b2 認証では、Python クライアントが表示するペアリングコマンドを Minecraft 側で実行します。ペアリングしたゲーム内プレイヤーが認証済み identity になります。**
   - サーバーアドレス: `sb.mc-remote.com`
   - ポート番号: `25565` （マインクラフトのデフォルトポートなので指定不要）
 - `PORT_MCR` はソケットサーバーのポート番号です。デフォルト値は `25575` ですが、任意のポートに変更可能です。自前のPaperMCサーバーを利用する場合は、`plugins/McRemote/config.yml` に同じポートを設定してください。
@@ -118,13 +118,15 @@ python hello.py
 python axis_flat.py
 ```
 
+Manual helper scripts live in `scripts/` and are run from the repo root with `uv run python scripts/<name>.py`.
+
 ***
 
 ## Migration Guide: `setPlayer` → `setWorld` / `setBuildOrigin` (Draft) / 移行ガイド（ドラフト）
 
-> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b1`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b1` is published as a **GitHub pre-release tag only (not on PyPI)**.
+> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b2`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b2` is published as a **GitHub pre-release tag only (not on PyPI)**.
 >
-> protocol **21.0.0**（`2100.0.0b1`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b1` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
+> protocol **21.0.0**（`2100.0.0b2`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b2` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
 
 ### What changed / 変更点
 
@@ -132,7 +134,7 @@ Build state (world + origin) is now **separate from player identity** and **scop
 
 建築状態（ワールド＋原点）が**プレイヤーの識別情報から分離**され、**接続（ストリーム）ごと**に保持されるようになりました。`setPlayer(name, x, y, z)` の1メソッドが、2つのメソッドに置き換わります。
 
-| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b1`) |
+| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b2`) |
 | --- | --- |
 | `mc.setPlayer(PLAYER_NAME, x, y, z)` | `mc.setWorld("overworld")` then `mc.setBuildOrigin(x, y, z)` |
 
@@ -141,6 +143,10 @@ Build state (world + origin) is now **separate from player identity** and **scop
 - `setPlayer` is **removed** / **削除**。プレイヤー名は建築状態の一部ではなくなりました。
 - Coordinates stay relative to the origin: absolute `y = origin y + dy` (no implicit Y offset). / 座標は原点からの相対。絶対 `y ＝ 原点 y ＋ dy`（暗黙の Y オフセットなし）。
 - Each `Minecraft` instance = one connection = one independent build state, so multiple streams build in parallel without clobbering each other. / `Minecraft` インスタンス1つ＝1接続＝独立した建築状態。複数ストリームが互いに干渉せず並行建築できます。
+- b2 adds token auth on `hello`: call `Minecraft.create(...)`, then run the shown `/mcremote pair NNN-NNN` command in Minecraft when prompted. Stored tokens are keyed by `token_key` or by `address:port`; the compatibility `sandbox` argument is only a local token-store alias and is never sent in `hello.params`.
+- b2 では `hello` に token 認証が加わりました。`Minecraft.create(...)` 実行後、表示された `/mcremote pair NNN-NNN` を Minecraft 側で実行します。保存 token は `token_key` または `address:port` で管理されます。互換用の `sandbox` 引数はローカル token-store alias のみで、`hello.params` には送信されません。
+- `getPos()` / `setPos(world, x, y, z)` operate on the paired player. Positions are relative to this stream's build origin, and `setPos` takes an explicit target world.
+- `getPos()` / `setPos(world, x, y, z)` はペアリング済みプレイヤーを対象にします。座標はこの stream の build origin 相対で、`setPos` は移動先 world を明示します。
 
 ### Error handling / エラー処理
 
@@ -175,13 +181,13 @@ mc.setBuildOrigin(PO.x, PO.y, PO.z)
 
 ### Installing the beta / ベータの導入
 
-`2100.0.0b1` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag (tag name TBD).
+`2100.0.0b2` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag.
 
-`2100.0.0b1` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します（タグ名は未確定）。
+`2100.0.0b2` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します。
 
 ```bash
-# exact-pin from the GitHub tag / GitHub タグを明示指定（draft）
-uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@<tag>"
+# exact-pin from the GitHub tag / GitHub タグを明示指定
+uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2100.0.0b2"
 ```
 
 ***

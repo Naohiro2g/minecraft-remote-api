@@ -10,11 +10,14 @@ Covers the b2 auth checklist:
   7. enforcement ON: hello -> auth_required -> pair -> token saved -> re-hello
   8. §6.3 discipline: token_* / auth_required re-pair; permission_denied propagates
   9. token store: save/load/clear round-trip, file mode 0600, stored token reused
+ 10. pair UX / create token key: grouped command display; token_key is local only
+ 11. b2 paired-player helpers: getPos/setPos wire shape and authz errors
 
 The Minecraft/auth layer is tested against a fake connection and a temp config
 dir; no socket, server, or real filesystem config is touched.
 """
 import contextlib
+import io
 import os
 import sys
 import tempfile
@@ -33,6 +36,7 @@ from mc_remote.auth import (  # noqa: E402
 )
 from mc_remote.connection import McRpcError  # noqa: E402
 from mc_remote.minecraft import Minecraft, PROTOCOL  # noqa: E402
+import mc_remote.minecraft as minecraft_mod  # noqa: E402
 
 
 class FakeConn:
@@ -82,6 +86,42 @@ def tmp_config():
             os.environ["MCREMOTE_CONFIG_DIR"] = prev
 
 
+@contextlib.contextmanager
+def patched_connection(conn):
+    """Make Minecraft.create() use a fake connection without opening a socket."""
+    prev = minecraft_mod.Connection
+    conn.connect_args = []
+
+    def fake_connection(address, port, debug=False):
+        conn.connect_args.append((address, port, debug))
+        return conn
+
+    minecraft_mod.Connection = fake_connection
+    try:
+        yield
+    finally:
+        minecraft_mod.Connection = prev
+
+
+@contextlib.contextmanager
+def api_env(**values):
+    """Temporarily control API host/port env vars."""
+    names = ["MCREMOTE_API_HOST", "MCREMOTE_API_PORT", "JRP_API_HOST", "JRP_API_PORT"]
+    prev = {name: os.environ.get(name) for name in names}
+    for name in names:
+        os.environ.pop(name, None)
+    for name, value in values.items():
+        os.environ[name] = value
+    try:
+        yield
+    finally:
+        for name in names:
+            if prev[name] is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = prev[name]
+
+
 HELLO_OK = {
     "protocol": PROTOCOL,
     "mc_version": "1.21.11",
@@ -129,6 +169,16 @@ def test_pairbegin_params():
     assert set(params["client"]) == {"name", "version", "locale"}, params["client"]
     # pairPoll correlates by pairing_id only
     assert conn.calls[1] == ("auth.pairPoll", {"pairing_id": "pid-1"}), conn.calls[1]
+
+
+# 2b. Pair UX displays the copyable command with grouped digits (wire unchanged)
+def test_pair_prints_grouped_command():
+    conn = FakeConn(_pair_responses(poll=("ok",)))
+    stream = io.StringIO()
+    pair(conn, interval=0, stream=stream)
+    out = stream.getvalue()
+    assert "/mcremote pair 827-419" in out, out
+    assert "/mcremote pair 827419" not in out, out
 
 
 # 3a. pair_expired surfaces as McRpcError
@@ -232,6 +282,7 @@ def test_discard_reasons_repair():
 def test_permission_denied_propagates():
     with tmp_config():
         denied = McRpcError(-32000, "denied", {"reason": "permission_denied"})
+        save_token("srv:1", "mcrs_keep")
         mc = Minecraft(FakeConn({"hello": denied}))
         try:
             mc.authenticate("srv:1")
@@ -242,6 +293,7 @@ def test_permission_denied_propagates():
         methods = [m for m, _ in mc.conn.calls]
         assert methods == ["hello"], methods  # no pairing attempted
         assert not is_auth_discard(denied)
+        assert load_token("srv:1") == "mcrs_keep"  # authorization failure keeps token
 
 
 # 8c. protocol_mismatch is not an auth reason -> propagates
@@ -289,6 +341,108 @@ def test_token_keyed_per_server():
         save_token("srv:2", "mcrs_two")
         assert load_token("srv:1") == "mcrs_one"
         assert load_token("srv:2") == "mcrs_two"
+
+
+# 10a. create(token_key=...) selects the local token entry; not hello payload
+def test_create_token_key_reuses_stored_token():
+    with tmp_config():
+        save_token("classroom", "mcrs_class")
+        fake = FakeConn({"hello": HELLO_OK})
+        with patched_connection(fake):
+            mc = Minecraft.create(address="host.example", port=25575,
+                                  token_key="classroom")
+        assert mc.conn is fake
+        assert fake.calls == [
+            ("hello", {"protocol": PROTOCOL, "auth": {"token": "mcrs_class"}})
+        ], fake.calls
+
+
+# 10b. sandbox remains a compatibility alias for the local token key only
+def test_create_sandbox_alias_is_not_sent_on_wire():
+    with tmp_config():
+        save_token("legacy-sandbox-key", "mcrs_legacy")
+        fake = FakeConn({"hello": HELLO_OK})
+        with patched_connection(fake):
+            Minecraft.create(address="host.example", port=25575,
+                             sandbox="legacy-sandbox-key")
+        assert fake.calls == [
+            ("hello", {"protocol": PROTOCOL, "auth": {"token": "mcrs_legacy"}})
+        ], fake.calls
+
+
+# 10c. explicit token_key wins over the compatibility alias
+def test_create_token_key_overrides_sandbox_alias():
+    with tmp_config():
+        save_token("legacy-sandbox-key", "mcrs_legacy")
+        save_token("classroom", "mcrs_class")
+        fake = FakeConn({"hello": HELLO_OK})
+        with patched_connection(fake):
+            Minecraft.create(address="host.example", port=25575,
+                             sandbox="legacy-sandbox-key", token_key="classroom")
+        assert fake.calls == [
+            ("hello", {"protocol": PROTOCOL, "auth": {"token": "mcrs_class"}})
+        ], fake.calls
+
+
+# 10d. default port is the McRemote plugin TCP port, not the old JRP/mod port
+def test_create_defaults_to_mcremote_port():
+    with tmp_config():
+        save_token("localhost:25575", "mcrs_default")
+        fake = FakeConn({"hello": HELLO_OK})
+        with api_env(), patched_connection(fake):
+            Minecraft.create()
+        assert fake.connect_args == [("localhost", 25575, False)], fake.connect_args
+        assert fake.calls == [
+            ("hello", {"protocol": PROTOCOL, "auth": {"token": "mcrs_default"}})
+        ], fake.calls
+
+
+# 10e. new MCREMOTE_API_* env names take precedence; JRP_* is legacy fallback
+def test_create_prefers_mcremote_env_over_legacy_jrp_env():
+    with tmp_config():
+        save_token("new.example:25575", "mcrs_env")
+        fake = FakeConn({"hello": HELLO_OK})
+        with api_env(
+            MCREMOTE_API_HOST="new.example",
+            MCREMOTE_API_PORT="25575",
+            JRP_API_HOST="legacy.example",
+            JRP_API_PORT="25574",
+        ), patched_connection(fake):
+            Minecraft.create()
+        assert fake.connect_args == [("new.example", 25575, False)], fake.connect_args
+        assert fake.calls == [
+            ("hello", {"protocol": PROTOCOL, "auth": {"token": "mcrs_env"}})
+        ], fake.calls
+
+
+# 11a. player.getPos returns the paired player's world and origin-relative pos
+def test_getpos_wire_shape():
+    result = {"world": "overworld", "pos": [5, 64, -3]}
+    fake = FakeConn({"player.getPos": result})
+    mc = Minecraft(fake)
+    assert mc.getPos() == result
+    assert fake.calls == [("player.getPos", [])], fake.calls
+
+
+# 11b. player.setPos uses explicit world + origin-relative integer coords
+def test_setpos_wire_shape():
+    result = {"world": "the_end", "pos": [1, 2, 3]}
+    fake = FakeConn({"player.setPos": result})
+    mc = Minecraft(fake)
+    assert mc.setPos("the_end", 1.9, 2.1, 3.0) == result
+    assert fake.calls == [("player.setPos", ["the_end", 1, 2, 3])], fake.calls
+
+
+# 11c. authorization errors from player helpers propagate as permission_denied
+def test_setpos_permission_denied_propagates():
+    denied = McRpcError(-32000, "denied", {"reason": "permission_denied"})
+    mc = Minecraft(FakeConn({"player.setPos": denied}))
+    try:
+        mc.setPos("overworld", 0, 0, 0)
+    except McRpcError as e:
+        assert e.reason == "permission_denied", e.reason
+    else:
+        raise AssertionError("expected permission_denied to propagate")
 
 
 if __name__ == "__main__":

@@ -142,12 +142,20 @@ def _default_client():
     return {"name": "mc_remote", "version": _dist_version(), "locale": loc}
 
 
+def _display_pair_code(pair_code):
+    pair_code = str(pair_code)
+    if len(pair_code) == 6 and pair_code.isascii() and pair_code.isdigit():
+        return f"{pair_code[:3]}-{pair_code[3:]}"
+    return pair_code
+
+
 def pair(conn, *, token_type="session", client=None, interval=1.5, stream=None):
     """Run the pairing flow and return a fresh token (§6.5).
 
     ``auth.pairBegin`` yields a 6-digit ``pair_code`` which is printed with
-    instructions to ``stream`` (stdout by default); the player runs
-    ``/mcremote pair <code>`` in Minecraft. We then poll ``auth.pairPoll`` at
+    instructions to ``stream`` (stdout by default); the player runs the shown
+    ``/mcremote pair NNN-NNN`` command in Minecraft. We then poll
+    ``auth.pairPoll`` at
     ``interval`` seconds until ``result.status == "ok"`` (``"pending"`` is not
     an error). ``pair_expired`` / ``pair_not_found`` surface as
     :class:`McRpcError`; exceeding ``expires_in`` is treated as ``pair_expired``.
@@ -163,11 +171,12 @@ def pair(conn, *, token_type="session", client=None, interval=1.5, stream=None):
     )
     pairing_id = begin["pairing_id"]
     pair_code = begin["pair_code"]
+    display_code = _display_pair_code(pair_code)
     expires_in = begin.get("expires_in")
 
     stream.write(
         "\nMinecraft pairing required.\n"
-        f"  Run this in Minecraft:  /mcremote pair {pair_code}\n"
+        f"  Run this in Minecraft:  /mcremote pair {display_code}\n"
     )
     if expires_in:
         stream.write(f"  (code expires in {expires_in}s)\n")
