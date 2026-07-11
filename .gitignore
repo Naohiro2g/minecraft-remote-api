@@ -175,3 +175,6 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 NOTES_ja.md
+
+# Temporary evidence handoff materials. Formal records live in mc-remote-knowledge.
+handoff-materials/

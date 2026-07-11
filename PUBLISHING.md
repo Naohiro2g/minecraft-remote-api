@@ -12,6 +12,12 @@
 > **貢献するだけなら公開は不要。** PR を出すのに build / publish は要りません。
 > `uv sync` で開発環境を作り、コードを動かし／テストして push するだけです。
 > 本書は「PyPI へ配布する人」向けです。
+>
+> **ベータ（bN）は PyPI に出しません。** `2100.0.0b2`（protocol 21.0.0 b2）は
+> **GitHub の pre-release タグのみ**で配布します。Python API の tag は
+> `v2100.0.0b2`、package は `minecraft-remote-api==2100.0.0b2` です。
+> PyPI 公開は rc/stable 以降です。採番・配布チャンネルの正本は
+> ナレッジ `10-protocol/versioning-design_ja.md`。
 
 ---
 
@@ -81,6 +87,24 @@ uv build
 unzip -l dist/minecraft_remote_api-*-py3-none-any.whl | grep mc_remote
 unzip -p dist/minecraft_remote_api-*-py3-none-any.whl '*/METADATA' | grep -iE '^Version:|^Requires-Dist:'
 ```
+
+### b2 GitHub pre-release 確認
+
+`2100.0.0b2` は PyPI に publish しない。release gate では、少なくとも次を確認する。
+
+```bash
+uv --cache-dir /tmp/uv-cache run python tests/test_b1.py
+uv --cache-dir /tmp/uv-cache run python tests/test_b2.py
+uv --cache-dir /tmp/uv-cache build
+unzip -p dist/minecraft_remote_api-2100.0.0b2-py3-none-any.whl '*/METADATA' | grep -iE '^Name:|^Version:|^Requires-Dist:'
+```
+
+実機確認は `scripts/auth_smoke.py` を使う。`token_key` / `sandbox` はローカル token-store key
+であり、`hello.params` には送らない。`sb-dev` のような権限検証用サーバーでは
+`permission_denied` が token 破棄に繋がらないことも確認する。
+
+Python client repo には現時点で専用 lint 設定を置いていないため、b2 の Python 側 gate は
+unit tests + build + live smoke を blocker とする。lint は設定追加時に gate へ組み込む。
 
 ---
 

@@ -1,362 +1,272 @@
-import sys
 import os
 import math
 
-from .connection import Connection
+from .connection import (
+    Connection,
+    McRemoteError,
+    McRpcError,
+    ConnectionLostError,
+    RequestFailedError,
+)
+from .auth import (
+    pair as run_pairing,
+    is_auth_discard,
+    load_token,
+    save_token,
+    clear_token,
+)
 from .vec3 import Vec3
-from .event import BlockEvent, ChatEvent, ProjectileEvent
 from .util import flatten
+
+__all__ = [
+    "Minecraft",
+    "McRemoteError",
+    "McRpcError",
+    "ConnectionLostError",
+    "RequestFailedError",
+    "mcpy",
+]
+
+
+# Wire protocol version this client speaks (sent in the hello handshake and
+# checked by the server). Distinct from the PyPI/distribution version.
+PROTOCOL = "21.0.0"
 
 
 def intFloor(*args):
     return [int(math.floor(x)) for x in flatten(args)]
 
 
-class CmdPositioner:
-    """Methods for setting and getting positions"""
-    def __init__(self, connection, packagePrefix):
-        self.conn = connection
-        self.pkg = packagePrefix
-
-    def getPos(self, entityId):
-        """Get entity position (entityId:int) => Vec3"""
-        s = self.conn.sendReceive(self.pkg + b".getPos", entityId)
-        return Vec3(*list(map(float, s.split(","))))
-
-    def setPos(self, entityId, *args):
-        """Set entity position (entityId:int, x,y,z)"""
-        self.conn.send(self.pkg + b".setPos", entityId, *args)
-
-    def getTilePos(self, entityId):
-        """Get entity tile position (entityId:int) => Vec3"""
-        s = self.conn.sendReceive(self.pkg + b".getTile", entityId)
-        return Vec3(*list(map(int, s.split(","))))
-
-    def setTilePos(self, entityId, *args):
-        """Set entity tile position (entityId:int) => Vec3"""
-        self.conn.send(self.pkg + b".setTile", entityId, intFloor(*args))
-
-    def setDirection(self, entityId, *args):
-        """Set entity direction (entityId:int, x,y,z)"""
-        self.conn.send(self.pkg + b".setDirection", entityId, args)
-
-    def getDirection(self, entityId):
-        """Get entity direction (entityId:int) => Vec3"""
-        s = self.conn.sendReceive(self.pkg + b".getDirection", entityId)
-        return Vec3(*map(float, s.split(",")))
-
-    def setRotation(self, entityId, yaw):
-        """Set entity rotation (entityId:int, yaw)"""
-        self.conn.send(self.pkg + b".setRotation", entityId, yaw)
-
-    def getRotation(self, entityId):
-        """get entity rotation (entityId:int) => float"""
-        return float(self.conn.sendReceive(self.pkg + b".getRotation", entityId))
-
-    def setPitch(self, entityId, pitch):
-        """Set entity pitch (entityId:int, pitch)"""
-        self.conn.send(self.pkg + b".setPitch", entityId, pitch)
-
-    def getPitch(self, entityId):
-        """get entity pitch (entityId:int) => float"""
-        return float(self.conn.sendReceive(self.pkg + b".getPitch", entityId))
-
-    def setting(self, setting, status):
-        """Set a player setting (setting, status). keys: autojump"""
-        self.conn.send(self.pkg + b".setting", setting, 1 if bool(status) else 0)
-
-
-class CmdEntity(CmdPositioner):
-    """Methods for entities"""
-    def __init__(self, connection):
-        CmdPositioner.__init__(self, connection, b"entity")
-
-    def getName(self, id):
-        """Get the list name of the player with entity id => [name:str]
-        Also can be used to find name of entity if entity is not a player."""
-        return self.conn.sendReceive(b"entity.getName", id)
-
-    def remove(self, id):
-        self.conn.send(b"entity.remove", id)
-
-
-class Entity:
-    def __init__(self, conn, entity_uuid, typeName):
-        self.p = CmdPositioner(conn, b"entity")
-        self.id = entity_uuid
-        self.type = typeName
-
-    def getPos(self):
-        return self.p.getPos(self.id)
-
-    def setPos(self, *args):
-        self.p.setPos(self.id, *args)
-
-    def getTilePos(self):
-        return self.p.getTilePos(self.id)
-
-    def setTilePos(self, *args):
-        self.p.setTilePos(self.id, *args)
-
-    def setDirection(self, *args):
-        self.p.setDirection(self.id, *args)
-
-    def getDirection(self):
-        return self.p.getDirection(self.id)
-
-    def setRotation(self, yaw):
-        self.p.setRotation(self.id, yaw)
-
-    def getRotation(self):
-        return self.p.getRotation(self.id)
-
-    def setPitch(self, pitch):
-        self.p.setPitch(self.id, pitch)
-
-    def getPitch(self):
-        return self.p.getPitch(self.id)
-
-    def remove(self):
-        self.p.conn.send(b"entity.remove", self.id)
-
-
-class CmdPlayer(CmdPositioner):
-    """Methods for the host (Raspberry Pi) player"""
-    def __init__(self, connection):
-        CmdPositioner.__init__(self, connection, b"player")
-        self.conn = connection
-
-    def getPos(self):
-        return CmdPositioner.getPos(self, [])
-
-    def setPos(self, *args):
-        CmdPositioner.setPos(self, [], *args)
-
-    def getTilePos(self):
-        return CmdPositioner.getTilePos(self, [])
-
-    def setTilePos(self, *args):
-        CmdPositioner.setTilePos(self, [], *args)
-
-    def setDirection(self, *args):
-        CmdPositioner.setDirection(self, [], *args)
-
-    def getDirection(self):
-        return CmdPositioner.getDirection(self, [])
-
-    def setRotation(self, yaw):
-        CmdPositioner.setRotation(self, [], yaw)
-
-    def getRotation(self):
-        return CmdPositioner.getRotation(self, [])
-
-    def setPitch(self, pitch):
-        CmdPositioner.setPitch(self, [], pitch)
-
-    def getPitch(self):
-        return CmdPositioner.getPitch(self, [])
-
-
-class CmdCamera:
-    def __init__(self, connection):
-        self.conn = connection
-
-    def setNormal(self, *args):
-        """Set camera mode to normal Minecraft view ([entityId])"""
-        self.conn.send(b"camera.mode.setNormal", *args)
-
-    def setFixed(self):
-        """Set camera mode to fixed view"""
-        self.conn.send(b"camera.mode.setFixed")
-
-    def setFollow(self, *args):
-        """Set camera mode to follow an entity ([entityId])"""
-        self.conn.send(b"camera.mode.setFollow", *args)
-
-    def setPos(self, *args):
-        """Set camera entity position (x,y,z)"""
-        self.conn.send(b"camera.setPos", *args)
-
-
-class CmdEvents:
-    """Events"""
-    def __init__(self, connection):
-        self.conn = connection
-
-    def clearAll(self):
-        """Clear all old events"""
-        self.conn.send(b"events.clear")
-
-    def pollBlockHits(self):
-        """Only triggered by sword => [BlockEvent]"""
-        s = self.conn.sendReceive(b"events.block.hits")
-        events = [e for e in s.split("|") if e]
-        return [BlockEvent.Hit(*e.split(",")) for e in events]
-
-    def pollChatPosts(self):
-        """Triggered by posts to chat => [ChatEvent]"""
-        s = self.conn.sendReceive(b"events.chat.posts")
-        events = [e for e in s.split("|") if e]
-        return [ChatEvent.Post(int(e[:e.find(",")]), e[e.find(",") + 1:]) for e in events]
-
-    def pollProjectileHits(self):
-        """Only triggered by projectiles => [BlockEvent]"""
-        s = self.conn.sendReceive(b"events.projectile.hits")
-        events = [e for e in s.split("|") if e]
-        return [ProjectileEvent.Hit(*e.split(",")) for e in events]
+def _env_first(*names):
+    for name in names:
+        if name in os.environ:
+            return os.environ[name]
+    return None
 
 
 class Minecraft:
-    """The main class to interact with a running instance of Minecraft Pi."""
+    """Client for a running Minecraft server speaking protocol 21.x.
+
+    protocol 21.0.0 b2 surface: ``hello`` handshake (now carrying an optional
+    ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
+    block_state_ref strings, ``postToChat`` (wire ``chat.post``), paired-player
+    position helpers (``getPos`` / ``setPos``), and the connection-scoped build
+    state (``setWorld`` / ``setBuildOrigin``). Tokens are obtained by pairing
+    (``auth.pairBegin`` / ``auth.pairPoll``, §6.5);
+    :meth:`create` drives the unified connect flow (hello first, pair only on
+    ``auth_required``). Every call is an id-bearing JSON-RPC request
+    (synchronous result/error); the default send-only notification form for
+    setBlock / setBlocks / chat.post arrives in bN/debug integration. The
+    legacy MCPI methods (entity / player / camera / events / sign /
+    checkpoint / particle ...) were removed in the payload flip and will be
+    re-introduced per protocol bump as they are ported to JSON-RPC."""
+
     def __init__(self, connection):
         self.conn = connection
 
-        self.camera = CmdCamera(connection)
-        self.entity = CmdEntity(connection)
-        self.player = CmdPlayer(connection)
-        self.events = CmdEvents(connection)
+        # Build state, scoped to this connection/stream (one instance = one
+        # stream = one build state). Kept as a local record of what this stream
+        # last set; the server is authoritative and applies the origin.
+        self._world = "overworld"
+        self._origin = Vec3(200, 0, 200)
 
-    def getBlock(self, *args):
-        """Get block (x,y,z) => id:int"""
-        return self.conn.sendReceive(b"world.getBlock", intFloor(args))
+        # Populated by hello(); the server is the source of truth.
+        self.protocol = None
+        self.mc_version = None
+        self.supported_mc_versions = []
+        self.y_sea = None
+        self.catalog_hash = None
+        self.session = None
+        self.player = None
+        self.permissions = None
 
-    def getBlockWithData(self, *args):
-        """Get block with data (x,y,z) => Block"""
-        s = self.conn.sendReceive(b"world.getBlockWithData", intFloor(args)).split(",")
-        if s[-1] == "":
-            s.pop()
-        return s
+    def hello(self, auth_token=None):
+        """Handshake. Declares this client's protocol (and, if held, its auth
+        token) and caches the server's hello response on this instance.
 
-    def getBlocks(self, *args):
-        """Get a cuboid of blocks (x0,y0,z0,x1,y1,z1) => [id:int]"""
-        s = self.conn.sendReceive(b"world.getBlocks", *args).split(",")
-        if s[-1] == "":
-            s.pop()
-        return s
+        The request sends the client protocol in an object param
+        (``{"protocol": ...}``, the §6.1 canonical form); the server rejects a
+        missing protocol (``protocol_required``) or a mismatch
+        (``protocol_mismatch``). When ``auth_token`` is given it is sent as
+        ``auth: {token}`` (§6.1); it is omitted otherwise, so a token-less
+        hello stays ``{protocol}``-only and succeeds against a server running
+        enforcement OFF. Under enforcement ON a missing/invalid token yields
+        ``auth_required`` / ``token_invalid`` (§6.3) -- :meth:`create` catches
+        these and pairs.
 
-    def setBlock(self, *args):
-        """Set block (x,y,z,id,[data])"""
-        self.conn.send(b"world.setBlock", *args)
-        return
-        # return self.conn.sendReceive(b"world.setBlock", *args)
+        The response carries ``protocol``, ``mc_version``,
+        ``supported_mc_versions``, ``catalogHash`` (a scalar; ``null`` until a
+        catalog lands -> a cache miss), ``world_constants`` (an object bundling
+        informational world constants; ``world_constants.y_sea`` as
+        ``number | null``, knowledge DECISIONS 2026-07-02-02), the current
+        build state (``world`` / ``origin``), and the authenticated
+        ``session`` / ``player`` / ``permissions`` (§6.2, the single source for
+        identity and permissions). ``y_sea`` is informational only; the
+        coordinate formula stays ``absolute_y = origin.y + dy``."""
+        params = {"protocol": PROTOCOL}
+        if auth_token:
+            params["auth"] = {"token": auth_token}
+        resp = self.conn.rpc("hello", params)
+        if isinstance(resp, dict):
+            self.protocol = resp.get("protocol")
+            self.mc_version = resp.get("mc_version")
+            self.supported_mc_versions = resp.get("supported_mc_versions", [])
+            # y_sea lives under world_constants (DECISIONS 2026-07-02-02); no
+            # top-level fallback -> an un-flipped server surfaces as None.
+            self.y_sea = (resp.get("world_constants") or {}).get("y_sea")
+            self.catalog_hash = resp.get("catalogHash")
+            self.session = resp.get("session")
+            self.player = resp.get("player")
+            self.permissions = resp.get("permissions")
+            if resp.get("world"):
+                self._world = resp["world"]
+            origin = resp.get("origin")
+            if isinstance(origin, (list, tuple)) and len(origin) == 3:
+                self._origin = Vec3(*origin)
+        return resp
 
-    def setBlocks(self, *args):
-        """Set a cuboid of blocks (x0,y0,z0,x1,y1,z1,id,[data])"""
-        self.conn.send(b"world.setBlocks", *args)
-        return
-        # return self.conn.sendReceive(b"world.setBlocks", *args)
+    def setBlock(self, x, y, z, block):
+        """Set one block at (x, y, z) to a block_state_ref string, e.g.
+        ``"minecraft:oak_log[axis=y]"``. The namespace is required; the input
+        may omit/reorder state properties (the server canonicalises)."""
+        coords = intFloor(x, y, z)
+        return self.conn.rpc("world.setBlock", coords + [block])
 
-    def setSign(self, *args):
-        """Set a sign (x,y,z,sign_type,direction,line1,line2,line3,line4)
-        direction: 0-north, 1-east, 2-south 3-west
-        """
-        self.conn.send(b"world.setSign", *args)
+    def getBlock(self, x, y, z):
+        """Get the block at (x, y, z) as a canonical full block_state_ref
+        string (all properties, names alphabetical) => round-trips with
+        setBlock by string equality."""
+        coords = intFloor(x, y, z)
+        return self.conn.rpc("world.getBlock", coords)
 
-    def spawnEntity(self, *args):
-        """Spawn entity (x,y,z,id,[data])"""
-        return Entity(self.conn, self.conn.sendReceive(b"world.spawnEntity", *args), args[3])
-        # return self.conn.send(b"world.spawnEntity", *args)
-
-    def spawnParticle(self, *args):
-        """Spawn entity (x,y,z,x1,y1,z1,id,speed,count,[force,data])"""
-        self.conn.send(b"world.spawnParticle", *args)
-
-    def getNearbyEntities(self, *args):
-        """get nearby entities (x,y,z)"""
-        entities = []
-        for i in self.conn.sendReceive(b"world.getNearbyEntities", *args).split(","):
-            name, eid = i.split(":")
-            entities.append(Entity(self.conn, eid, name))
-        return entities
-
-    def removeEntity(self, *args):
-        """Remove entity (x,y,z,id,[data])"""
-        self.conn.send(b"world.removeEntity", *args)
-
-    def getHeight(self, *args):
-        """Get the height(=y) of the world at (x,z) => int"""
-        print(*args)
-        return int(self.conn.sendReceive(b"world.getHeight", intFloor(args)))
-
-    def getPlayerEntityIds(self):
-        """Get the entity ids of the connected players => [id:int]"""
-        ids = self.conn.sendReceive(b"world.getPlayerIds")
-        return ids.split("|")
-
-    def getPlayerEntityId(self, name):
-        """Get the entity id of the named player => [id:int]"""
-        return self.conn.sendReceive(b"world.getPlayerId", name)
-
-    def saveCheckpoint(self):
-        """Save a checkpoint that can be used for restoring the world"""
-        self.conn.send(b"world.checkpoint.save")
-
-    def restoreCheckpoint(self):
-        """Restore the world state to the checkpoint"""
-        self.conn.send(b"world.checkpoint.restore")
-
-    def postToChat(self, msg):
-        """Post a message to the game chat"""
-        self.conn.send(b"chat.post", msg)
-
-    def setting(self, setting, status):
-        """Set a world setting (setting, status). keys: world_immutable, nametags_visible"""
-        self.conn.send(b"world.setting", setting, 1 if bool(status) else 0)
-
-    def setPlayer(self, *args):
-        """Set player position (name, x,y,z) this is the first remote command to call"""
-        result = self.conn.sendReceive(b"setPlayer", *args)
-        if "Error" in result:
-            sys.exit(result)
-        else:
-            print(result)
-            return result
-        # return self.conn.sendReceive(b"setPlayer", *args)
+    def setBlocks(self, x0, y0, z0, x1, y1, z1, block):
+        """Set a cuboid (x0,y0,z0)-(x1,y1,z1) to a block_state_ref string.
+        Validation is all-or-nothing: a single invalid ref rejects the whole
+        request."""
+        coords = intFloor(x0, y0, z0, x1, y1, z1)
+        return self.conn.rpc("world.setBlocks", coords + [block])
 
     def setWorld(self, dimension):
         """Set the build world/dimension (overworld, nether, end, or an exact
-        world name). Build state is independent of setPlayer."""
-        result = self.conn.sendReceive(b"setWorld", dimension)
-        if "Error" in result:
-            sys.exit(result)
-        print(result)
+        world name). Build state is scoped to this connection/stream."""
+        result = self.conn.rpc("build.setWorld", [dimension])
+        self._world = dimension
         return result
 
-    def setBuildOrigin(self, *args):
+    def setBuildOrigin(self, x, y, z):
         """Set the build origin (x, y, z). Default is (200, 0, 200).
-        Coordinates are absolute; no implicit Y offset is applied."""
-        result = self.conn.sendReceive(b"setBuildOrigin", intFloor(args))
-        if "Error" in result:
-            sys.exit(result)
-        print(result)
+        Coordinates are absolute; no implicit Y offset is applied (abs y =
+        origin y + dy)."""
+        coords = intFloor(x, y, z)
+        result = self.conn.rpc("build.setOrigin", coords)
+        self._origin = Vec3(*coords)
         return result
+
+    def postToChat(self, message):
+        """Post a chat message to the server (wire method ``chat.post``)."""
+        return self.conn.rpc("chat.post", [message])
+
+    def getPos(self):
+        """Get the paired player's current world and position.
+
+        Returns ``{"world": ..., "pos": [x, y, z]}``, with ``pos`` expressed
+        relative to this stream's build origin. The target player is the
+        authenticated/pair-bound player; the client never sends a player name.
+        """
+        return self.conn.rpc("player.getPos", [])
+
+    def setPos(self, world, x, y, z):
+        """Move the paired player to a world and origin-relative position.
+
+        ``world`` is explicit and does not depend on this stream's build world.
+        The server applies ``absolute = stream.origin + [x, y, z]`` and returns
+        the same shape as :meth:`getPos`.
+        """
+        coords = intFloor(x, y, z)
+        return self.conn.rpc("player.setPos", [world] + coords)
 
     def close(self):
         """Close the connection to the Minecraft server"""
         self.conn.close()
         return True
 
+    def authenticate(self, server_key, token_type="session", pair=True):
+        """Run the unified b2 auth flow (§6.5) and return the hello response.
+
+        Tries ``hello`` first, reusing a stored token for ``server_key`` if one
+        exists. Under enforcement OFF a token-less hello just succeeds and
+        pairing never runs. Under ON (or when the stored token is stale) the
+        server answers with an auth-family reason (§6.3); we discard the bad
+        token, pair once (printing the pair code to stdout and blocking until
+        the player approves), persist the fresh token, and retry hello exactly
+        once. Non-auth errors (``permission_denied``, ``protocol_mismatch``)
+        propagate. ``pair=False`` disables the interactive pairing fallback."""
+        token = load_token(server_key)
+        try:
+            return self.hello(token)
+        except McRpcError as e:
+            if not (pair and is_auth_discard(e)):
+                raise
+            # Auth-family failure: drop the bad token and pair. The server
+            # drops the stream after auth_required (hello is once per
+            # connection), so reconnect before pairing and again for the
+            # authenticated hello.
+            clear_token(server_key)
+            self.conn.reconnect()
+            token = run_pairing(self.conn, token_type=token_type)
+            save_token(server_key, token)
+            self.conn.reconnect()
+            return self.hello(token)
+
     @staticmethod
-    def create(address="localhost", port=4711, debug=False):
-        if "JRP_API_HOST" in os.environ:
-            address = os.environ["JRP_API_HOST"]
-        if "JRP_API_PORT" in os.environ:
+    def create(
+        address="localhost",
+        port=25575,
+        debug=False,
+        handshake=True,
+        sandbox=None,
+        token_type="session",
+        pair=True,
+        token_key=None,
+    ):
+        """Connect and run the unified b2 auth flow (§6.5).
+
+        Tries ``hello`` first, reusing a stored token if one exists for this
+        server. Under enforcement OFF a token-less hello just succeeds and
+        pairing never runs. Under ON (or when the stored token is stale) the
+        server answers with an auth-family reason; we discard the bad token,
+        pair once (printing the pair code to stdout and blocking until the
+        player approves), persist the fresh token, and retry hello. Non-auth
+        errors (``permission_denied``, ``protocol_mismatch``) propagate. Set
+        ``pair=False`` to disable the interactive pairing fallback.
+
+        ``token_key`` controls the local token-store entry. By default it is
+        ``"{address}:{port}"``. ``sandbox`` is kept as a compatibility alias for
+        this local key only; it is never sent in ``hello.params`` (§6.1)."""
+        env_host = _env_first("MCREMOTE_API_HOST", "JRP_API_HOST")
+        if env_host is not None:
+            address = env_host
+        env_port = _env_first("MCREMOTE_API_PORT", "JRP_API_PORT")
+        if env_port is not None:
             try:
-                port = int(os.environ["JRP_API_PORT"])
+                port = int(env_port)
             except ValueError:
                 pass
-        return Minecraft(Connection(address, port, debug))
+        mc = Minecraft(Connection(address, port, debug))
+        if handshake:
+            server_key = token_key or sandbox or f"{address}:{port}"
+            mc.authenticate(server_key, token_type=token_type, pair=pair)
+        return mc
 
 
 def mcpy(func):
     # these will be created as global variable in module, so not good idea
     # func.__globals__['mc'] = Minecraft.create()
-    # func.__globals__['pos'] = func.__globals__['mc'].player.getTilePos()
-    # func.__globals__['direction'] = func.__globals__['mc'].player.getDirection()
     func.__doc__ = ("_mcpy :" + func.__doc__) if func.__doc__ else "_mcpy "
     return func
 
 
 if __name__ == "__main__":
     mc = Minecraft.create()
-    mc.postToChat("Hello, Minecraft!")
+    mc.setBlock(0, 0, 0, "minecraft:stone")
+    print(mc.getBlock(0, 0, 0))
