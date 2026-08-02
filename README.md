@@ -24,7 +24,7 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）:
   - stable（PyPI）: `2000.0.0` — protocol 20.0.0
-  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b2` — protocol 21.0.0 b2（下記 Migration Guide 参照）
+  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b3` — protocol 21.0.0 b3（下記 Migration Guide 参照）
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: `MIT`
@@ -124,9 +124,9 @@ Manual helper scripts live in `scripts/` and are run from the repo root with `uv
 
 ## Migration Guide: `setPlayer` → `setWorld` / `setBuildOrigin` (Draft) / 移行ガイド（ドラフト）
 
-> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b2`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b2` is published as a **GitHub pre-release tag only (not on PyPI)**.
+> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b3`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b3` is published as a **GitHub pre-release tag only (not on PyPI)**.
 >
-> protocol **21.0.0**（`2100.0.0b2`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b2` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
+> protocol **21.0.0**（`2100.0.0b3`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b3` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
 
 ### What changed / 変更点
 
@@ -134,7 +134,7 @@ Build state (world + origin) is now **separate from player identity** and **scop
 
 建築状態（ワールド＋原点）が**プレイヤーの識別情報から分離**され、**接続（ストリーム）ごと**に保持されるようになりました。`setPlayer(name, x, y, z)` の1メソッドが、2つのメソッドに置き換わります。
 
-| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b2`) |
+| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b3`) |
 | --- | --- |
 | `mc.setPlayer(PLAYER_NAME, x, y, z)` | `mc.setWorld("overworld")` then `mc.setBuildOrigin(x, y, z)` |
 
@@ -181,14 +181,51 @@ mc.setBuildOrigin(PO.x, PO.y, PO.z)
 
 ### Installing the beta / ベータの導入
 
-`2100.0.0b2` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag.
+`2100.0.0b3` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag.
 
-`2100.0.0b2` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します。
+`2100.0.0b3` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します。
 
 ```bash
 # exact-pin from the GitHub tag / GitHub タグを明示指定
-uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2100.0.0b2"
+uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2100.0.0b3"
 ```
+
+***
+
+## What's new in b3: the live block/entity/particle catalog / b3 の新機能: 生きたカタログ
+
+`2100.0.0b3` adds `catalog.get` (wire §7.2.1). After an authenticated `hello`, `Minecraft.create()` acquires the connected server's live block/entity/particle registry, verifies it against the advertised and recomputed `catalogHash`, and stores the validated raw catalog in the user cache. It then publishes two disposable completion artifacts in the current working directory: `mc_constants.py` and `mc_constants.manifest.json`.
+
+`2100.0.0b3` で `catalog.get`（wire §7.2.1）が加わりました。認証済み `hello` の後、`Minecraft.create()` が接続先サーバーの生きたブロック／エンティティ／パーティクル registry を取得し、hello が示した `catalogHash` と再計算した hash の両方で検証して、ユーザーcacheへ保存します。その後、現在の作業ディレクトリへ補完用の一時生成物 `mc_constants.py` と `mc_constants.manifest.json` を公開します。
+
+For a Git-managed project, initialize the ignore rules once. This command only updates `.gitignore`; it does not connect or generate the catalog projection. / Git管理プロジェクトでは、最初にignore規則を用意します。このコマンドは `.gitignore` だけを更新し、接続やprojection生成は行いません。
+
+```shell
+mcremote init
+```
+
+The first Hello World should connect without importing `mc_constants`. Completion is acquired by that successful connection. / 最初のHello Worldは `mc_constants` をimportせず接続だけで成立させます。その接続成功によって補完を獲得します。
+
+```python
+import param_mc_remote as param
+from mc_remote.minecraft import Minecraft
+
+mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
+mc.postToChat("Hello from Python!")
+```
+
+After projection succeeds, the generated constants can be imported and used. / projection成功後は、生成された定数をimportして利用できます。
+
+```python
+from mc_constants import block, entity, particle, world_info
+
+mc.setBlock(0, world_info.Y_SEA, 0, block.OAK_LOG)
+```
+
+- A cache miss is fetched on a separate short-lived authenticated stream. Catalog or projection failure produces an actionable warning, but `Minecraft.create()` still returns the connected build client. Fix the reported stage and retry with `mc.sync_constants(force=True)`. / cache missの取得には、建築用とは別の短命な認証済みstreamを使います。catalogまたはprojectionが失敗してもactionable warningとなり、`Minecraft.create()` は接続済み建築clientを返します。表示された段階を直し、`mc.sync_constants(force=True)` で再試行できます。
+- Pass `sync_catalog=False` to `Minecraft.create(...)` to skip catalog cache/projection work. / catalogのcache／projection処理を省く場合は `Minecraft.create(..., sync_catalog=False)` を指定します。
+- `mc_remote.catalog.block_ref(name, **state)` builds a `block_state_ref` string client-side, e.g. `block_ref("oak_log", axis="y")` → `"minecraft:oak_log[axis=y]"`; the server tolerates a missing namespace and partial state, so this is convenience only, not a wire requirement. / `mc_remote.catalog.block_ref(name, **state)` は client 側で `block_state_ref` 文字列を組み立てる便利関数です（サーバーは namespace 省略・state 部分指定を許容するため、これは書きやすさのためだけの補助です）。
+- The projection is neither bundled nor committed. Even when the raw catalog is already cached, a fresh clone receives no completion files until its own authenticated `hello` succeeds. In a Git project whose projection files are not ignored, generation is refused and `mcremote init` is suggested. / projectionは同梱もcommitもしません。生catalogがcache済みでも、fresh cloneではその環境自身の認証済み `hello` が成功するまで補完ファイルは現れません。Git管理下で生成物がignoreされていない場合は生成せず、`mcremote init` を案内します。
 
 ***
 
