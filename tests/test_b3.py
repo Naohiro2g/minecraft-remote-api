@@ -49,6 +49,7 @@ from mc_remote.catalog import (  # noqa: E402
     compute_catalog_hash,
     load_cached_catalog,
     save_cached_catalog,
+    state_signature,
     validate_catalog,
 )
 from mc_remote import _constants_codegen  # noqa: E402
@@ -225,6 +226,12 @@ def _sample_catalog():
     return {"catalogHash": compute_catalog_hash(body), **body}
 
 
+def _rehash(data):
+    body = {key: data[key] for key in ("block", "entity", "particle")}
+    data["catalogHash"] = compute_catalog_hash(body)
+    return data
+
+
 HELLO_WITH_CATALOG = {
     "protocol": PROTOCOL,
     "mc_version": "1.21.11",
@@ -306,7 +313,127 @@ def test_validate_catalog_rejects_incomplete_block_entry():
         raise AssertionError("expected CatalogError")
 
 
-# 2f. declared catalogHash does not match the recomputed digest
+# 2f. block ids must be fully-qualified namespace:path identifiers
+def test_validate_catalog_rejects_unqualified_block_id():
+    data = _sample_catalog()
+    data["block"]["stone"] = data["block"].pop("minecraft:stone")
+    _rehash(data)
+    try:
+        validate_catalog(data)
+    except CatalogError as exc:
+        assert "fully-qualified" in str(exc)
+    else:
+        raise AssertionError("expected CatalogError")
+
+
+# 2g. states/default_state must be objects with the same property set
+def test_validate_catalog_rejects_invalid_state_objects_and_property_sets():
+    invalid_entries = [
+        {"states": [], "default_state": {}},
+        {"states": {"axis": ["x", "y"]}, "default_state": {}},
+        {"states": {"": ["x"]}, "default_state": {"": "x"}},
+    ]
+    for entry in invalid_entries:
+        data = _sample_catalog()
+        data["block"]["minecraft:stone"] = entry
+        _rehash(data)
+        try:
+            validate_catalog(data)
+        except CatalogError:
+            pass
+        else:
+            raise AssertionError(f"expected CatalogError for {entry!r}")
+
+
+# 2h. allowed values are non-empty, finite, homogeneous JSON scalar arrays
+def test_validate_catalog_rejects_invalid_allowed_values():
+    invalid_allowed = [
+        [],
+        [None],
+        [["x"]],
+        [float("nan")],
+        ["x", 1],
+        [True, 1],  # bool is not a Python-int-compatible JSON number here
+    ]
+    for allowed in invalid_allowed:
+        data = _sample_catalog()
+        data["block"]["minecraft:stone"] = {
+            "states": {"value": allowed},
+            "default_state": {"value": allowed[0] if allowed else "x"},
+        }
+        _rehash(data)
+        try:
+            validate_catalog(data)
+        except CatalogError:
+            pass
+        else:
+            raise AssertionError(f"expected CatalogError for {allowed!r}")
+
+
+# 2i. duplicate values and defaults outside the allowed set are rejected
+def test_validate_catalog_rejects_duplicate_and_invalid_default_values():
+    invalid_entries = [
+        {
+            "states": {"axis": ["x", "x"]},
+            "default_state": {"axis": "x"},
+        },
+        {
+            "states": {"axis": ["x", "y"]},
+            "default_state": {"axis": "z"},
+        },
+        {
+            "states": {"level": [0, 1]},
+            "default_state": {"level": True},
+        },
+    ]
+    for entry in invalid_entries:
+        data = _sample_catalog()
+        data["block"]["minecraft:stone"] = entry
+        _rehash(data)
+        try:
+            validate_catalog(data)
+        except CatalogError:
+            pass
+        else:
+            raise AssertionError(f"expected CatalogError for {entry!r}")
+
+
+# 2j. unknown extension fields are ignored after the required schema validates
+def test_validate_catalog_allows_unknown_extension_fields():
+    data = _sample_catalog()
+    data["block"]["minecraft:stone"]["future_extension"] = {"anything": True}
+    _rehash(data)
+    validate_catalog(data)
+
+
+# 2k. signatures ignore defaults and canonicalise property/value order
+def test_state_signature_is_canonical_and_excludes_default():
+    first = {
+        "states": {
+            "waterlogged": [True, False],
+            "facing": ["west", "east", "north", "south"],
+            "level": [2, 0, 1],
+        },
+        "default_state": {"waterlogged": False, "facing": "north", "level": 0},
+    }
+    second = {
+        "states": {
+            "level": [1, 2, 0],
+            "facing": ["south", "north", "east", "west"],
+            "waterlogged": [False, True],
+        },
+        "default_state": {"level": 2, "facing": "east", "waterlogged": True},
+    }
+    expected = (
+        ("facing", "string", ("east", "north", "south", "west")),
+        ("level", "number", (0, 1, 2)),
+        ("waterlogged", "boolean", (False, True)),
+    )
+    assert state_signature(first) == expected
+    assert state_signature(second) == expected
+
+
+# 2l. declared catalogHash does not match the recomputed digest
 def test_validate_catalog_rejects_hash_mismatch():
     data = _sample_catalog()
     data["catalogHash"] = "0" * 64

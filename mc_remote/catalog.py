@@ -17,16 +17,117 @@ connection (``Minecraft.getCatalog`` / ``Minecraft.sync_constants``).
 """
 import hashlib
 import json
+import math
 import os
+import re
 import time
 
 from .connection import McRemoteError
 
 CATALOG_KEYS = ("block", "entity", "particle")
+_BLOCK_ID = re.compile(r"^[a-z0-9_.-]+:[a-z0-9/._-]+$")
 
 
 class CatalogError(McRemoteError):
     """Raised when a fetched catalog fails structural or hash validation."""
+
+
+def _json_scalar_type(value):
+    """Return the strict JSON scalar type used by the state schema.
+
+    Python's ``bool`` subclasses ``int``; checking exact types here preserves
+    the wire distinction required by DECISION 2026-08-02-04.
+    """
+    if type(value) is bool:
+        return "boolean"
+    if type(value) in (int, float):
+        if type(value) is float and not math.isfinite(value):
+            return None
+        return "number"
+    if type(value) is str:
+        return "string"
+    return None
+
+
+def _state_entry_parts(block_id, entry):
+    """Validate one block entry and return ``(states, default_state)``."""
+    where = f"catalog.get result.block[{block_id!r}]"
+    if not isinstance(block_id, str) or not _BLOCK_ID.fullmatch(block_id):
+        raise CatalogError(
+            f"{where} key must be a fully-qualified namespace:path block id"
+        )
+    if not isinstance(entry, dict):
+        raise CatalogError(f"{where} must be an object")
+    states = entry.get("states")
+    default_state = entry.get("default_state")
+    if not isinstance(states, dict) or not isinstance(default_state, dict):
+        raise CatalogError(f"{where}.states and .default_state must be objects")
+    if not all(isinstance(name, str) and name for name in states):
+        raise CatalogError(f"{where}.states property names must be non-empty strings")
+    if not all(isinstance(name, str) and name for name in default_state):
+        raise CatalogError(
+            f"{where}.default_state property names must be non-empty strings"
+        )
+    if set(states) != set(default_state):
+        raise CatalogError(
+            f"{where}.states and .default_state must have identical properties"
+        )
+
+    for property_name, allowed in states.items():
+        prop_where = f"{where}.states[{property_name!r}]"
+        if not isinstance(allowed, list) or not allowed:
+            raise CatalogError(f"{prop_where} must be a non-empty array")
+        value_types = [_json_scalar_type(value) for value in allowed]
+        if any(value_type is None for value_type in value_types):
+            raise CatalogError(
+                f"{prop_where} values must be finite JSON scalars "
+                "(boolean, number, or string)"
+            )
+        if len(set(value_types)) != 1:
+            raise CatalogError(
+                f"{prop_where} values must all have the same JSON type; "
+                "boolean and number are distinct"
+            )
+        for index, value in enumerate(allowed):
+            if any(value == previous for previous in allowed[:index]):
+                raise CatalogError(f"{prop_where} must not contain duplicate values")
+
+        default = default_state[property_name]
+        default_type = _json_scalar_type(default)
+        if default_type != value_types[0]:
+            raise CatalogError(
+                f"{where}.default_state[{property_name!r}] must have the "
+                f"same JSON type as {prop_where}"
+            )
+        if not any(default == value for value in allowed):
+            raise CatalogError(
+                f"{where}.default_state[{property_name!r}] must be one of "
+                f"the values in {prop_where}"
+            )
+    return states, default_state
+
+
+def state_signature(entry, block_id="signature-input:block"):
+    """Derive the canonical client-side state signature for a block entry.
+
+    The signature contains sorted property names, strict JSON types, and
+    canonical allowed-value sets. ``default_state`` is validated but excluded
+    from the result because it does not change which keyword/value inputs are
+    accepted. No signature field is added to the wire catalog.
+    """
+    states, _ = _state_entry_parts(block_id, entry)
+    signature = []
+    for property_name in sorted(states):
+        allowed = states[property_name]
+        value_type = _json_scalar_type(allowed[0])
+        if value_type == "boolean":
+            canonical_values = tuple(sorted(allowed))
+        elif value_type == "number":
+            canonical_values = tuple(sorted(allowed))
+        else:
+            canonical_values = tuple(sorted(allowed))
+        signature.append((property_name, value_type, canonical_values))
+    return tuple(signature)
 
 
 def compute_catalog_hash(body):
@@ -74,11 +175,7 @@ def validate_catalog(data, expected_hash=None):
             raise CatalogError(f"catalog.get result.{key} must be an object")
         body[key] = value
     for block_id, entry in body["block"].items():
-        if not isinstance(entry, dict) or "states" not in entry or "default_state" not in entry:
-            raise CatalogError(
-                f"catalog.get result.block[{block_id!r}] must carry "
-                "'states' and 'default_state'"
-            )
+        _state_entry_parts(block_id, entry)
     recomputed = compute_catalog_hash(body)
     if recomputed != declared_hash:
         raise CatalogError(
