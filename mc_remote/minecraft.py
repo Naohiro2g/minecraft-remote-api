@@ -15,6 +15,8 @@ from .auth import (
     save_token,
     clear_token,
 )
+from . import catalog as _catalog
+from . import _constants_codegen
 from .vec3 import Vec3
 from .util import flatten
 
@@ -47,19 +49,21 @@ def _env_first(*names):
 class Minecraft:
     """Client for a running Minecraft server speaking protocol 21.x.
 
-    protocol 21.0.0 b2 surface: ``hello`` handshake (now carrying an optional
+    protocol 21.0.0 b3 surface: ``hello`` handshake (carrying an optional
     ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
     block_state_ref strings, ``postToChat`` (wire ``chat.post``), paired-player
-    position helpers (``getPos`` / ``setPos``), and the connection-scoped build
-    state (``setWorld`` / ``setBuildOrigin``). Tokens are obtained by pairing
-    (``auth.pairBegin`` / ``auth.pairPoll``, §6.5);
-    :meth:`create` drives the unified connect flow (hello first, pair only on
-    ``auth_required``). Every call is an id-bearing JSON-RPC request
-    (synchronous result/error); the default send-only notification form for
-    setBlock / setBlocks / chat.post arrives in bN/debug integration. The
-    legacy MCPI methods (entity / player / camera / events / sign /
-    checkpoint / particle ...) were removed in the payload flip and will be
-    re-introduced per protocol bump as they are ported to JSON-RPC."""
+    position helpers (``getPos`` / ``setPos``), the connection-scoped build
+    state (``setWorld`` / ``setBuildOrigin``), and the live block/entity/
+    particle catalog (``getCatalog`` / ``sync_constants``, wire ``catalog.get``,
+    §7.2.1). Tokens are obtained by pairing (``auth.pairBegin`` /
+    ``auth.pairPoll``, §6.5); :meth:`create` drives the unified connect flow
+    (hello first, pair only on ``auth_required``, then sync the catalog if one
+    is advertised). Every call is an id-bearing JSON-RPC request (synchronous
+    result/error); the default send-only notification form for setBlock /
+    setBlocks / chat.post arrives in bN/debug integration. The legacy MCPI
+    methods (entity / player / camera / events / sign / checkpoint / particle
+    ...) were removed in the payload flip and will be re-introduced per
+    protocol bump as they are ported to JSON-RPC."""
 
     def __init__(self, connection):
         self.conn = connection
@@ -74,6 +78,7 @@ class Minecraft:
         self.protocol = None
         self.mc_version = None
         self.supported_mc_versions = []
+        self.world_constants = {}
         self.y_sea = None
         self.catalog_hash = None
         self.session = None
@@ -97,12 +102,18 @@ class Minecraft:
         The response carries ``protocol``, ``mc_version``,
         ``supported_mc_versions``, ``catalogHash`` (a scalar; ``null`` until a
         catalog lands -> a cache miss), ``world_constants`` (an object bundling
-        informational world constants; ``world_constants.y_sea`` as
-        ``number | null``, knowledge DECISIONS 2026-07-02-02), the current
-        build state (``world`` / ``origin``), and the authenticated
-        ``session`` / ``player`` / ``permissions`` (§6.2, the single source for
-        identity and permissions). ``y_sea`` is informational only; the
-        coordinate formula stays ``absolute_y = origin.y + dy``."""
+        informational world constants; currently just ``y_sea`` as
+        ``number | null``, knowledge DECISIONS 2026-07-02-02, but a forward
+        compatible bucket -- a future bN may add more dimension/generation
+        facts such as ``y_ground``/``y_lava``/``y_cloud``/``steve_min_y``/
+        ``steve_max_y`` without an envelope change; this client caches the
+        whole object, not just ``y_sea``, so those show up in
+        :meth:`sync_constants`'s generated ``world_info`` as soon as the
+        server sends them), the current build state (``world`` / ``origin``),
+        and the authenticated ``session`` / ``player`` / ``permissions``
+        (§6.2, the single source for identity and permissions). World
+        constants are informational only; the coordinate formula stays
+        ``absolute_y = origin.y + dy``."""
         params = {"protocol": PROTOCOL}
         if auth_token:
             params["auth"] = {"token": auth_token}
@@ -111,9 +122,9 @@ class Minecraft:
             self.protocol = resp.get("protocol")
             self.mc_version = resp.get("mc_version")
             self.supported_mc_versions = resp.get("supported_mc_versions", [])
-            # y_sea lives under world_constants (DECISIONS 2026-07-02-02); no
-            # top-level fallback -> an un-flipped server surfaces as None.
-            self.y_sea = (resp.get("world_constants") or {}).get("y_sea")
+            # No top-level fallback -> an un-flipped server surfaces {} / None.
+            self.world_constants = resp.get("world_constants") or {}
+            self.y_sea = self.world_constants.get("y_sea")
             self.catalog_hash = resp.get("catalogHash")
             self.session = resp.get("session")
             self.player = resp.get("player")
@@ -185,6 +196,52 @@ class Minecraft:
         coords = intFloor(x, y, z)
         return self.conn.rpc("player.setPos", [world] + coords)
 
+    def getCatalog(self):
+        """Fetch the live block/entity/particle catalog from the server
+        (wire method ``catalog.get``, §7.2.1). Authenticated only
+        (``auth_required`` otherwise); v1 has no paging or version
+        switching -- the whole current registry comes back in one response
+        as ``{catalogHash, block, entity, particle}``. Most callers want
+        :meth:`sync_constants` instead, which adds caching, integrity
+        verification, and writes the generated constants module."""
+        return self.conn.rpc("catalog.get", [])
+
+    def sync_constants(self, target_dir=None, force=False):
+        """Ensure the connected server's catalog is cached locally and
+        (re)write the CWD ``mc_constants.py`` proxy from it
+        (mc-constants-design_ja.md; DECISIONS 2026-07-29-04).
+
+        No-ops (returns ``None``) if ``hello`` did not advertise a
+        ``catalogHash`` -- the server has no catalog to offer yet, or this
+        session is unauthenticated. Otherwise: reuse the local cache for
+        this ``catalogHash`` if present, else call :meth:`getCatalog` and
+        validate + cache the result (raises
+        :class:`~mc_remote.catalog.CatalogError` on a malformed catalog or a
+        ``catalogHash`` that does not match the returned body). Folds this
+        session's whole ``world_constants`` (from ``hello``, currently just
+        ``y_sea`` but forward compatible with a future bN sending more) into
+        the generated file's ``world_info`` class alongside ``block`` /
+        ``entity`` / ``particle``. ``force=True`` re-fetches even if a cache
+        entry already exists for this ``catalogHash``. Returns the written
+        file's path, or ``None`` if there was no catalog to sync. :meth:`create`
+        calls this automatically unless ``sync_catalog=False``."""
+        if not self.catalog_hash:
+            return None
+        data = None if force else _catalog.load_cached_catalog(self.catalog_hash)
+        if data is None:
+            data = self.getCatalog()
+            _catalog.validate_catalog(data)
+            _catalog.save_cached_catalog(self.catalog_hash, data)
+        world_info = {
+            key.upper(): value
+            for key, value in (self.world_constants or {}).items()
+            if value is not None
+        } or None
+        source = _constants_codegen.generate_source(
+            data, self.mc_version, self.catalog_hash, world_info=world_info
+        )
+        return _constants_codegen.write_constants_file(source, target_dir)
+
     def close(self):
         """Close the connection to the Minecraft server"""
         self.conn.close()
@@ -228,6 +285,7 @@ class Minecraft:
         token_type="session",
         pair=True,
         token_key=None,
+        sync_catalog=True,
     ):
         """Connect and run the unified b2 auth flow (§6.5).
 
@@ -242,7 +300,13 @@ class Minecraft:
 
         ``token_key`` controls the local token-store entry. By default it is
         ``"{address}:{port}"``. ``sandbox`` is kept as a compatibility alias for
-        this local key only; it is never sent in ``hello.params`` (§6.1)."""
+        this local key only; it is never sent in ``hello.params`` (§6.1).
+
+        ``sync_catalog`` (default ``True``) additionally calls
+        :meth:`sync_constants` after a successful handshake, writing/
+        refreshing the CWD ``mc_constants.py`` whenever the server
+        advertises a ``catalogHash``; pass ``False`` to skip the extra round
+        trip and file write."""
         env_host = _env_first("MCREMOTE_API_HOST", "JRP_API_HOST")
         if env_host is not None:
             address = env_host
@@ -256,6 +320,8 @@ class Minecraft:
         if handshake:
             server_key = token_key or sandbox or f"{address}:{port}"
             mc.authenticate(server_key, token_type=token_type, pair=pair)
+            if sync_catalog:
+                mc.sync_constants()
         return mc
 
 
