@@ -1,5 +1,6 @@
 import os
 import math
+import warnings
 
 from .connection import (
     Connection,
@@ -9,6 +10,7 @@ from .connection import (
     RequestFailedError,
 )
 from .auth import (
+    PairingRequiredError,
     pair as run_pairing,
     is_auth_discard,
     load_token,
@@ -17,6 +19,7 @@ from .auth import (
 )
 from . import catalog as _catalog
 from . import _constants_codegen
+from . import projection as _projection
 from .vec3 import Vec3
 from .util import flatten
 
@@ -26,6 +29,9 @@ __all__ = [
     "McRpcError",
     "ConnectionLostError",
     "RequestFailedError",
+    "PairingRequiredError",
+    "CatalogProjectionError",
+    "CatalogProjectionWarning",
     "mcpy",
 ]
 
@@ -33,6 +39,9 @@ __all__ = [
 # Wire protocol version this client speaks (sent in the hello handshake and
 # checked by the server). Distinct from the PyPI/distribution version.
 PROTOCOL = "21.0.0"
+
+CatalogProjectionError = _projection.CatalogProjectionError
+CatalogProjectionWarning = _projection.CatalogProjectionWarning
 
 
 def intFloor(*args):
@@ -67,6 +76,13 @@ class Minecraft:
 
     def __init__(self, connection):
         self.conn = connection
+        self._server_key = None
+        self._catalog_connection_factory = None
+        self._catalog_endpoint = (
+            getattr(connection, "address", None),
+            getattr(connection, "port", None),
+            getattr(connection, "debug", False),
+        )
 
         # Build state, scoped to this connection/stream (one instance = one
         # stream = one build state). Kept as a local record of what this stream
@@ -196,51 +212,152 @@ class Minecraft:
         coords = intFloor(x, y, z)
         return self.conn.rpc("player.setPos", [world] + coords)
 
+    def _get_catalog_on_current_stream(self):
+        """Fetch on this instance's stream (auxiliary instances only)."""
+        return self.conn.rpc("catalog.get", [])
+
+    def _catalog_stream(self):
+        factory = self._catalog_connection_factory
+        address, port, debug = self._catalog_endpoint
+        if factory is None or address is None or port is None or self._server_key is None:
+            raise _projection.CatalogProjectionError(
+                "fetch",
+                "catalog sync needs connection endpoint metadata; use Minecraft.create()",
+            )
+        auxiliary = None
+        try:
+            auxiliary = Minecraft(factory(address, port, debug))
+            auxiliary._server_key = self._server_key
+            auxiliary._catalog_endpoint = self._catalog_endpoint
+            auxiliary._catalog_connection_factory = factory
+            auxiliary.authenticate(self._server_key, pair=False)
+        except Exception as exc:
+            if auxiliary is not None:
+                try:
+                    auxiliary.close()
+                except Exception:
+                    pass
+            if isinstance(exc, _projection.CatalogProjectionError):
+                raise
+            raise _projection.CatalogProjectionError(
+                "fetch", "could not open the short-lived catalog stream", cause=exc
+            ) from exc
+        return auxiliary
+
+    def _fetch_catalog_separately(self):
+        auxiliary = self._catalog_stream()
+        try:
+            if auxiliary.catalog_hash != self.catalog_hash:
+                raise _catalog.CatalogError(
+                    "catalogHash changed between the build-stream hello and "
+                    "the catalog-stream hello; retry the sync"
+                )
+            return auxiliary._get_catalog_on_current_stream()
+        except _catalog.CatalogError as exc:
+            raise _projection.CatalogProjectionError(
+                "validate", "catalog stream did not match the build hello", cause=exc
+            ) from exc
+        except Exception as exc:
+            raise _projection.CatalogProjectionError(
+                "fetch", "catalog.get failed on the short-lived stream", cause=exc
+            ) from exc
+        finally:
+            try:
+                auxiliary.close()
+            except Exception:
+                pass
+
     def getCatalog(self):
         """Fetch the live block/entity/particle catalog from the server
         (wire method ``catalog.get``, §7.2.1). Authenticated only
         (``auth_required`` otherwise); v1 has no paging or version
         switching -- the whole current registry comes back in one response
-        as ``{catalogHash, block, entity, particle}``. Most callers want
-        :meth:`sync_constants` instead, which adds caching, integrity
-        verification, and writes the generated constants module."""
-        return self.conn.rpc("catalog.get", [])
+        as ``{catalogHash, block, entity, particle}``. The fetch always uses
+        a separate short-lived authenticated stream, so it cannot reset or
+        close this instance's connection-scoped build state. Most callers
+        want :meth:`sync_constants` instead, which adds caching, integrity
+        verification, and publishes the generated projection."""
+        return self._fetch_catalog_separately()
 
     def sync_constants(self, target_dir=None, force=False):
         """Ensure the connected server's catalog is cached locally and
-        (re)write the CWD ``mc_constants.py`` proxy from it
-        (mc-constants-design_ja.md; DECISIONS 2026-07-29-04).
+        publish the CWD ``mc_constants.py`` plus manifest projection from it
+        (mc-constants-design_ja.md; DECISIONS 2026-08-02-05/06).
 
         No-ops (returns ``None``) if ``hello`` did not advertise a
         ``catalogHash`` -- the server has no catalog to offer yet, or this
         session is unauthenticated. Otherwise: reuse the local cache for
-        this ``catalogHash`` if present, else call :meth:`getCatalog` and
-        validate + cache the result (raises
-        :class:`~mc_remote.catalog.CatalogError` on a malformed catalog or a
-        ``catalogHash`` that does not match the returned body). Folds this
+        this ``catalogHash`` if present, else fetch on a separate short-lived
+        stream and validate + cache the result. Folds this
         session's whole ``world_constants`` (from ``hello``, currently just
         ``y_sea`` but forward compatible with a future bN sending more) into
         the generated file's ``world_info`` class alongside ``block`` /
         ``entity`` / ``particle``. ``force=True`` re-fetches even if a cache
         entry already exists for this ``catalogHash``. Returns the written
-        file's path, or ``None`` if there was no catalog to sync. :meth:`create`
-        calls this automatically unless ``sync_catalog=False``."""
+        file's path, or ``None`` if there was no catalog to sync. This explicit
+        method is strict and raises :class:`CatalogProjectionError` with a
+        stable ``stage``; it never closes the build stream. :meth:`create`
+        calls it automatically unless ``sync_catalog=False``, but turns such
+        failures into :class:`CatalogProjectionWarning` and still returns the
+        connected client."""
         if not self.catalog_hash:
             return None
-        data = None if force else _catalog.load_cached_catalog(self.catalog_hash)
+
+        try:
+            target_dir = os.path.abspath(target_dir or os.getcwd())
+            # Policy is checked before cache/network work.  In a Git project a
+            # missing ignore rule means no projection files are created at all.
+            _projection.ensure_projection_allowed(target_dir)
+        except _projection.CatalogProjectionError:
+            raise
+        except Exception as exc:
+            raise _projection.CatalogProjectionError(
+                "ignore", "could not verify project ignore policy", cause=exc
+            ) from exc
+
+        try:
+            data = None if force else _catalog.load_cached_catalog(self.catalog_hash)
+        except Exception as exc:
+            raise _projection.CatalogProjectionError(
+                "cache", "could not inspect the raw catalog cache", cause=exc
+            ) from exc
         if data is None:
-            data = self.getCatalog()
-            _catalog.validate_catalog(data)
-            _catalog.save_cached_catalog(self.catalog_hash, data)
-        world_info = {
-            key.upper(): value
-            for key, value in (self.world_constants or {}).items()
-            if value is not None
-        } or None
-        source = _constants_codegen.generate_source(
-            data, self.mc_version, self.catalog_hash, world_info=world_info
-        )
-        return _constants_codegen.write_constants_file(source, target_dir)
+            data = self._fetch_catalog_separately()
+            try:
+                _catalog.validate_catalog(data, expected_hash=self.catalog_hash)
+            except Exception as exc:
+                raise _projection.CatalogProjectionError(
+                    "validate", "catalog validation failed", cause=exc
+                ) from exc
+            try:
+                _catalog.save_cached_catalog(self.catalog_hash, data)
+            except Exception as exc:
+                raise _projection.CatalogProjectionError(
+                    "cache", "could not save the validated raw catalog", cause=exc
+                ) from exc
+        try:
+            world_info = {
+                key.upper(): value
+                for key, value in (self.world_constants or {}).items()
+                if value is not None
+            } or None
+            source = _constants_codegen.generate_source(
+                data, self.mc_version, self.catalog_hash, world_info=world_info
+            )
+        except Exception as exc:
+            raise _projection.CatalogProjectionError(
+                "generate", "could not generate mc_constants.py", cause=exc
+            ) from exc
+        try:
+            return _projection.publish_projection(
+                source, self.catalog_hash, target_dir=target_dir
+            )
+        except _projection.CatalogProjectionError:
+            raise
+        except Exception as exc:
+            raise _projection.CatalogProjectionError(
+                "publish", "catalog projection publication failed", cause=exc
+            ) from exc
 
     def close(self):
         """Close the connection to the Minecraft server"""
@@ -262,13 +379,17 @@ class Minecraft:
         try:
             return self.hello(token)
         except McRpcError as e:
-            if not (pair and is_auth_discard(e)):
+            if not is_auth_discard(e):
                 raise
-            # Auth-family failure: drop the bad token and pair. The server
+            # Token disposition is independent of whether this call is
+            # allowed to launch pairing (DEC 2026-08-02-06).
+            clear_token(server_key)
+            if not pair:
+                raise PairingRequiredError(e.reason) from e
+            # Auth-family failure: pair. The server
             # drops the stream after auth_required (hello is once per
             # connection), so reconnect before pairing and again for the
             # authenticated hello.
-            clear_token(server_key)
             self.conn.reconnect()
             token = run_pairing(self.conn, token_type=token_type)
             save_token(server_key, token)
@@ -303,10 +424,10 @@ class Minecraft:
         this local key only; it is never sent in ``hello.params`` (§6.1).
 
         ``sync_catalog`` (default ``True``) additionally calls
-        :meth:`sync_constants` after a successful handshake, writing/
-        refreshing the CWD ``mc_constants.py`` whenever the server
-        advertises a ``catalogHash``; pass ``False`` to skip the extra round
-        trip and file write."""
+        :meth:`sync_constants` after a successful handshake. Cache misses use
+        a separate short-lived stream and publish ``mc_constants.py`` plus its
+        manifest. Projection failures are non-fatal actionable warnings; pass
+        ``False`` to skip catalog cache/projection work entirely."""
         env_host = _env_first("MCREMOTE_API_HOST", "JRP_API_HOST")
         if env_host is not None:
             address = env_host
@@ -316,12 +437,23 @@ class Minecraft:
                 port = int(env_port)
             except ValueError:
                 pass
-        mc = Minecraft(Connection(address, port, debug))
+        connection_factory = Connection
+        mc = Minecraft(connection_factory(address, port, debug))
+        mc._catalog_endpoint = (address, port, debug)
+        mc._catalog_connection_factory = connection_factory
         if handshake:
             server_key = token_key or sandbox or f"{address}:{port}"
+            mc._server_key = server_key
             mc.authenticate(server_key, token_type=token_type, pair=pair)
             if sync_catalog:
-                mc.sync_constants()
+                try:
+                    mc.sync_constants()
+                except _projection.CatalogProjectionError as exc:
+                    warnings.warn(
+                        _projection.format_warning(exc),
+                        _projection.CatalogProjectionWarning,
+                        stacklevel=2,
+                    )
         return mc
 
 

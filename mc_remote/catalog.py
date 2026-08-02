@@ -18,6 +18,7 @@ connection (``Minecraft.getCatalog`` / ``Minecraft.sync_constants``).
 import hashlib
 import json
 import os
+import time
 
 from .connection import McRemoteError
 
@@ -44,7 +45,7 @@ def compute_catalog_hash(body):
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def validate_catalog(data):
+def validate_catalog(data, expected_hash=None):
     """Validate a ``catalog.get`` result's shape and integrity.
 
     Checks: ``data`` is an object carrying a non-empty string
@@ -61,6 +62,11 @@ def validate_catalog(data):
     declared_hash = data.get("catalogHash")
     if not isinstance(declared_hash, str) or not declared_hash:
         raise CatalogError("catalog.get result is missing a string catalogHash")
+    if expected_hash is not None and declared_hash != expected_hash:
+        raise CatalogError(
+            f"catalogHash differs from authenticated hello: expected "
+            f"{expected_hash!r}, got {declared_hash!r}"
+        )
     body = {}
     for key in CATALOG_KEYS:
         value = data.get(key)
@@ -114,25 +120,33 @@ def load_cached_catalog(catalog_hash):
             data = json.load(fh)
     except (OSError, ValueError):
         return None
-    return data if isinstance(data, dict) else None
+    try:
+        validate_catalog(data, expected_hash=catalog_hash)
+    except CatalogError:
+        return None
+    return data
 
 
 def save_cached_catalog(catalog_hash, data):
     """Persist ``data`` (an already-validated ``catalog.get`` result) under
     ``catalog_hash``. Written via temp file + atomic replace so a crash
     mid-write cannot leave a corrupt cache entry."""
+    validate_catalog(data, expected_hash=catalog_hash)
     path = _catalog_cache_file(catalog_hash)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
+    tmp = path + f".{os.getpid()}.{time.time_ns()}.tmp"
     try:
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(data, fh, sort_keys=True, separators=(",", ":"))
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
     except Exception:
         try:
             os.unlink(tmp)
-        finally:
-            raise
-    os.replace(tmp, path)
+        except OSError:
+            pass
+        raise
 
 
 # --- kwargs sugar for block_state_ref input ---------------------------------

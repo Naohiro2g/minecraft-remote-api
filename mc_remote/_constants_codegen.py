@@ -14,11 +14,8 @@ those in via ``world_info`` so the generated file still satisfies the
 ``from mc_constants import block, entity, particle, world_info`` shape the
 guide documents.
 """
-import importlib
 import keyword
-import os
 import re
-import sys
 
 _IDENTIFIER_SUB = re.compile(r"[^0-9A-Za-z_]")
 
@@ -88,38 +85,3 @@ def generate_source(catalog, mc_version, catalog_hash, world_info=None):
         body = "\n".join(f"    {key} = {value!r}" for key, value in world_info.items())
         parts.append("\n\nclass world_info:\n" + (body or "    pass") + "\n")
     return "".join(parts)
-
-
-def write_constants_file(source, target_dir=None):
-    """Write ``source`` to ``<target_dir>/mc_constants.py`` (default: CWD),
-    skipping the write if the content is unchanged (avoids noisy
-    diffs/mtime churn, mc-constants-design_ja.md #6). Also ensures
-    ``target_dir`` is on ``sys.path`` so ``from mc_constants import ...``
-    resolves regardless of how the caller's script was launched
-    (mc-constants-design_ja.md #2), and reloads an already-imported
-    ``mc_constants`` module so a live process picks up the new content.
-    Returns the written file's path."""
-    target_dir = target_dir or os.getcwd()
-    path = os.path.join(target_dir, "mc_constants.py")
-
-    needs_write = True
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            needs_write = fh.read() != source
-    except FileNotFoundError:
-        needs_write = True
-
-    if needs_write:
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(source)
-
-    if target_dir not in sys.path:
-        sys.path.insert(0, target_dir)
-
-    if "mc_constants" in sys.modules:
-        try:
-            importlib.reload(sys.modules["mc_constants"])
-        except Exception:
-            sys.modules.pop("mc_constants", None)
-
-    return path

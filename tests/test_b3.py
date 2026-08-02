@@ -16,23 +16,28 @@ Covers the b3 checklist (versioning-design §10.11.1 item 14, DECISIONS
   5. codegen: generate_source produces syntactically valid Python exposing
      block/entity/particle/world_info; catalog-id collisions across
      namespaces get disambiguated instead of overwriting each other
-  6. write_constants_file: writes into target_dir and is a no-op (does not
-     re-touch the file) when the content is unchanged
-  7. Minecraft.getCatalog / sync_constants: no catalogHash -> no-op; a cache
-     miss fetches+validates+caches+writes; a cache hit skips the network
-     call; force=True re-fetches; an invalid fetched catalog raises and does
-     not poison the cache
-  8. Minecraft.create(sync_catalog=...): True writes mc_constants.py after a
-     successful handshake when a catalogHash is advertised; False skips it
+  6. project projection: mc_constants.py plus checksum manifest, verified
+     no-op when unchanged, no .pyi
+  7. Minecraft.getCatalog / sync_constants: cache misses and force fetches use
+     a separate short-lived authenticated stream; explicit sync stays strict
+     without closing the build stream
+  8. Minecraft.create(sync_catalog=...): automatic failures warn and still
+     return a build-capable client; False skips all projection work
+  9. project init / Git policy: ignore supply is explicit and idempotent;
+     missing ignore blocks generation; status and clone stay artifact-free
 
 The catalog/auth layers are tested against a fake connection, a temp cache
 dir, and a temp CWD; no socket, server, or real filesystem config is
 touched.
 """
 import contextlib
+import hashlib
+import json
 import os
+import subprocess
 import sys
 import tempfile
+import warnings
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -48,7 +53,20 @@ from mc_remote.catalog import (  # noqa: E402
 )
 from mc_remote import _constants_codegen  # noqa: E402
 from mc_remote.auth import save_token  # noqa: E402
-from mc_remote.minecraft import Minecraft, PROTOCOL  # noqa: E402
+from mc_remote.minecraft import (  # noqa: E402
+    CatalogProjectionError,
+    CatalogProjectionWarning,
+    Minecraft,
+    PROTOCOL,
+)
+from mc_remote.projection import (  # noqa: E402
+    ARTIFACT_NAME,
+    GENERATOR_VERSION,
+    MANIFEST_NAME,
+    PROJECTION_SCHEMA_VERSION,
+    init_project,
+)
+import mc_remote.projection as projection_mod  # noqa: E402
 import mc_remote.minecraft as minecraft_mod  # noqa: E402
 
 
@@ -64,6 +82,10 @@ class FakeConn:
             k: list(v) if isinstance(v, list) else v for k, v in responses.items()
         }
         self.calls = []
+        self.closed = False
+        self.address = "localhost"
+        self.port = 25575
+        self.debug = False
 
     def rpc(self, method, params=None):
         self.calls.append((method, params))
@@ -80,7 +102,7 @@ class FakeConn:
         pass
 
     def close(self):
-        pass
+        self.closed = True
 
 
 @contextlib.contextmanager
@@ -128,20 +150,41 @@ def tmp_chdir():
 
 
 @contextlib.contextmanager
-def patched_connection(conn):
-    """Make Minecraft.create() use a fake connection without opening a socket."""
+def patched_connection(*connections):
+    """Feed one fake per stream opened by Minecraft.create()."""
     prev = minecraft_mod.Connection
-    conn.connect_args = []
+    pending = list(connections)
+    connect_args = []
+    for conn in connections:
+        conn.connect_args = connect_args
 
     def fake_connection(address, port, debug=False):
-        conn.connect_args.append((address, port, debug))
-        return conn
+        connect_args.append((address, port, debug))
+        if not pending:
+            raise AssertionError("unexpected extra connection")
+        return pending.pop(0)
 
     minecraft_mod.Connection = fake_connection
     try:
         yield
     finally:
         minecraft_mod.Connection = prev
+
+
+def configure_catalog_stream(mc, auxiliary, server_key="localhost:25575"):
+    """Give a directly-created client the metadata create() normally sets."""
+    mc._server_key = server_key
+    mc._catalog_endpoint = ("localhost", 25575, False)
+    used = False
+
+    def factory(address, port, debug=False):
+        nonlocal used
+        if used:
+            raise AssertionError("unexpected extra catalog stream")
+        used = True
+        return auxiliary
+
+    mc._catalog_connection_factory = factory
 
 
 @contextlib.contextmanager
@@ -345,49 +388,39 @@ def test_codegen_disambiguates_local_name_collision():
     assert values == {"minecraft:oak_log", "modid:oak_log"}, values
 
 
-# 6a. write_constants_file lands the file in target_dir and puts it on sys.path
-def test_write_constants_file_writes_and_extends_path():
-    with tmp_chdir() as d:
-        source = _constants_codegen.generate_source(_sample_catalog(), "1.21.11", "abc")
-        path = _constants_codegen.write_constants_file(source, target_dir=d)
-        assert path == os.path.join(d, "mc_constants.py")
-        with open(path, "r", encoding="utf-8") as fh:
-            assert fh.read() == source
-        assert d in sys.path
-
-
-# 6b. identical content is not rewritten (avoids mtime/diff churn)
-def test_write_constants_file_skips_unchanged_write():
-    with tmp_chdir() as d:
-        source = _constants_codegen.generate_source(_sample_catalog(), "1.21.11", "abc")
-        path = _constants_codegen.write_constants_file(source, target_dir=d)
-        os.chmod(d, 0o500)  # read+execute only: a real write would now raise
-        try:
-            _constants_codegen.write_constants_file(source, target_dir=d)
-        finally:
-            os.chmod(d, 0o700)
-        with open(path, "r", encoding="utf-8") as fh:
-            assert fh.read() == source
-
-
-# 7a. no catalogHash -> sync_constants no-ops without calling catalog.get
+# 6a. no catalogHash -> sync_constants no-ops without creating artifacts
 def test_sync_constants_noop_without_catalog_hash():
     mc = Minecraft(FakeConn({}))
     mc.catalog_hash = None
-    assert mc.sync_constants() is None
+    with tmp_chdir() as d:
+        assert mc.sync_constants() is None
+        assert os.listdir(d) == []
 
 
-# 7b. cache miss: fetches via catalog.get, validates, caches, writes the file
+# 6b. cache miss: catalog.get runs on a separate authenticated stream
 def test_sync_constants_cache_miss_fetches_and_writes():
     catalog = _sample_catalog()
-    fake = FakeConn({"catalog.get": catalog})
-    mc = Minecraft(fake)
+    main = FakeConn({"world.setBlock": None})
+    auxiliary = FakeConn(
+        {
+            "hello": dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"]),
+            "catalog.get": catalog,
+        }
+    )
+    mc = Minecraft(main)
     mc.catalog_hash = catalog["catalogHash"]
     mc.mc_version = "1.21.11"
     mc.world_constants = {"y_sea": 63}
-    with tmp_cache(), tmp_chdir() as d:
+    configure_catalog_stream(mc, auxiliary)
+    with tmp_config(), tmp_cache(), tmp_chdir() as d:
+        save_token("localhost:25575", "mcrs_tok")
         path = mc.sync_constants(target_dir=d)
-        assert fake.calls == [("catalog.get", [])], fake.calls
+        assert main.calls == [], main.calls
+        assert auxiliary.calls == [
+            ("hello", {"protocol": PROTOCOL, "auth": {"token": "mcrs_tok"}}),
+            ("catalog.get", []),
+        ], auxiliary.calls
+        assert auxiliary.closed
         assert load_cached_catalog(catalog["catalogHash"]) == catalog
         with open(path, "r", encoding="utf-8") as fh:
             content = fh.read()
@@ -397,61 +430,126 @@ def test_sync_constants_cache_miss_fetches_and_writes():
             assert "Y_SEA = 63" in content
 
 
-# 7c. cache hit: no catalog.get call
+# 6c. manifest is the commit marker and verifies the generated .py
+def test_projection_manifest_has_required_key_and_checksum():
+    catalog = _sample_catalog()
+    mc = Minecraft(FakeConn({}))
+    mc.catalog_hash = catalog["catalogHash"]
+    mc.mc_version = "1.21.11"
+    with tmp_cache(), tmp_chdir() as d:
+        save_cached_catalog(catalog["catalogHash"], catalog)
+        path = mc.sync_constants(target_dir=d)
+        manifest_path = os.path.join(d, MANIFEST_NAME)
+        with open(path, "rb") as fh:
+            artifact_hash = hashlib.sha256(fh.read()).hexdigest()
+        with open(manifest_path, "r", encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        assert manifest["catalogHash"] == catalog["catalogHash"]
+        assert manifest["generatorVersion"] == GENERATOR_VERSION
+        assert manifest["projectionSchemaVersion"] == PROJECTION_SCHEMA_VERSION
+        assert len(manifest["projectionKey"]) == 64
+        assert manifest["artifacts"] == {
+            ARTIFACT_NAME: {"sha256": artifact_hash}
+        }
+        assert not os.path.exists(os.path.join(d, "mc_constants.pyi"))
+
+
+# 6d. a verified projection is not rewritten
+def test_projection_skips_verified_unchanged_pair():
+    catalog = _sample_catalog()
+    mc = Minecraft(FakeConn({}))
+    mc.catalog_hash = catalog["catalogHash"]
+    mc.mc_version = "1.21.11"
+    with tmp_cache(), tmp_chdir() as d:
+        save_cached_catalog(catalog["catalogHash"], catalog)
+        path = mc.sync_constants(target_dir=d)
+        manifest_path = os.path.join(d, MANIFEST_NAME)
+        before = (os.stat(path).st_mtime_ns, os.stat(manifest_path).st_mtime_ns)
+        mc.sync_constants(target_dir=d)
+        after = (os.stat(path).st_mtime_ns, os.stat(manifest_path).st_mtime_ns)
+        assert after == before
+
+
+# 7a. cache hit: no auxiliary stream is opened
 def test_sync_constants_cache_hit_skips_fetch():
     catalog = _sample_catalog()
-    fake = FakeConn({"catalog.get": RuntimeError("should not be called")})
-    mc = Minecraft(fake)
+    main = FakeConn({})
+    mc = Minecraft(main)
     mc.catalog_hash = catalog["catalogHash"]
     mc.mc_version = "1.21.11"
     with tmp_cache(), tmp_chdir() as d:
         save_cached_catalog(catalog["catalogHash"], catalog)
         mc.sync_constants(target_dir=d)
-        assert fake.calls == [], fake.calls
+        assert main.calls == [], main.calls
 
 
-# 7d. force=True re-fetches even though a cache entry already exists
+# 7b. force=True uses an auxiliary stream even with a cache entry
 def test_sync_constants_force_refetches():
     catalog = _sample_catalog()
-    fake = FakeConn({"catalog.get": catalog})
-    mc = Minecraft(fake)
+    main = FakeConn({})
+    auxiliary = FakeConn(
+        {
+            "hello": dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"]),
+            "catalog.get": catalog,
+        }
+    )
+    mc = Minecraft(main)
     mc.catalog_hash = catalog["catalogHash"]
     mc.mc_version = "1.21.11"
-    with tmp_cache(), tmp_chdir() as d:
+    configure_catalog_stream(mc, auxiliary)
+    with tmp_config(), tmp_cache(), tmp_chdir() as d:
+        save_token("localhost:25575", "mcrs_tok")
         save_cached_catalog(catalog["catalogHash"], catalog)
         mc.sync_constants(target_dir=d, force=True)
-        assert fake.calls == [("catalog.get", [])], fake.calls
+        assert ("catalog.get", []) in auxiliary.calls
+        assert main.calls == []
 
 
-# 7e. an invalid fetched catalog raises and is never written to the cache
+# 7c. explicit sync stays strict but never closes the build stream
 def test_sync_constants_rejects_invalid_catalog():
-    bad = _sample_catalog()
-    bad["catalogHash"] = "0" * 64  # declared hash won't match the body
-    fake = FakeConn({"catalog.get": bad})
-    mc = Minecraft(fake)
-    mc.catalog_hash = bad["catalogHash"]
+    expected = _sample_catalog()
+    bad = dict(expected, catalogHash="0" * 64)
+    main = FakeConn({"world.setBlock": "built"})
+    auxiliary = FakeConn(
+        {
+            "hello": dict(HELLO_WITH_CATALOG, catalogHash=expected["catalogHash"]),
+            "catalog.get": bad,
+        }
+    )
+    mc = Minecraft(main)
+    mc.catalog_hash = expected["catalogHash"]
     mc.mc_version = "1.21.11"
-    with tmp_cache(), tmp_chdir() as d:
+    configure_catalog_stream(mc, auxiliary)
+    with tmp_config(), tmp_cache(), tmp_chdir() as d:
+        save_token("localhost:25575", "mcrs_tok")
         try:
             mc.sync_constants(target_dir=d)
-        except CatalogError:
-            pass
+        except CatalogProjectionError as exc:
+            assert exc.stage == "validate"
         else:
-            raise AssertionError("expected CatalogError")
-        assert load_cached_catalog(bad["catalogHash"]) is None
+            raise AssertionError("expected CatalogProjectionError")
+        assert not main.closed
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert load_cached_catalog(expected["catalogHash"]) is None
 
 
-# 8a. create(sync_catalog=True) writes mc_constants.py after a clean handshake
+# 8a. create() keeps the build stream and fetches on a second stream
 def test_create_syncs_catalog_by_default():
     catalog = _sample_catalog()
     hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
-    fake = FakeConn({"hello": hello, "catalog.get": catalog})
+    main = FakeConn({"hello": hello})
+    auxiliary = FakeConn({"hello": hello, "catalog.get": catalog})
     with tmp_config(), tmp_cache(), tmp_chdir() as d:
         save_token("localhost:25575", "mcrs_tok")
-        with api_env(), patched_connection(fake):
+        with api_env(), patched_connection(main, auxiliary):
             Minecraft.create()
-        assert ("catalog.get", []) in fake.calls, fake.calls
+        assert main.calls == [
+            ("hello", {"protocol": PROTOCOL, "auth": {"token": "mcrs_tok"}})
+        ]
+        assert ("catalog.get", []) in auxiliary.calls
+        assert auxiliary.closed and not main.closed
         assert os.path.exists(os.path.join(d, "mc_constants.py"))
+        assert os.path.exists(os.path.join(d, MANIFEST_NAME))
 
 
 # 8b. create(sync_catalog=False) skips catalog.get and the file write entirely
@@ -467,6 +565,121 @@ def test_create_can_skip_catalog_sync():
             ("hello", {"protocol": PROTOCOL, "auth": {"token": "mcrs_tok"}})
         ], fake.calls
         assert not os.path.exists(os.path.join(d, "mc_constants.py"))
+
+
+# 8c. projection failure is a warning; the returned build stream still works
+def test_create_catalog_failure_warns_and_returns_connected_client():
+    catalog = _sample_catalog()
+    hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
+    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    auxiliary = FakeConn(
+        {"hello": hello, "catalog.get": RuntimeError("catalog temporarily down")}
+    )
+    with tmp_config(), tmp_cache(), tmp_chdir() as d:
+        save_token("localhost:25575", "mcrs_tok")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with api_env(), patched_connection(main, auxiliary):
+                mc = Minecraft.create()
+        assert len(caught) == 1
+        assert issubclass(caught[0].category, CatalogProjectionWarning)
+        message = str(caught[0].message)
+        assert "stage=fetch" in message
+        assert "building can continue" in message
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert not main.closed
+        assert not os.path.exists(os.path.join(d, ARTIFACT_NAME))
+
+
+# 8d. even an unexpected publication failure remains inside the warning boundary
+def test_create_publish_failure_warns_and_keeps_build_stream():
+    catalog = _sample_catalog()
+    hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
+    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    original = projection_mod.publish_projection
+
+    def fail_publish(*args, **kwargs):
+        raise RuntimeError("simulated publication failure")
+
+    with tmp_config(), tmp_cache(), tmp_chdir():
+        save_token("localhost:25575", "mcrs_tok")
+        save_cached_catalog(catalog["catalogHash"], catalog)
+        projection_mod.publish_projection = fail_publish
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                with api_env(), patched_connection(main):
+                    mc = Minecraft.create()
+        finally:
+            projection_mod.publish_projection = original
+        assert len(caught) == 1
+        assert "stage=publish" in str(caught[0].message)
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert not main.closed
+
+
+# 9a. Git projects must opt in; create warns before fetching or generating
+def test_missing_ignore_blocks_generation_but_not_building():
+    catalog = _sample_catalog()
+    hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
+    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    with tmp_config(), tmp_cache(), tmp_chdir() as d:
+        subprocess.run(["git", "init", "-q", d], check=True)
+        save_token("localhost:25575", "mcrs_tok")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with api_env(), patched_connection(main):
+                mc = Minecraft.create()
+        assert len(caught) == 1
+        assert "stage=ignore" in str(caught[0].message)
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert not os.path.exists(os.path.join(d, ARTIFACT_NAME))
+        assert not os.path.exists(os.path.join(d, MANIFEST_NAME))
+
+
+# 9b. explicit project init is idempotent and never creates projection files
+def test_project_init_supplies_ignore_rules_idempotently():
+    with tmp_chdir() as d:
+        path, changed = init_project(d)
+        assert changed
+        path2, changed2 = init_project(d)
+        assert path2 == path and not changed2
+        with open(path, "r", encoding="utf-8") as fh:
+            content = fh.read()
+        assert content.count("/mc_constants.py") == 1
+        assert content.count("/mc_constants.manifest.json") == 1
+        assert content.count("/.mc_constants.*") == 1
+        assert not os.path.exists(os.path.join(d, ARTIFACT_NAME))
+
+
+# 9c. generated files remain invisible to status and local clone
+def test_initialized_git_project_stays_clean_and_clone_has_no_projection():
+    catalog = _sample_catalog()
+    mc = Minecraft(FakeConn({}))
+    mc.catalog_hash = catalog["catalogHash"]
+    mc.mc_version = "1.21.11"
+    with tmp_cache(), tmp_chdir() as d:
+        subprocess.run(["git", "init", "-q", d], check=True)
+        init_project(d)
+        subprocess.run(["git", "-C", d, "add", ".gitignore"], check=True)
+        subprocess.run(
+            [
+                "git", "-C", d, "-c", "user.name=Test", "-c",
+                "user.email=test@example.invalid", "commit", "-qm", "init",
+            ],
+            check=True,
+        )
+        save_cached_catalog(catalog["catalogHash"], catalog)
+        mc.sync_constants(target_dir=d)
+        status = subprocess.run(
+            ["git", "-C", d, "status", "--porcelain"],
+            text=True, stdout=subprocess.PIPE, check=True,
+        ).stdout
+        assert status == ""
+        clone = tempfile.mkdtemp(prefix="mcremote_clone_parent_") + "/clone"
+        subprocess.run(["git", "clone", "-q", d, clone], check=True)
+        assert not os.path.exists(os.path.join(clone, ARTIFACT_NAME))
+        assert not os.path.exists(os.path.join(clone, MANIFEST_NAME))
 
 
 if __name__ == "__main__":

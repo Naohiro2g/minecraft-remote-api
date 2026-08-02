@@ -6,6 +6,8 @@ CLAUDE.md
 # b3 project-local catalog projection (mc_remote.Minecraft.sync_constants).
 # It is intentionally acquired after a successful hello and is never tracked.
 mc_constants.py
+mc_constants.manifest.json
+.mc_constants.*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

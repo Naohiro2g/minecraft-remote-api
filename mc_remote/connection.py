@@ -97,7 +97,8 @@ class Connection:
         except Exception as e:
             sys.stderr.write(f"Failed to close socket: {e}\n")
         finally:
-            sys.stderr.write("Connection closed\n")
+            if self.debug:
+                sys.stderr.write("Connection closed\n")
 
     def is_connected(self):
         """Checks if the connection to the server is still active"""

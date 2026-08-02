@@ -19,6 +19,9 @@ dependencies = [
     "pygame-ce>=2.5.7,<3",
 ]
 
+[project.scripts]
+mcremote = "mc_remote.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/Naohiro2g/minecraft-remote-api"
 Repository = "https://github.com/Naohiro2g/minecraft-remote-api"
