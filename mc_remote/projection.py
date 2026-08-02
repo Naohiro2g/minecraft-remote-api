@@ -349,7 +349,9 @@ def format_warning(error):
         # already explained by the stage and the retry guidance.
         cause_summary = f" ({type(cause).__name__})"
     return (
-        f"Catalog completion was not updated (stage={error.stage}){cause_summary}. "
+        f"Catalog completion was not updated (stage={error.stage}): "
+        f"{str(error)}{cause_summary}. "
         "The Minecraft connection is ready and building can continue. "
+        "Any existing completion may be stale. "
         "Fix the reported issue, then retry with mc.sync_constants(force=True)."
     )

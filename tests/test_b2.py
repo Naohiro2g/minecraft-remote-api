@@ -316,7 +316,27 @@ def test_permission_denied_propagates():
         assert load_token("srv:1") == "mcrs_keep"  # authorization failure keeps token
 
 
-# 8d. protocol_mismatch is not an auth reason -> propagates
+# 8d. service availability does not invalidate or discard the credential
+def test_credential_store_unavailable_preserves_token():
+    with tmp_config():
+        unavailable = McRpcError(
+            -32000,
+            "store unavailable",
+            {"reason": "credential_store_unavailable"},
+        )
+        save_token("srv:1", "mcrs_keep")
+        mc = Minecraft(FakeConn({"hello": unavailable}))
+        try:
+            mc.authenticate("srv:1", pair=False)
+        except McRpcError as exc:
+            assert exc.reason == "credential_store_unavailable"
+        else:
+            raise AssertionError("expected credential_store_unavailable")
+        assert load_token("srv:1") == "mcrs_keep"
+        assert mc.conn.reconnects == 0
+
+
+# 8e. protocol_mismatch is not an auth reason -> propagates
 def test_protocol_mismatch_propagates():
     with tmp_config():
         mm = McRpcError(-32600, "mismatch", {"reason": "protocol_mismatch"})

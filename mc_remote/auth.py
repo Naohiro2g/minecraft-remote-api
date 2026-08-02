@@ -31,7 +31,8 @@ class PairingRequiredError(McRemoteError):
         suffix = f" (server reason: {reason})" if reason else ""
         super().__init__(
             "Minecraft pairing is required but pair=False disables it"
-            f"{suffix}. Retry with pair=True in an interactive session."
+            f"{suffix}. Retry with pair=True in an interactive session, "
+            "or provide a credential before running this non-interactively."
         )
 
 

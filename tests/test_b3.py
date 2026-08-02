@@ -597,6 +597,50 @@ def test_projection_skips_verified_unchanged_pair():
         assert after == before
 
 
+# 6e. failure while publishing the manifest restores the prior valid pair
+def test_projection_publish_failure_preserves_previous_valid_pair():
+    catalog = _sample_catalog()
+    old_source = _constants_codegen.generate_source(
+        catalog, "1.21.11", catalog["catalogHash"]
+    )
+    with tmp_chdir() as d:
+        artifact = projection_mod.publish_projection(
+            old_source, catalog["catalogHash"], target_dir=d
+        )
+        manifest = os.path.join(d, MANIFEST_NAME)
+        with open(artifact, "rb") as fh:
+            old_artifact_bytes = fh.read()
+        with open(manifest, "rb") as fh:
+            old_manifest_bytes = fh.read()
+
+        original_replace = projection_mod.os.replace
+
+        def fail_manifest_replace(source, target):
+            if target == manifest:
+                raise OSError("simulated manifest publish failure")
+            return original_replace(source, target)
+
+        projection_mod.os.replace = fail_manifest_replace
+        try:
+            try:
+                projection_mod.publish_projection(
+                    old_source + "\n# next generation\n",
+                    "f" * 64,
+                    target_dir=d,
+                )
+            except CatalogProjectionError as exc:
+                assert exc.stage == "publish"
+            else:
+                raise AssertionError("expected CatalogProjectionError")
+        finally:
+            projection_mod.os.replace = original_replace
+
+        with open(artifact, "rb") as fh:
+            assert fh.read() == old_artifact_bytes
+        with open(manifest, "rb") as fh:
+            assert fh.read() == old_manifest_bytes
+
+
 # 7a. cache hit: no auxiliary stream is opened
 def test_sync_constants_cache_hit_skips_fetch():
     catalog = _sample_catalog()
@@ -700,7 +744,10 @@ def test_create_catalog_failure_warns_and_returns_connected_client():
     hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
     main = FakeConn({"hello": hello, "world.setBlock": "built"})
     auxiliary = FakeConn(
-        {"hello": hello, "catalog.get": RuntimeError("catalog temporarily down")}
+        {
+            "hello": hello,
+            "catalog.get": RuntimeError("secret=mcrs_must_not_appear"),
+        }
     )
     with tmp_config(), tmp_cache(), tmp_chdir() as d:
         save_token("localhost:25575", "mcrs_tok")
@@ -712,13 +759,82 @@ def test_create_catalog_failure_warns_and_returns_connected_client():
         assert issubclass(caught[0].category, CatalogProjectionWarning)
         message = str(caught[0].message)
         assert "stage=fetch" in message
+        assert "catalog.get failed on the short-lived stream" in message
         assert "building can continue" in message
+        assert "may be stale" in message
+        assert "mcrs_must_not_appear" not in message
         assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
         assert not main.closed
         assert not os.path.exists(os.path.join(d, ARTIFACT_NAME))
 
 
-# 8d. even an unexpected publication failure remains inside the warning boundary
+# 8d. validation, cache, and generation failures share the non-fatal boundary
+def test_create_other_projection_stages_warn_and_keep_build_stream():
+    catalog = _sample_catalog()
+    hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
+
+    # Validation: declared hello hash matches, but body content does not.
+    invalid = _sample_catalog()
+    invalid["block"]["minecraft:extra"] = {"states": {}, "default_state": {}}
+    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    auxiliary = FakeConn({"hello": hello, "catalog.get": invalid})
+    with tmp_config(), tmp_cache(), tmp_chdir():
+        save_token("localhost:25575", "mcrs_tok")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with api_env(), patched_connection(main, auxiliary):
+                mc = Minecraft.create()
+        assert "stage=validate" in str(caught[0].message)
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+
+    # Cache publication: the catalog is valid, but the global save fails.
+    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    auxiliary = FakeConn({"hello": hello, "catalog.get": catalog})
+    original_save = minecraft_mod._catalog.save_cached_catalog
+
+    def fail_cache(*args, **kwargs):
+        raise OSError("secret=mcrs_cache_secret")
+
+    with tmp_config(), tmp_cache(), tmp_chdir():
+        save_token("localhost:25575", "mcrs_tok")
+        minecraft_mod._catalog.save_cached_catalog = fail_cache
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                with api_env(), patched_connection(main, auxiliary):
+                    mc = Minecraft.create()
+        finally:
+            minecraft_mod._catalog.save_cached_catalog = original_save
+        message = str(caught[0].message)
+        assert "stage=cache" in message
+        assert "mcrs_cache_secret" not in message
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+
+    # Generation: a validated cache hit avoids opening any auxiliary stream.
+    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    original_generate = minecraft_mod._constants_codegen.generate_source
+
+    def fail_generate(*args, **kwargs):
+        raise RuntimeError("secret=mcrs_generate_secret")
+
+    with tmp_config(), tmp_cache(), tmp_chdir():
+        save_token("localhost:25575", "mcrs_tok")
+        save_cached_catalog(catalog["catalogHash"], catalog)
+        minecraft_mod._constants_codegen.generate_source = fail_generate
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                with api_env(), patched_connection(main):
+                    mc = Minecraft.create()
+        finally:
+            minecraft_mod._constants_codegen.generate_source = original_generate
+        message = str(caught[0].message)
+        assert "stage=generate" in message
+        assert "mcrs_generate_secret" not in message
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+
+
+# 8e. even an unexpected publication failure remains inside the warning boundary
 def test_create_publish_failure_warns_and_keeps_build_stream():
     catalog = _sample_catalog()
     hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
@@ -743,6 +859,35 @@ def test_create_publish_failure_warns_and_keeps_build_stream():
         assert "stage=publish" in str(caught[0].message)
         assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
         assert not main.closed
+
+
+# 8f. a null catalogHash performs no projection work and emits no warning
+def test_create_null_catalog_hash_is_clean_noop():
+    hello = dict(HELLO_WITH_CATALOG, catalogHash=None)
+    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    with tmp_config(), tmp_cache(), tmp_chdir() as d:
+        save_token("localhost:25575", "mcrs_tok")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with api_env(), patched_connection(main):
+                mc = Minecraft.create()
+        assert caught == []
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert not os.path.exists(os.path.join(d, ARTIFACT_NAME))
+
+
+# 8g. a global cache hit still creates nothing before authenticated hello
+def test_cached_catalog_does_not_project_before_hello():
+    catalog = _sample_catalog()
+    hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
+    main = FakeConn({"hello": hello})
+    with tmp_config(), tmp_cache(), tmp_chdir() as d:
+        save_token("localhost:25575", "mcrs_tok")
+        save_cached_catalog(catalog["catalogHash"], catalog)
+        assert not os.path.exists(os.path.join(d, ARTIFACT_NAME))
+        with api_env(), patched_connection(main):
+            Minecraft.create()
+        assert os.path.exists(os.path.join(d, ARTIFACT_NAME))
 
 
 # 9a. Git projects must opt in; create warns before fetching or generating
