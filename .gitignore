@@ -3,8 +3,9 @@ POCKET/
 # AI セッション用ローカル指示（公開しない / 正本は private knowledge リポのテンプレ）
 CLAUDE.md
 
-# b3 project-local catalog projection (mc_remote.Minecraft.sync_constants).
-# It is intentionally acquired after a successful hello and is never tracked.
+# b3 directory-local environment and catalog projection.
+# The local adapter and generated projection are never tracked.
+/param_mc_remote.py
 mc_constants.py
 mc_constants.manifest.json
 .mc_constants.*

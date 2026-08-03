@@ -63,6 +63,7 @@ from mc_remote.minecraft import (  # noqa: E402
 from mc_remote.projection import (  # noqa: E402
     ARTIFACT_NAME,
     GENERATOR_VERSION,
+    IGNORE_RULES,
     MANIFEST_NAME,
     PROJECTION_SCHEMA_VERSION,
     init_project,
@@ -918,6 +919,7 @@ def test_project_init_supplies_ignore_rules_idempotently():
         assert path2 == path and not changed2
         with open(path, "r", encoding="utf-8") as fh:
             content = fh.read()
+        assert content.count("/param_mc_remote.py") == 1
         assert content.count("/mc_constants.py") == 1
         assert content.count("/mc_constants.manifest.json") == 1
         assert content.count("/.mc_constants.*") == 1
@@ -952,6 +954,49 @@ def test_initialized_git_project_stays_clean_and_clone_has_no_projection():
         subprocess.run(["git", "clone", "-q", d, clone], check=True)
         assert not os.path.exists(os.path.join(clone, ARTIFACT_NAME))
         assert not os.path.exists(os.path.join(clone, MANIFEST_NAME))
+
+
+# 9d. tracked starter preserves the environment adapter and before/after path
+def test_starter_contract():
+    starter = Path(__file__).resolve().parent.parent / "starter"
+    expected = {
+        ".gitignore",
+        ".vscode/launch.json",
+        ".vscode/settings.json",
+        "README_ja.md",
+        "hello.py",
+        "param_mc_remote.template.py",
+        "with_completion.py",
+    }
+    actual = {
+        str(path.relative_to(starter))
+        for path in starter.rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts
+    }
+    assert actual == expected
+    assert ARTIFACT_NAME not in actual
+    assert MANIFEST_NAME not in actual
+
+    template = (starter / "param_mc_remote.template.py").read_text(encoding="utf-8")
+    assert 'ADRS_MCR = "sb.mc-remote.com"' in template
+    assert "PORT_MCR = 25575" in template
+    assert "BUILD_ORIGIN = Vec3(" in template
+    assert "PLAYER_NAME" not in template
+    assert "PLAYER_ORIGIN" not in template
+    assert "PLATFORM" not in template
+
+    ignore = (starter / ".gitignore").read_text(encoding="utf-8")
+    for rule in IGNORE_RULES:
+        assert rule in ignore
+
+    hello = (starter / "hello.py").read_text(encoding="utf-8")
+    assert "# from mc_constants import block" in hello
+    assert 'mc.postToChat("Hello, Minecraft from Python!")' in hello
+    assert 'mc.setBlock(5, 62 + 6, 5, "sea_lantern")' in hello
+
+    after = (starter / "with_completion.py").read_text(encoding="utf-8")
+    assert "from mc_constants import block, world_info" in after
+    assert "mc.setBlock(6, world_info.Y_SEA + 5, 5, block.GOLD_BLOCK)" in after
 
 
 if __name__ == "__main__":

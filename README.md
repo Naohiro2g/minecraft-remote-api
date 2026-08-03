@@ -4,7 +4,7 @@
 
 ## Python Client/API package for Minecraft Remote
 
-Write Python code to build automatically in the latest Minecraft world. This repository is dedicated to API development. If you intend to write user code, please refer to [the sample repository `mc_remote_samples`](https://github.com/Naohiro2g/mc_remote_samples).
+Write Python code to build automatically in the latest Minecraft world. This repository is dedicated to API development. For the current b3 learning path, start with the tracked [`starter/`](starter/) directory.
 
 Regarding the Minecraft Remote project, please refer to the section below, or visit the [project homepage at mc-remote.com](https://mc-remote.com).
 
@@ -12,7 +12,7 @@ Regarding the Minecraft Remote project, please refer to the section below, or vi
 
 ## マイクラリモコンのためのPythonクライアント/APIパッケージ
 
-Pythonコードを使って最新のマインクラフトの世界で自動建築が可能になります。 このリポジトリはAPI開発用です。ユーザーコードを書きたい場合は、[サンプルリポジトリ `mc_remote_samples`](https://github.com/Naohiro2g/mc_remote_samples) をご参照ください。
+Pythonコードを使って最新のマインクラフトの世界で自動建築が可能になります。このリポジトリはAPI開発用です。現行b3の学習導線は、Git管理された [`starter/`](starter/) ディレクトリから始めます。
 
 Minecraft Remoteプロジェクトについては、以下のセクションをご覧いただくか、[mc-remote.comのプロジェクトホームページ](https://mc-remote.com)をご覧ください。
 
@@ -44,28 +44,38 @@ You can find the latest version of the package on [PyPI](https://pypi.org/projec
 
 ## Very Important Preparation / 非常に重要な準備作業
 
-Edit these parameters in `param_mc_remote.py` to suit your environment.
+Copy the tracked environment template before running learner code. The local copy keeps the shared program independent of its server and build origin.
 
-`param_mc_remote.py`のパラメータを自分の環境に合わせて編集してください。
+学習コードを実行する前に、Git管理された環境templateをコピーします。ローカルコピーへ接続先と建築原点を分けることで、プログラム本体を環境を越えて共有できます。
 
-```python
-PLAYER_NAME = "PLAYER_NAME"  # optional local memo; b2 identity comes from pairing
-PLAYER_ORIGIN = Vec3(2000, 0, 2000)  # PO.x, PO.y, PO.z
-ADRS_MCR = "sb.mc-remote.com"  # mc-remote sandbox server
-PORT_MCR = 25575  # socket server port
+```bash
+cd starter
+cp param_mc_remote.template.py param_mc_remote.py
 ```
 
-- **For b2 auth, run the pairing command shown by the Python client in Minecraft. The paired in-game player becomes the authenticated identity.**
+The official sandbox works without editing the copy. Change it only for another server or build origin. `param_mc_remote.py` is ignored by Git; credentials do not belong in it.
+
+公式sandboxを使う場合、コピー後の変更は不要です。別のサーバーや建築原点を使う場合だけ変更します。`param_mc_remote.py` はGit管理外です。credentialはこのファイルへ書きません。
+
+```python
+from mc_remote.vec3 import Vec3
+
+ADRS_MCR = "sb.mc-remote.com"  # the official sandbox server
+PORT_MCR = 25575
+BUILD_ORIGIN = Vec3(2000, 0, 2000)
+```
+
+- **On the first connection, run the pairing command shown by the Python client in Minecraft. The paired in-game player becomes the authenticated identity.**
   - Server address: `sb.mc-remote.com`
   - Server port: `25565` (No need to specify because it is the default port for Minecraft.)
 - `PORT_MCR` is the port for the socket server. The default value is `25575`, but you can change it to any port you like. If you are using your own PaperMC server, make sure to set the same port in the `plugins/McRemote/config.yml`.
-- `PLAYER_ORIGIN` defines the origin of the building coordinate system. Building coordinates are computed relative to this origin. For example, executing `setBlock(5, 68, 5, block.GOLD_BLOCK)` will place a gold block at coordinates `(2005, 68, 2005)`.
+- `BUILD_ORIGIN` defines the origin of the directory's building coordinate system. Building coordinates are relative to it.
 
-- **b2 認証では、Python クライアントが表示するペアリングコマンドを Minecraft 側で実行します。ペアリングしたゲーム内プレイヤーが認証済み identity になります。**
+- **初回接続では、Pythonクライアントが表示するpairing commandをMinecraft側で実行します。ペアリングしたゲーム内プレイヤーが認証済みidentityになります。**
   - サーバーアドレス: `sb.mc-remote.com`
   - ポート番号: `25565` （マインクラフトのデフォルトポートなので指定不要）
 - `PORT_MCR` はソケットサーバーのポート番号です。デフォルト値は `25575` ですが、任意のポートに変更可能です。自前のPaperMCサーバーを利用する場合は、`plugins/McRemote/config.yml` に同じポートを設定してください。
-- `PLAYER_ORIGIN` は建築座標系の原点となり、設定値からの相対座標でブロックが配置されます。たとえば、`setBlock(5, 68, 5, block.GOLD_BLOCK)` を実行すると、実際には座標`（2005, 68, 2005）`に金ブロックが設置されます。
+- `BUILD_ORIGIN` は、このディレクトリで使う建築座標系の原点です。ブロックはこの原点からの相対座標で配置されます。
 
 If you are using your own PaperMC server, be sure to load the `McRemote` plugin. While running the server on your own PC offers a compact setup, if your PC is underpowered, it is preferable to use a server on another machine.
 
@@ -110,12 +120,15 @@ to update the package, run (パッケージを更新するには、次のコマ�
 pip install minecraft-remote-api -U
 ```
 
-## Run Examples  (サンプルを実行)
+## Run the starter（starterを実行）
+
+The tracked starter is a source-repository asset. From a source checkout, run: / GitHubからcloneまたはdownloadしたsource treeで、次を実行します。
 
 ```bash
-cd examples
-python hello.py
-python axis_flat.py
+cd starter
+cp param_mc_remote.template.py param_mc_remote.py
+uv run python hello.py
+uv run python with_completion.py
 ```
 
 Manual helper scripts live in `scripts/` and are run from the repo root with `uv run python scripts/<name>.py`.
@@ -174,9 +187,11 @@ mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
 mc.setPlayer(param.PLAYER_NAME, PO.x, PO.y, PO.z)
 
 # After / 変更後
+from param_mc_remote import BUILD_ORIGIN as ORIGIN
+
 mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
 mc.setWorld("overworld")
-mc.setBuildOrigin(PO.x, PO.y, PO.z)
+mc.setBuildOrigin(ORIGIN.x, ORIGIN.y, ORIGIN.z)
 ```
 
 ### Installing the beta / ベータの導入
@@ -198,28 +213,31 @@ uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote
 
 `2100.0.0b3` で `catalog.get`（wire §7.2.1）が加わりました。認証済み `hello` の後、`Minecraft.create()` が接続先サーバーの生きたブロック／エンティティ／パーティクル registry を取得し、hello が示した `catalogHash` と再計算した hash の両方で検証して、ユーザーcacheへ保存します。その後、現在の作業ディレクトリへ補完用の一時生成物 `mc_constants.py` と `mc_constants.manifest.json` を公開します。
 
-For a Git-managed project, initialize the ignore rules once. This command only updates `.gitignore`; it does not connect or generate the catalog projection. / Git管理プロジェクトでは、最初にignore規則を用意します。このコマンドは `.gitignore` だけを更新し、接続やprojection生成は行いません。
+Outside the tracked starter, initialize the ignore rules once for each Git-managed project. This command only updates `.gitignore` for `param_mc_remote.py` and the projection files; it does not create the template, connect, or generate a projection. / tracked starter以外のGit管理projectでは、projectごとにignore規則を一度用意します。このコマンドは `param_mc_remote.py` とprojection生成物のために `.gitignore` を更新するだけで、template作成・接続・projection生成は行いません。
 
 ```shell
 mcremote init
 ```
 
-The first Hello World should connect without importing `mc_constants`. Completion is acquired by that successful connection. / 最初のHello Worldは `mc_constants` をimportせず接続だけで成立させます。その接続成功によって補完を獲得します。
+The first Hello World connects without importing `mc_constants`, posts to chat, and places one block. Completion is acquired by that successful connection. The commented import in [`starter/hello.py`](starter/hello.py) lets learners observe the unresolved import before connecting, then see it resolve afterward. / 最初のHello Worldは `mc_constants` をimportせず、chatへの投稿とブロック1個の設置まで行います。その接続成功によって補完を獲得します。[`starter/hello.py`](starter/hello.py) のコメントアウトされたimportを使い、接続前の未解決状態と接続後の解決状態を観察できます。
 
 ```python
 import param_mc_remote as param
+from param_mc_remote import BUILD_ORIGIN as ORIGIN
 from mc_remote.minecraft import Minecraft
 
 mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
-mc.postToChat("Hello from Python!")
+mc.setBuildOrigin(ORIGIN.x, ORIGIN.y, ORIGIN.z)
+mc.postToChat("Hello, Minecraft from Python!")
+mc.setBlock(5, 62 + 6, 5, "sea_lantern")
 ```
 
 After projection succeeds, the generated constants can be imported and used. / projection成功後は、生成された定数をimportして利用できます。
 
 ```python
-from mc_constants import block, entity, particle, world_info
+from mc_constants import block, world_info
 
-mc.setBlock(0, world_info.Y_SEA, 0, block.OAK_LOG)
+mc.setBlock(6, world_info.Y_SEA + 5, 5, block.GOLD_BLOCK)
 ```
 
 - A cache miss is fetched on a separate short-lived authenticated stream. Catalog or projection failure produces an actionable warning, but `Minecraft.create()` still returns the connected build client. Fix the reported stage and retry with `mc.sync_constants(force=True)`. / cache missの取得には、建築用とは別の短命な認証済みstreamを使います。catalogまたはprojectionが失敗してもactionable warningとなり、`Minecraft.create()` は接続済み建築clientを返します。表示された段階を直し、`mc.sync_constants(force=True)` で再試行できます。

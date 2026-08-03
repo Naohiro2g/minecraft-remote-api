@@ -1,8 +1,9 @@
 """Installed command line surface for project setup.
 
 Authentication commands intentionally do not exist while the long-lived
-credential gate is closed.  ``init`` only prepares disposable projection
-ignore rules; it never connects, authenticates, or creates catalog files.
+credential gate is closed. ``init`` only prepares ignore rules for the local
+environment adapter and disposable projection; it never connects,
+authenticates, or creates either file.
 """
 import argparse
 
@@ -13,7 +14,7 @@ def build_parser():
     parser = argparse.ArgumentParser(prog="mcremote")
     subparsers = parser.add_subparsers(dest="command", required=True)
     init = subparsers.add_parser(
-        "init", help="prepare a project for generated catalog completion"
+        "init", help="prepare a project for local settings and catalog completion"
     )
     init.add_argument(
         "path",

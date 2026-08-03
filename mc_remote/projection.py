@@ -24,6 +24,7 @@ LOCK_NAME = ".mc_constants.lock"
 GENERATOR_VERSION = "1"
 PROJECTION_SCHEMA_VERSION = 1
 IGNORE_RULES = (
+    "/param_mc_remote.py",
     "/mc_constants.py",
     "/mc_constants.manifest.json",
     "/.mc_constants.*",
@@ -126,7 +127,7 @@ def ensure_projection_allowed(target_dir):
 
 
 def init_project(target_dir=None):
-    """Idempotently add projection rules to a project's ``.gitignore``."""
+    """Idempotently add local-environment and projection ignore rules."""
     target_dir = os.path.abspath(target_dir or os.getcwd())
     os.makedirs(target_dir, exist_ok=True)
     path = os.path.join(target_dir, ".gitignore")
@@ -144,7 +145,7 @@ def init_project(target_dir=None):
     prefix = "" if not existing or existing.endswith("\n") else "\n"
     block = (
         prefix
-        + "# mc_remote live catalog projection (generated after hello)\n"
+        + "# mc_remote local environment and live catalog projection\n"
         + "\n".join(missing)
         + "\n"
     )
