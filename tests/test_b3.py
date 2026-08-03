@@ -992,7 +992,7 @@ def test_starter_contract():
     hello = (starter / "hello.py").read_text(encoding="utf-8")
     assert "# from mc_constants import block" in hello
     assert 'mc.postToChat("Hello, Minecraft from Python!")' in hello
-    assert 'mc.setBlock(5, 62 + 6, 5, "sea_lantern")' in hello
+    assert 'mc.setBlock(5, 62 + 5, 5, "sea_lantern")' in hello
 
     after = (starter / "with_completion.py").read_text(encoding="utf-8")
     assert "from mc_constants import block, world_info" in after

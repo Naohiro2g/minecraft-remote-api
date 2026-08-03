@@ -229,7 +229,7 @@ from mc_remote.minecraft import Minecraft
 mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
 mc.setBuildOrigin(ORIGIN.x, ORIGIN.y, ORIGIN.z)
 mc.postToChat("Hello, Minecraft from Python!")
-mc.setBlock(5, 62 + 6, 5, "sea_lantern")
+mc.setBlock(5, 62 + 5, 5, "sea_lantern")
 ```
 
 After projection succeeds, the generated constants can be imported and used. / projection成功後は、生成された定数をimportして利用できます。
