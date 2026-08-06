@@ -37,6 +37,7 @@ from mc_remote.auth import (  # noqa: E402
 from mc_remote.connection import McRpcError  # noqa: E402
 from mc_remote.minecraft import Minecraft, PairingRequiredError, PROTOCOL  # noqa: E402
 import mc_remote.minecraft as minecraft_mod  # noqa: E402
+from scripts import auth_smoke  # noqa: E402
 
 
 class FakeConn:
@@ -169,6 +170,20 @@ def test_pairbegin_params():
     assert set(params["client"]) == {"name", "version", "locale"}, params["client"]
     # pairPoll correlates by pairing_id only
     assert conn.calls[1] == ("auth.pairPoll", {"pairing_id": "pid-1"}), conn.calls[1]
+
+
+# 2a. The release-gate smoke helper exposes only current §6.5 token types.
+def test_auth_smoke_token_type_contract():
+    parser = auth_smoke._build_parser()
+    assert parser.parse_args([]).token_type == "session"
+    assert parser.parse_args(["--token-type", "long_lived"]).token_type == "long_lived"
+    with contextlib.redirect_stderr(io.StringIO()):
+        try:
+            parser.parse_args(["--token-type", "player"])
+        except SystemExit as exc:
+            assert exc.code == 2
+        else:
+            raise AssertionError("legacy token type player must be rejected")
 
 
 # 2b. Pair UX displays the copyable command with grouped digits (wire unchanged)

@@ -52,7 +52,7 @@ def _print_summary(mc):
     print(f"y_sea={mc.y_sea}")
 
 
-def main(argv=None):
+def _build_parser():
     parser = argparse.ArgumentParser(
         description="Live hello/auth smoke helper for Minecraft Remote."
     )
@@ -82,7 +82,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "--token-type",
-        choices=("session", "player"),
+        choices=("session", "long_lived"),
         default="session",
         help="Token type to request during pairing.",
     )
@@ -113,6 +113,11 @@ def main(argv=None):
         metavar=("WORLD", "X", "Y", "Z"),
         help="Optional player.setPos smoke, e.g. --set-pos overworld 0 64 0.",
     )
+    return parser
+
+
+def main(argv=None):
+    parser = _build_parser()
     args = parser.parse_args(argv)
 
     try:
