@@ -20,6 +20,7 @@ from .auth import (
 from . import catalog as _catalog
 from . import _constants_codegen
 from . import projection as _projection
+from .observer import PythonObserverSource
 from .vec3 import Vec3
 from .util import flatten
 
@@ -76,6 +77,7 @@ class Minecraft:
 
     def __init__(self, connection):
         self.conn = connection
+        self._observer = None
         self._server_key = None
         self._catalog_connection_factory = None
         self._catalog_endpoint = (
@@ -439,6 +441,10 @@ class Minecraft:
                 pass
         connection_factory = Connection
         mc = Minecraft(connection_factory(address, port, debug))
+        mc._observer = PythonObserverSource()
+        attach_observer = getattr(mc.conn, "set_observer", None)
+        if attach_observer is not None:
+            attach_observer(mc._observer)
         mc._catalog_endpoint = (address, port, debug)
         mc._catalog_connection_factory = connection_factory
         if handshake:

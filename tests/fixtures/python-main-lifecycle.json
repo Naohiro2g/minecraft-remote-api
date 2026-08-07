@@ -1,0 +1,67 @@
+[
+  {
+    "schema": "mcremote.observer",
+    "schema_version": 1,
+    "emitted_at": 1786118400000,
+    "target": {
+      "id": "target-python-01",
+      "display_alias": "PYTHON-5A17C0DE",
+      "source_kind": "python"
+    },
+    "streams": [
+      {
+        "id": "main",
+        "kind": "main",
+        "status": "connected",
+        "hello": {
+          "protocol": "21.0.0",
+          "mc_version": "1.21.11",
+          "supported_mc_versions": ["1.21.11"],
+          "catalog_hash": null,
+          "world": "overworld",
+          "origin": [200, 0, 200],
+          "world_constants": {"y_sea": 62},
+          "permissions": {"online": true, "offline": false, "build_range": 100}
+        },
+        "frames": []
+      }
+    ]
+  },
+  {
+    "schema": "mcremote.observer",
+    "schema_version": 1,
+    "emitted_at": 1786118400100,
+    "target": {
+      "id": "target-python-01",
+      "display_alias": "PYTHON-5A17C0DE",
+      "source_kind": "python"
+    },
+    "streams": [
+      {
+        "id": "main",
+        "kind": "main",
+        "status": "connected",
+        "hello": {
+          "protocol": "21.0.0",
+          "mc_version": "1.21.11",
+          "supported_mc_versions": ["1.21.11"],
+          "catalog_hash": null,
+          "world": "overworld",
+          "origin": [200, 0, 200],
+          "world_constants": {"y_sea": 62},
+          "permissions": {"online": true, "offline": false, "build_range": 100}
+        },
+        "frames": [
+          {
+            "sequence": 3,
+            "observed_at": 1786118400100,
+            "direction": "send",
+            "request_id": 2,
+            "method": "build.setWorld",
+            "payload": {"params": ["nether"]}
+          }
+        ]
+      }
+    ]
+  }
+]
