@@ -582,9 +582,7 @@ class PythonObserverSource:
         self._target_id_factory = target_id_factory or (
             lambda: f"target-{secrets.token_hex(16)}"
         )
-        self._alias_factory = alias_factory or (
-            lambda: f"PYTHON-{secrets.token_hex(4).upper()}"
-        )
+        self._alias_factory = alias_factory or (lambda: secrets.token_hex(4).upper())
         self.connection_opened()
 
     def set_frame_consumer(self, consumer: Callable[[dict], None] | None):

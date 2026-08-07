@@ -53,7 +53,7 @@ class Clock:
 
 def source(frames=None, ids=None, aliases=None):
     ids = iter(ids or ["target-python-01"])
-    aliases = iter(aliases or ["PYTHON-5A17C0DE"])
+    aliases = iter(aliases or ["5A17C0DE"])
     return PythonObserverSource(
         None if frames is None else frames.append,
         clock=Clock(),
@@ -198,7 +198,7 @@ def test_reconnect_creates_a_new_target_and_alias():
     observer = source(
         frames,
         ids=["target-python-01", "target-python-02"],
-        aliases=["PYTHON-5A17C0DE", "PYTHON-A11CE002"],
+        aliases=["5A17C0DE", "A11CE002"],
     )
     activate(observer)
     first = (observer.target_id, observer.display_alias)
@@ -211,15 +211,15 @@ def test_reconnect_creates_a_new_target_and_alias():
 
 
 def test_active_alias_collision_is_regenerated():
-    first = source(ids=["target-python-01"], aliases=["PYTHON-COLLIDE"])
+    first = source(ids=["target-python-01"], aliases=["COLLIDE"])
     second = source(
         ids=["target-python-02"],
-        aliases=["PYTHON-COLLIDE", "PYTHON-UNIQUE"],
+        aliases=["COLLIDE", "UNIQUE01"],
     )
     activate(first)
     activate(second)
-    assert first.display_alias == "PYTHON-COLLIDE"
-    assert second.display_alias == "PYTHON-UNIQUE"
+    assert first.display_alias == "COLLIDE"
+    assert second.display_alias == "UNIQUE01"
     first.connection_closed()
     second.connection_closed()
 

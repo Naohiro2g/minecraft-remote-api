@@ -41,7 +41,7 @@ def build_fixture():
         frames.append,
         clock=clock,
         target_id_factory=lambda: "target-python-01",
-        alias_factory=lambda: "PYTHON-5A17C0DE",
+        alias_factory=lambda: "5A17C0DE",
     )
     source.observe_request("hello", {"protocol": "21.0.0"}, 1)
     source.observe_result("hello", FIXTURE_HELLO, 1)
