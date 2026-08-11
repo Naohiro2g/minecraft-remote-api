@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Manual hello/auth smoke helper.
+"""Manual catalog sync helper (b3): connect, fetch+cache the live
+block/entity/particle catalog, and (re)write mc_constants.py.
 
-This is for live checks and operator use, not for automated unit tests.
-It keeps the examples directory focused on API samples.
+This is for live checks and operator use -- in particular, for producing the
+first real ``mc_constants.py`` from an actual server (this repo does not
+fabricate catalog content; only a live ``catalog.get`` round trip can) -- not
+for automated unit tests.
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from mc_remote.catalog import CatalogError, load_cached_catalog
 from mc_remote.connection import McRpcError
 from mc_remote.minecraft import Minecraft
 
@@ -36,25 +40,9 @@ def _env_first_int(*names, default):
         return default
 
 
-def _print_summary(mc):
-    origin = getattr(mc, "_origin", None)
-    if origin is None:
-        origin_text = "unknown"
-    else:
-        origin_text = f"{origin.x},{origin.y},{origin.z}"
-    print(f"protocol={mc.protocol}")
-    print(f"mc_version={mc.mc_version}")
-    print(f"world={getattr(mc, '_world', None)}")
-    print(f"origin={origin_text}")
-    print(f"player={mc.player}")
-    print(f"permissions={mc.permissions}")
-    print(f"catalogHash={mc.catalog_hash}")
-    print(f"y_sea={mc.y_sea}")
-
-
-def _build_parser():
+def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Live hello/auth smoke helper for Minecraft Remote."
+        description="Live catalog.get -> mc_constants.py sync helper (b3)."
     )
     parser.add_argument(
         "address",
@@ -76,11 +64,6 @@ def _build_parser():
         help="Local token-store key. Defaults to address:port.",
     )
     parser.add_argument(
-        "--sandbox",
-        default=None,
-        help="Compatibility alias for the local token-store key.",
-    )
-    parser.add_argument(
         "--token-type",
         choices=("session", "long_lived"),
         default="session",
@@ -92,61 +75,53 @@ def _build_parser():
         help="Skip interactive pairing fallback and fail on auth errors.",
     )
     parser.add_argument(
-        "--chat",
+        "--out",
         default=None,
-        help="Optional chat message to send after a successful hello.",
+        help="Directory to write mc_constants.py into (default: current directory).",
     )
     parser.add_argument(
-        "--set-block",
-        nargs=4,
-        metavar=("X", "Y", "Z", "BLOCK"),
-        help="Optional world.setBlock smoke, e.g. --set-block 0 64 0 minecraft:stone.",
-    )
-    parser.add_argument(
-        "--get-pos",
+        "--force",
         action="store_true",
-        help="Optional player.getPos smoke for the paired player.",
+        help="Re-fetch catalog.get even if this catalogHash is already cached.",
     )
     parser.add_argument(
-        "--set-pos",
-        nargs=4,
-        metavar=("WORLD", "X", "Y", "Z"),
-        help="Optional player.setPos smoke, e.g. --set-pos overworld 0 64 0.",
+        "--debug",
+        action="store_true",
+        help="Print raw JSON-RPC frames (including catalog.get, if sent) to stderr.",
     )
-    return parser
-
-
-def main(argv=None):
-    parser = _build_parser()
     args = parser.parse_args(argv)
 
     try:
         mc = Minecraft.create(
             address=args.address,
             port=args.port,
+            debug=args.debug,
             token_key=args.token_key,
-            sandbox=args.sandbox,
             token_type=args.token_type,
             pair=not args.no_pair,
+            sync_catalog=False,  # sync explicitly below so we can report clearly
         )
-        _print_summary(mc)
-        if args.chat is not None:
-            mc.postToChat(args.chat)
-            print("chat=sent")
-        if args.set_block is not None:
-            x, y, z, block = args.set_block
-            mc.setBlock(int(x), int(y), int(z), block)
-            print("setBlock=ok")
-        if args.get_pos:
-            print(f"getPos={mc.getPos()}")
-        if args.set_pos is not None:
-            world, x, y, z = args.set_pos
-            print(f"setPos={mc.setPos(world, int(x), int(y), int(z))}")
+        print(f"protocol={mc.protocol}")
+        print(f"mc_version={mc.mc_version}")
+        print(f"catalogHash={mc.catalog_hash}")
+        if not mc.catalog_hash:
+            print("no catalog advertised by this server/session -- nothing to sync")
+            return 0
+        # Checked *before* sync_constants() touches the cache, so this
+        # reflects what actually happens on the call below (fetch vs. reuse).
+        was_cached = load_cached_catalog(mc.catalog_hash) is not None
+        source = "network (--force)" if args.force else ("cache" if was_cached else "network")
+        path = mc.sync_constants(target_dir=args.out, force=args.force)
+        print(f"catalog_source={source}")
+        print(f"wrote {path}")
         return 0
     except McRpcError as e:
-        print(f"rpc_error={e.reason or e.message}")
+        print(f"rpc_error={e.reason}")
         print(f"code={e.code}")
         print(f"data={e.data}")
+        return 1
+    except CatalogError as e:
+        print(f"catalog_error={e}")
         return 1
 
 

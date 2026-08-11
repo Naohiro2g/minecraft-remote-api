@@ -30,6 +30,7 @@ class McRpcError(RequestFailedError):
 
     def __init__(self, code, message, data=None):
         self.code = code
+        self.message = message
         self.data = data or {}
         self.reason = self.data.get("reason")
         super().__init__(self._format(message))
@@ -57,7 +58,31 @@ class Connection:
         self.port = port
         self.debug = debug
         self.lastSent = b""
+        self._observer = None
         self._connect()
+
+    def _notify_observer(self, method, *args):
+        """Call the optional read-only observer without affecting the wire."""
+        observer = self._observer
+        callback = getattr(observer, method, None) if observer is not None else None
+        if callback is None:
+            return
+        try:
+            callback(*args)
+        except Exception:
+            # Observation must never break authentication or building.  Do not
+            # include callback values here: they may originate in raw frames.
+            if self.debug:
+                sys.stderr.write("WireScope observer dropped an event\n")
+
+    def set_observer(self, observer):
+        """Attach a transport-neutral observer to the current connection epoch."""
+        if self._observer is observer:
+            return
+        if self._observer is not None:
+            self._notify_observer("connection_closed")
+        self._observer = observer
+        self._notify_observer("connection_opened")
 
     def _connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -74,6 +99,7 @@ class Connection:
         rejecting an unauthenticated hello with ``auth_required``, and ``hello``
         is once per connection -- so the client reconnects before pairing and
         again for the authenticated hello."""
+        self._notify_observer("connection_closed")
         try:
             self.reader.close()
         except Exception:
@@ -83,6 +109,7 @@ class Connection:
         except Exception:
             pass
         self._connect()
+        self._notify_observer("connection_opened")
 
     def close(self):
         """Closes the socket and associated resources"""
@@ -97,7 +124,9 @@ class Connection:
         except Exception as e:
             sys.stderr.write(f"Failed to close socket: {e}\n")
         finally:
-            sys.stderr.write("Connection closed\n")
+            self._notify_observer("connection_closed")
+            if self.debug:
+                sys.stderr.write("Connection closed\n")
 
     def is_connected(self):
         """Checks if the connection to the server is still active"""
@@ -117,10 +146,12 @@ class Connection:
         Raises :class:`McRpcError` if the server returns an error object, or
         :class:`ConnectionLostError` if the stream drops."""
         if not self.is_connected():
+            self._notify_observer("connection_closed")
             raise ConnectionLostError("Connection to the server is lost")
         self._id += 1
         req_id = self._id
         payload = self._build_request(method, params, req_id)
+        self._notify_observer("observe_request", method, params, req_id)
         if self.debug:
             sys.stderr.write(f"-> {payload!r}\n")
         self.lastSent = payload
@@ -128,12 +159,20 @@ class Connection:
             self.socket.sendall(payload)
             line = self.reader.readline()
         except socket.error as e:
+            self._notify_observer("connection_closed")
             raise ConnectionLostError(f"Failed to talk to the server: {e}") from e
         if line == "":
+            self._notify_observer("connection_closed")
             raise ConnectionLostError("Connection closed by server")
         if self.debug:
             sys.stderr.write(f"<- {line!r}")
-        return self._parse_response(line.rstrip("\n"), req_id)
+        try:
+            result = self._parse_response(line.rstrip("\n"), req_id)
+        except McRpcError as exc:
+            self._notify_observer("observe_error", method, exc, req_id)
+            raise
+        self._notify_observer("observe_result", method, result, req_id)
+        return result
 
     @staticmethod
     def _build_request(method, params, req_id):

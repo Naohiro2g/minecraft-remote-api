@@ -30,13 +30,13 @@ awk '/^<!-- BEGIN: DEV-AGENT-RUNTIME -->$/{reading=1;next} \
      reading' "$protocol_source"
 ```
 
-- このリポの関連スポーク: `12-python-client/`, `10-protocol/`, `14-evidence/`
-
 `Naohiro2g/mc-remote-knowledge` にアクセスできない場合は、作業を止めてその旨を明示してください。
 このリポジトリ単体、assistant memory、過去会話、ローカル推論から欠けた McRemote 文脈を補完してはいけません。
 SSOT にアクセスできるまで、McRemote 固有文脈に依存する設計判断や実装を進めないでください。
 
 このファイルは McRemote SSOT を複製しません。複製はドリフトを生みます。
+
+- このリポの関連スポーク: `12-python-client/`, `10-protocol/`, `20-教材/`
 
 ## このリポ固有の指示
 

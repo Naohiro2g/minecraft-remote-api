@@ -1,0 +1,731 @@
+"""Transport-neutral Python projection for ``mcremote.observer`` schema v1.
+
+This module deliberately does not launch WireScope, retain frame history, or
+choose a browser/relay transport.  It only projects the main connection through
+a generation-side allowlist and validates snapshots against the shared schema.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import secrets
+import threading
+import time
+import weakref
+from collections.abc import Callable, Iterable, Mapping
+
+
+OBSERVER_SCHEMA = "mcremote.observer"
+OBSERVER_SCHEMA_VERSION = 1
+MAIN_STREAM_ID = "main"
+
+OBSERVED_METHODS = frozenset(
+    {
+        "hello",
+        "build.setWorld",
+        "build.setOrigin",
+        "chat.post",
+        "world.setBlock",
+        "world.setBlocks",
+        "world.getBlock",
+        "player.getPos",
+        "player.setPos",
+    }
+)
+
+
+class ObserverValidationError(ValueError):
+    """Raised when a snapshot does not conform to observer schema v1."""
+
+
+def _object(value, context):
+    if not isinstance(value, Mapping):
+        raise ObserverValidationError(f"{context} must be an object")
+    return value
+
+
+def _exact_fields(value, allowed, context):
+    unknown = set(value) - set(allowed)
+    if unknown:
+        field = sorted(unknown, key=str)[0]
+        raise ObserverValidationError(f"{context} unknown field: {field}")
+
+
+def _required_string(value, context):
+    if not isinstance(value, str) or not value:
+        raise ObserverValidationError(f"{context} must be a non-empty string")
+    return value
+
+
+def _finite_number(value, context):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ObserverValidationError(f"{context} must be a finite number")
+    if not math.isfinite(value):
+        raise ObserverValidationError(f"{context} must be a finite number")
+    return value
+
+
+def _json_scalar(value, context):
+    if value is None or isinstance(value, (str, bool)):
+        return value
+    return _finite_number(value, context)
+
+
+def _string_array(value, context):
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ObserverValidationError(f"{context} must be a string array")
+    return list(value)
+
+
+def _number_tuple(value, context):
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        raise ObserverValidationError(f"{context} must be a three-number tuple")
+    return [
+        _finite_number(value[0], f"{context}[0]"),
+        _finite_number(value[1], f"{context}[1]"),
+        _finite_number(value[2], f"{context}[2]"),
+    ]
+
+
+def _parse_permissions(value):
+    permissions = _object(value, "permissions")
+    _exact_fields(permissions, {"online", "offline", "build_range"}, "permissions")
+    parsed = {}
+    for key in ("online", "offline"):
+        if key in permissions:
+            if not isinstance(permissions[key], bool):
+                raise ObserverValidationError(f"permissions.{key} must be a boolean")
+            parsed[key] = permissions[key]
+    if "build_range" in permissions:
+        build_range = permissions["build_range"]
+        if isinstance(build_range, bool) or not isinstance(
+            build_range, (str, int, float)
+        ):
+            raise ObserverValidationError(
+                "permissions.build_range must be a number or string"
+            )
+        if not isinstance(build_range, str):
+            _finite_number(build_range, "permissions.build_range")
+        parsed["build_range"] = build_range
+    return parsed
+
+
+def _parse_hello(value):
+    hello = _object(value, "hello")
+    _exact_fields(
+        hello,
+        {
+            "protocol",
+            "mc_version",
+            "supported_mc_versions",
+            "catalog_hash",
+            "world",
+            "origin",
+            "world_constants",
+            "permissions",
+        },
+        "hello",
+    )
+    if "catalog_hash" not in hello:
+        raise ObserverValidationError("hello.catalog_hash is required")
+    catalog_hash = hello.get("catalog_hash")
+    if catalog_hash is not None and not isinstance(catalog_hash, str):
+        raise ObserverValidationError("hello.catalog_hash must be a string or null")
+    constants = _object(hello.get("world_constants"), "hello.world_constants")
+    _exact_fields(constants, {"y_sea"}, "hello.world_constants")
+    if "y_sea" not in constants:
+        raise ObserverValidationError("hello.world_constants.y_sea is required")
+    y_sea = constants["y_sea"]
+    if y_sea is not None:
+        y_sea = _finite_number(y_sea, "hello.world_constants.y_sea")
+    parsed = {
+        "protocol": _required_string(hello.get("protocol"), "hello.protocol"),
+        "mc_version": _required_string(hello.get("mc_version"), "hello.mc_version"),
+        "supported_mc_versions": _string_array(
+            hello.get("supported_mc_versions"), "hello.supported_mc_versions"
+        ),
+        "catalog_hash": catalog_hash,
+        "world_constants": {"y_sea": y_sea},
+    }
+    if "world" in hello:
+        parsed["world"] = _required_string(hello["world"], "hello.world")
+    if "origin" in hello:
+        parsed["origin"] = _number_tuple(hello["origin"], "hello.origin")
+    if "permissions" in hello:
+        parsed["permissions"] = _parse_permissions(hello["permissions"])
+    return parsed
+
+
+def _parse_error_data(value):
+    data = _object(value, "frame.payload.error.data")
+    _exact_fields(
+        data,
+        {"reason", "ref", "allowed", "bounds", "violating"},
+        "frame.payload.error.data",
+    )
+    parsed = {}
+    for key in ("reason", "ref"):
+        if key in data:
+            if not isinstance(data[key], str):
+                raise ObserverValidationError(
+                    f"frame.payload.error.data.{key} must be a string"
+                )
+            parsed[key] = data[key]
+    if "allowed" in data:
+        allowed = data["allowed"]
+        if not isinstance(allowed, list):
+            raise ObserverValidationError(
+                "frame.payload.error.data.allowed must be an array"
+            )
+        parsed_allowed = []
+        for index, item in enumerate(allowed):
+            if item is None:
+                raise ObserverValidationError(
+                    f"frame.payload.error.data.allowed[{index}] must be a JSON scalar"
+                )
+            parsed_allowed.append(
+                _json_scalar(item, f"frame.payload.error.data.allowed[{index}]")
+            )
+        parsed["allowed"] = parsed_allowed
+    for key in ("bounds", "violating"):
+        if key in data:
+            values = data[key]
+            if not isinstance(values, list):
+                raise ObserverValidationError(
+                    f"frame.payload.error.data.{key} must be a number array"
+                )
+            parsed[key] = [
+                _finite_number(item, f"frame.payload.error.data.{key}[{index}]")
+                for index, item in enumerate(values)
+            ]
+    return parsed
+
+
+def _parse_error(value):
+    error = _object(value, "frame.payload.error")
+    _exact_fields(error, {"code", "message", "data"}, "frame.payload.error")
+    if "code" not in error:
+        raise ObserverValidationError("frame.payload.error.code is required")
+    code = error.get("code")
+    if code is not None and not isinstance(code, str):
+        code = _finite_number(code, "frame.payload.error.code")
+    parsed = {
+        "code": code,
+        "message": _required_string(
+            error.get("message"), "frame.payload.error.message"
+        ),
+    }
+    if "data" in error:
+        parsed["data"] = _parse_error_data(error["data"])
+    return parsed
+
+
+def _parse_params(method, value):
+    if method == "hello":
+        params = _object(value, "frame.payload.params")
+        _exact_fields(params, {"protocol", "client", "build"}, "frame.payload.params")
+        parsed = {
+            "protocol": _required_string(
+                params.get("protocol"), "frame.payload.params.protocol"
+            )
+        }
+        if "client" in params:
+            client = _object(params["client"], "frame.payload.params.client")
+            _exact_fields(
+                client,
+                {"name", "version", "locale"},
+                "frame.payload.params.client",
+            )
+            parsed_client = {
+                "name": _required_string(
+                    client.get("name"), "frame.payload.params.client.name"
+                ),
+                "version": _required_string(
+                    client.get("version"), "frame.payload.params.client.version"
+                ),
+            }
+            if isinstance(client.get("locale"), str):
+                parsed_client["locale"] = client["locale"]
+            parsed["client"] = parsed_client
+        if "build" in params:
+            build = _object(params["build"], "frame.payload.params.build")
+            _exact_fields(build, {"world", "origin"}, "frame.payload.params.build")
+            parsed_build = {}
+            if isinstance(build.get("world"), str):
+                parsed_build["world"] = build["world"]
+            if "origin" in build:
+                parsed_build["origin"] = _number_tuple(
+                    build["origin"], "frame.payload.params.build.origin"
+                )
+            parsed["build"] = parsed_build
+        return parsed
+    if not isinstance(value, list):
+        raise ObserverValidationError("frame.payload.params must be an array")
+    return [
+        _json_scalar(item, f"frame.payload.params[{index}]")
+        for index, item in enumerate(value)
+    ]
+
+
+def _parse_result(method, value):
+    if method == "hello":
+        return _parse_hello(value)
+    if method in {"player.getPos", "player.setPos"}:
+        position = _object(value, "frame.payload.result")
+        _exact_fields(position, {"world", "pos"}, "frame.payload.result")
+        return {
+            "world": _required_string(
+                position.get("world"), "frame.payload.result.world"
+            ),
+            "pos": _number_tuple(position.get("pos"), "frame.payload.result.pos"),
+        }
+    if method == "world.getBlock":
+        if not isinstance(value, str):
+            raise ObserverValidationError("frame.payload.result must be a string")
+        return value
+    return _json_scalar(value, "frame.payload.result")
+
+
+def _parse_payload(method, value):
+    payload = _object(value, "frame.payload")
+    _exact_fields(payload, {"params", "result", "error"}, "frame.payload")
+    present = [key for key in ("params", "result", "error") if key in payload]
+    if len(present) != 1:
+        raise ObserverValidationError(
+            "frame.payload must contain exactly one payload kind"
+        )
+    kind = present[0]
+    if kind == "params":
+        return {"params": _parse_params(method, payload[kind])}
+    if kind == "result":
+        return {"result": _parse_result(method, payload[kind])}
+    return {"error": _parse_error(payload[kind])}
+
+
+def _parse_frame(value):
+    frame = _object(value, "frame")
+    _exact_fields(
+        frame,
+        {"sequence", "observed_at", "direction", "request_id", "method", "payload"},
+        "frame",
+    )
+    direction = frame.get("direction")
+    if direction not in {"send", "receive"}:
+        raise ObserverValidationError("frame.direction must be send or receive")
+    method = frame.get("method")
+    if method not in OBSERVED_METHODS:
+        raise ObserverValidationError(f"frame.method is not observable: {method}")
+    request_id = frame.get("request_id")
+    if "request_id" not in frame:
+        raise ObserverValidationError("frame.request_id is required")
+    if request_id is not None and not isinstance(request_id, str):
+        request_id = _finite_number(request_id, "frame.request_id")
+    return {
+        "sequence": _finite_number(frame.get("sequence"), "frame.sequence"),
+        "observed_at": _finite_number(frame.get("observed_at"), "frame.observed_at"),
+        "direction": direction,
+        "request_id": request_id,
+        "method": method,
+        "payload": _parse_payload(method, frame.get("payload")),
+    }
+
+
+def _parse_stream(value):
+    stream = _object(value, "stream")
+    _exact_fields(stream, {"id", "kind", "status", "hello", "frames"}, "stream")
+    if stream.get("kind") not in {"main", "substream"}:
+        raise ObserverValidationError("stream.kind must be main or substream")
+    if stream.get("status") not in {"connected", "error"}:
+        raise ObserverValidationError("stream.status must be connected or error")
+    frames = stream.get("frames")
+    if not isinstance(frames, list):
+        raise ObserverValidationError("stream.frames must be an array")
+    return {
+        "id": _required_string(stream.get("id"), "stream.id"),
+        "kind": stream["kind"],
+        "status": stream["status"],
+        "hello": _parse_hello(stream.get("hello")),
+        "frames": [_parse_frame(frame) for frame in frames],
+    }
+
+
+def validate_snapshot(value):
+    """Validate and return a JSON-safe copy of an observer schema v1 snapshot."""
+
+    snapshot = _object(value, "snapshot")
+    _exact_fields(
+        snapshot,
+        {"schema", "schema_version", "emitted_at", "target", "streams"},
+        "snapshot",
+    )
+    if snapshot.get("schema") != OBSERVER_SCHEMA:
+        raise ObserverValidationError(
+            f"unsupported observer schema: {snapshot.get('schema')}"
+        )
+    version = snapshot.get("schema_version")
+    if isinstance(version, bool) or version != OBSERVER_SCHEMA_VERSION:
+        raise ObserverValidationError(f"unsupported observer schema version: {version}")
+    target = _object(snapshot.get("target"), "target")
+    _exact_fields(target, {"id", "display_alias", "source_kind"}, "target")
+    if target.get("source_kind") not in {"scratch", "python"}:
+        raise ObserverValidationError("target.source_kind must be scratch or python")
+    streams = snapshot.get("streams")
+    if not isinstance(streams, list) or not streams:
+        raise ObserverValidationError("snapshot.streams must be a non-empty array")
+    parsed_target = {
+        "id": _required_string(target.get("id"), "target.id"),
+        "display_alias": _required_string(
+            target.get("display_alias"), "target.display_alias"
+        ),
+        "source_kind": target["source_kind"],
+    }
+    parsed_streams = [_parse_stream(stream) for stream in streams]
+    stream_ids = [stream["id"] for stream in parsed_streams]
+    if parsed_target["id"] in stream_ids:
+        raise ObserverValidationError("target id must not be used as a stream id")
+    if len(set(stream_ids)) != len(stream_ids):
+        raise ObserverValidationError("stream ids must be unique within a target")
+    return {
+        "schema": OBSERVER_SCHEMA,
+        "schema_version": OBSERVER_SCHEMA_VERSION,
+        "emitted_at": _finite_number(snapshot.get("emitted_at"), "snapshot.emitted_at"),
+        "target": parsed_target,
+        "streams": parsed_streams,
+    }
+
+
+def serialize_snapshot(value):
+    """Validate and encode one snapshot without non-standard JSON numbers."""
+
+    return json.dumps(
+        validate_snapshot(value),
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+    )
+
+
+def _allowed_string(value):
+    return value if isinstance(value, str) and value else None
+
+
+def _allowed_number(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value if math.isfinite(value) else None
+
+
+def _allowed_tuple(value):
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return None
+    items = [_allowed_number(item) for item in value]
+    return items if all(item is not None for item in items) else None
+
+
+def _allowed_scalar(value):
+    if value is None or isinstance(value, (str, bool)):
+        return value
+    return _allowed_number(value)
+
+
+def _project_hello(value):
+    if not isinstance(value, Mapping):
+        return None
+    protocol = _allowed_string(value.get("protocol"))
+    mc_version = _allowed_string(value.get("mc_version"))
+    if not protocol or not mc_version:
+        return None
+    versions = value.get("supported_mc_versions")
+    versions = (
+        [item for item in versions if isinstance(item, str)]
+        if isinstance(versions, list)
+        else []
+    )
+    catalog_hash = value.get("catalogHash", value.get("catalog_hash"))
+    catalog_hash = catalog_hash.lower() if isinstance(catalog_hash, str) else None
+    constants = value.get("world_constants")
+    constants = constants if isinstance(constants, Mapping) else {}
+    y_sea = constants.get("y_sea")
+    if y_sea is not None:
+        y_sea = _allowed_number(y_sea)
+    projected = {
+        "protocol": protocol,
+        "mc_version": mc_version,
+        "supported_mc_versions": versions,
+        "catalog_hash": catalog_hash,
+        "world_constants": {"y_sea": y_sea},
+    }
+    world = _allowed_string(value.get("world"))
+    origin = _allowed_tuple(value.get("origin"))
+    if world:
+        projected["world"] = world
+    if origin:
+        projected["origin"] = origin
+    permissions = value.get("permissions")
+    if isinstance(permissions, Mapping):
+        allowed_permissions = {}
+        for key in ("online", "offline"):
+            if isinstance(permissions.get(key), bool):
+                allowed_permissions[key] = permissions[key]
+        build_range = permissions.get("buildRange", permissions.get("build_range"))
+        if isinstance(build_range, str) or _allowed_number(build_range) is not None:
+            allowed_permissions["build_range"] = build_range
+        if allowed_permissions:
+            projected["permissions"] = allowed_permissions
+    return projected
+
+
+def _project_hello_params(value):
+    if not isinstance(value, Mapping):
+        return None
+    protocol = _allowed_string(value.get("protocol"))
+    if not protocol:
+        return None
+    projected = {"protocol": protocol}
+    client = value.get("client")
+    if isinstance(client, Mapping):
+        name = _allowed_string(client.get("name"))
+        version = _allowed_string(client.get("version"))
+        if name and version:
+            projected_client = {"name": name, "version": version}
+            if isinstance(client.get("locale"), str):
+                projected_client["locale"] = client["locale"]
+            projected["client"] = projected_client
+    build = value.get("build")
+    if isinstance(build, Mapping):
+        projected_build = {}
+        world = _allowed_string(build.get("world"))
+        origin = _allowed_tuple(build.get("origin"))
+        if world:
+            projected_build["world"] = world
+        if origin:
+            projected_build["origin"] = origin
+        if projected_build:
+            projected["build"] = projected_build
+    return projected
+
+
+def _project_array(value):
+    if not isinstance(value, list):
+        return None
+    projected = [_allowed_scalar(item) for item in value]
+    for original, allowed in zip(value, projected):
+        if allowed is None and original is not None:
+            return None
+    return projected
+
+
+def _project_position(value):
+    if not isinstance(value, Mapping):
+        return None
+    world = _allowed_string(value.get("world"))
+    pos = _allowed_tuple(value.get("pos"))
+    return {"world": world, "pos": pos} if world and pos else None
+
+
+def _project_error(value):
+    if isinstance(value, Mapping):
+        code = value.get("code")
+        message = value.get("message")
+        data = value.get("data")
+    else:
+        code = getattr(value, "code", None)
+        message = getattr(value, "message", None) or str(value)
+        data = getattr(value, "data", None)
+    if not isinstance(code, str) and _allowed_number(code) is None:
+        code = None
+    message = _allowed_string(message) or "McRemote error"
+    projected = {"code": code, "message": message}
+    if isinstance(data, Mapping):
+        projected_data = {}
+        for key in ("reason", "ref"):
+            if isinstance(data.get(key), str):
+                projected_data[key] = data[key]
+        allowed = data.get("allowed")
+        if isinstance(allowed, list):
+            projected_allowed = [_allowed_scalar(item) for item in allowed]
+            if all(item is not None for item in projected_allowed):
+                projected_data["allowed"] = projected_allowed
+        for key in ("bounds", "violating"):
+            values = data.get(key)
+            if isinstance(values, list):
+                projected_values = [_allowed_number(item) for item in values]
+                if all(item is not None for item in projected_values):
+                    projected_data[key] = projected_values
+        if projected_data:
+            projected["data"] = projected_data
+    return projected
+
+
+class PythonObserverSource:
+    """Project one ``Minecraft.create()`` main connection without retention.
+
+    Sanitized frames are delivered to ``frame_consumer`` and immediately
+    forgotten.  A later relay may retain a bounded sequence and pass it to
+    :meth:`snapshot`; this source does not choose that retention policy.
+    """
+
+    _alias_lock = threading.Lock()
+    _active_aliases = weakref.WeakValueDictionary()
+
+    def __init__(
+        self,
+        frame_consumer: Callable[[dict], None] | None = None,
+        *,
+        clock: Callable[[], int | float] | None = None,
+        target_id_factory: Callable[[], str] | None = None,
+        alias_factory: Callable[[], str] | None = None,
+    ):
+        self._frame_consumer = frame_consumer
+        self._clock = clock or (lambda: time.time_ns() // 1_000_000)
+        self._target_id_factory = target_id_factory or (
+            lambda: f"target-{secrets.token_hex(16)}"
+        )
+        self._alias_factory = alias_factory or (lambda: secrets.token_hex(4).upper())
+        self.connection_opened()
+
+    def set_frame_consumer(self, consumer: Callable[[dict], None] | None):
+        """Set an in-process sink for already-sanitized frames."""
+
+        self._frame_consumer = consumer
+
+    def connection_opened(self):
+        self._release_alias()
+        self.active = False
+        self.target_id = None
+        self.display_alias = None
+        self.hello = None
+        self.status = "connected"
+        self._sequence = 0
+        self._pending_hello = []
+
+    def connection_closed(self):
+        self._release_alias()
+        self.active = False
+        self._pending_hello = []
+
+    def _release_alias(self):
+        alias = getattr(self, "display_alias", None)
+        if not alias:
+            return
+        with self._alias_lock:
+            if self._active_aliases.get(alias) is self:
+                self._active_aliases.pop(alias, None)
+
+    def _reserve_alias(self):
+        for _attempt in range(32):
+            alias = _required_string(self._alias_factory(), "target.display_alias")
+            with self._alias_lock:
+                if alias not in self._active_aliases:
+                    self._active_aliases[alias] = self
+                    return alias
+        raise ObserverValidationError(
+            "could not allocate a unique active display alias"
+        )
+
+    def _next_frame(self, direction, request_id, method, payload):
+        if method not in OBSERVED_METHODS or method.startswith("auth."):
+            return None
+        if request_id is not None and not isinstance(request_id, str):
+            if _allowed_number(request_id) is None:
+                request_id = None
+        self._sequence += 1
+        frame = {
+            "sequence": self._sequence,
+            "observed_at": self._clock(),
+            "direction": direction,
+            "request_id": request_id,
+            "method": method,
+            "payload": payload,
+        }
+        try:
+            return _parse_frame(frame)
+        except ObserverValidationError:
+            return None
+
+    def _emit(self, frame):
+        if frame is not None and self._frame_consumer is not None:
+            self._frame_consumer(frame)
+
+    def observe_request(self, method, params, request_id):
+        if method == "hello":
+            allowed = _project_hello_params(params)
+        else:
+            allowed = _project_array(params)
+        if allowed is None:
+            return
+        frame = self._next_frame("send", request_id, method, {"params": allowed})
+        if method == "hello" and not self.active:
+            self._pending_hello = [frame] if frame is not None else []
+        elif self.active:
+            self._emit(frame)
+
+    def observe_result(self, method, result, request_id):
+        valid_null = False
+        if method == "hello":
+            allowed = _project_hello(result)
+        elif method in {"player.getPos", "player.setPos"}:
+            allowed = _project_position(result)
+        elif method == "world.getBlock":
+            allowed = result if isinstance(result, str) else None
+        else:
+            allowed = _allowed_scalar(result)
+            valid_null = result is None
+            if allowed is None and not valid_null:
+                return
+        if allowed is None and not valid_null:
+            return
+        frame = self._next_frame("receive", request_id, method, {"result": allowed})
+        if method == "hello" and not self.active:
+            target_id = _required_string(self._target_id_factory(), "target.id")
+            if target_id == MAIN_STREAM_ID:
+                raise ObserverValidationError(
+                    "target id must not be used as a stream id"
+                )
+            self.target_id = target_id
+            self.display_alias = self._reserve_alias()
+            self.hello = _parse_hello(allowed)
+            self.active = True
+            for pending in self._pending_hello:
+                self._emit(pending)
+            self._pending_hello = []
+            self._emit(frame)
+            return
+        if self.active:
+            self.status = "connected"
+            self._emit(frame)
+
+    def observe_error(self, method, error, request_id):
+        frame = self._next_frame(
+            "receive", request_id, method, {"error": _project_error(error)}
+        )
+        if self.active:
+            self.status = "error"
+            self._emit(frame)
+
+    def snapshot(self, frames: Iterable[Mapping] = (), *, emitted_at=None):
+        """Build a snapshot from a caller-owned, bounded sanitized frame list."""
+
+        if not self.active or self.hello is None:
+            raise ObserverValidationError("observer target is not active")
+        value = {
+            "schema": OBSERVER_SCHEMA,
+            "schema_version": OBSERVER_SCHEMA_VERSION,
+            "emitted_at": self._clock() if emitted_at is None else emitted_at,
+            "target": {
+                "id": self.target_id,
+                "display_alias": self.display_alias,
+                "source_kind": "python",
+            },
+            "streams": [
+                {
+                    "id": MAIN_STREAM_ID,
+                    "kind": "main",
+                    "status": self.status,
+                    "hello": self.hello,
+                    "frames": list(frames),
+                }
+            ],
+        }
+        return validate_snapshot(value)

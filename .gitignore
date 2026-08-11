@@ -3,6 +3,13 @@ POCKET/
 # AI セッション用ローカル指示（公開しない / 正本は private knowledge リポのテンプレ）
 CLAUDE.md
 
+# b3 directory-local environment and catalog projection.
+# The local adapter and generated projection are never tracked.
+/param_mc_remote.py
+mc_constants.py
+mc_constants.manifest.json
+.mc_constants.*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

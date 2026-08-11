@@ -4,7 +4,7 @@
 
 ## Python Client/API package for Minecraft Remote
 
-Write Python code to build automatically in the latest Minecraft world. This repository is dedicated to API development. If you intend to write user code, please refer to [the sample repository `mc_remote_samples`](https://github.com/Naohiro2g/mc_remote_samples).
+Write Python code to build automatically in the latest Minecraft world. This repository is dedicated to API development. For the current b3 learning path, start with the tracked [`starter/`](starter/) directory.
 
 Regarding the Minecraft Remote project, please refer to the section below, or visit the [project homepage at mc-remote.com](https://mc-remote.com).
 
@@ -12,7 +12,7 @@ Regarding the Minecraft Remote project, please refer to the section below, or vi
 
 ## マイクラリモコンのためのPythonクライアント/APIパッケージ
 
-Pythonコードを使って最新のマインクラフトの世界で自動建築が可能になります。 このリポジトリはAPI開発用です。ユーザーコードを書きたい場合は、[サンプルリポジトリ `mc_remote_samples`](https://github.com/Naohiro2g/mc_remote_samples) をご参照ください。
+Pythonコードを使って最新のマインクラフトの世界で自動建築が可能になります。このリポジトリはAPI開発用です。現行b3の学習導線は、Git管理された [`starter/`](starter/) ディレクトリから始めます。
 
 Minecraft Remoteプロジェクトについては、以下のセクションをご覧いただくか、[mc-remote.comのプロジェクトホームページ](https://mc-remote.com)をご覧ください。
 
@@ -24,7 +24,7 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）:
   - stable（PyPI）: `2000.0.0` — protocol 20.0.0
-  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b2` — protocol 21.0.0 b2（下記 Migration Guide 参照）
+  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b3` — protocol 21.0.0 b3（下記 Migration Guide 参照）
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: `MIT`
@@ -44,28 +44,38 @@ You can find the latest version of the package on [PyPI](https://pypi.org/projec
 
 ## Very Important Preparation / 非常に重要な準備作業
 
-Edit these parameters in `param_mc_remote.py` to suit your environment.
+Copy the tracked environment template before running learner code. The local copy keeps the shared program independent of its server and build origin.
 
-`param_mc_remote.py`のパラメータを自分の環境に合わせて編集してください。
+学習コードを実行する前に、Git管理された環境templateをコピーします。ローカルコピーへ接続先と建築原点を分けることで、プログラム本体を環境を越えて共有できます。
 
-```python
-PLAYER_NAME = "PLAYER_NAME"  # optional local memo; b2 identity comes from pairing
-PLAYER_ORIGIN = Vec3(2000, 0, 2000)  # PO.x, PO.y, PO.z
-ADRS_MCR = "sb.mc-remote.com"  # mc-remote sandbox server
-PORT_MCR = 25575  # socket server port
+```bash
+cd starter
+cp param_mc_remote.template.py param_mc_remote.py
 ```
 
-- **For b2 auth, run the pairing command shown by the Python client in Minecraft. The paired in-game player becomes the authenticated identity.**
+The official sandbox works without editing the copy. Change it only for another server or build origin. `param_mc_remote.py` is ignored by Git; credentials do not belong in it.
+
+公式sandboxを使う場合、コピー後の変更は不要です。別のサーバーや建築原点を使う場合だけ変更します。`param_mc_remote.py` はGit管理外です。credentialはこのファイルへ書きません。
+
+```python
+from mc_remote.vec3 import Vec3
+
+ADRS_MCR = "sb.mc-remote.com"  # the official sandbox server
+PORT_MCR = 25575
+BUILD_ORIGIN = Vec3(2000, 0, 2000)
+```
+
+- **On the first connection, run the pairing command shown by the Python client in Minecraft. The paired in-game player becomes the authenticated identity.**
   - Server address: `sb.mc-remote.com`
   - Server port: `25565` (No need to specify because it is the default port for Minecraft.)
 - `PORT_MCR` is the port for the socket server. The default value is `25575`, but you can change it to any port you like. If you are using your own PaperMC server, make sure to set the same port in the `plugins/McRemote/config.yml`.
-- `PLAYER_ORIGIN` defines the origin of the building coordinate system. Building coordinates are computed relative to this origin. For example, executing `setBlock(5, 68, 5, block.GOLD_BLOCK)` will place a gold block at coordinates `(2005, 68, 2005)`.
+- `BUILD_ORIGIN` defines the origin of the directory's building coordinate system. Building coordinates are relative to it.
 
-- **b2 認証では、Python クライアントが表示するペアリングコマンドを Minecraft 側で実行します。ペアリングしたゲーム内プレイヤーが認証済み identity になります。**
+- **初回接続では、Pythonクライアントが表示するpairing commandをMinecraft側で実行します。ペアリングしたゲーム内プレイヤーが認証済みidentityになります。**
   - サーバーアドレス: `sb.mc-remote.com`
   - ポート番号: `25565` （マインクラフトのデフォルトポートなので指定不要）
 - `PORT_MCR` はソケットサーバーのポート番号です。デフォルト値は `25575` ですが、任意のポートに変更可能です。自前のPaperMCサーバーを利用する場合は、`plugins/McRemote/config.yml` に同じポートを設定してください。
-- `PLAYER_ORIGIN` は建築座標系の原点となり、設定値からの相対座標でブロックが配置されます。たとえば、`setBlock(5, 68, 5, block.GOLD_BLOCK)` を実行すると、実際には座標`（2005, 68, 2005）`に金ブロックが設置されます。
+- `BUILD_ORIGIN` は、このディレクトリで使う建築座標系の原点です。ブロックはこの原点からの相対座標で配置されます。
 
 If you are using your own PaperMC server, be sure to load the `McRemote` plugin. While running the server on your own PC offers a compact setup, if your PC is underpowered, it is preferable to use a server on another machine.
 
@@ -110,12 +120,15 @@ to update the package, run (パッケージを更新するには、次のコマ�
 pip install minecraft-remote-api -U
 ```
 
-## Run Examples  (サンプルを実行)
+## Run the starter（starterを実行）
+
+The tracked starter is a source-repository asset. From a source checkout, run: / GitHubからcloneまたはdownloadしたsource treeで、次を実行します。
 
 ```bash
-cd examples
-python hello.py
-python axis_flat.py
+cd starter
+cp param_mc_remote.template.py param_mc_remote.py
+uv run python hello.py
+uv run python with_completion.py
 ```
 
 Manual helper scripts live in `scripts/` and are run from the repo root with `uv run python scripts/<name>.py`.
@@ -124,9 +137,9 @@ Manual helper scripts live in `scripts/` and are run from the repo root with `uv
 
 ## Migration Guide: `setPlayer` → `setWorld` / `setBuildOrigin` (Draft) / 移行ガイド（ドラフト）
 
-> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b2`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b2` is published as a **GitHub pre-release tag only (not on PyPI)**.
+> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b3`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b3` is published as a **GitHub pre-release tag only (not on PyPI)**.
 >
-> protocol **21.0.0**（`2100.0.0b2`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b2` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
+> protocol **21.0.0**（`2100.0.0b3`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b3` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
 
 ### What changed / 変更点
 
@@ -134,7 +147,7 @@ Build state (world + origin) is now **separate from player identity** and **scop
 
 建築状態（ワールド＋原点）が**プレイヤーの識別情報から分離**され、**接続（ストリーム）ごと**に保持されるようになりました。`setPlayer(name, x, y, z)` の1メソッドが、2つのメソッドに置き換わります。
 
-| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b2`) |
+| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b3`) |
 | --- | --- |
 | `mc.setPlayer(PLAYER_NAME, x, y, z)` | `mc.setWorld("overworld")` then `mc.setBuildOrigin(x, y, z)` |
 
@@ -174,21 +187,63 @@ mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
 mc.setPlayer(param.PLAYER_NAME, PO.x, PO.y, PO.z)
 
 # After / 変更後
+from param_mc_remote import BUILD_ORIGIN as ORIGIN
+
 mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
 mc.setWorld("overworld")
-mc.setBuildOrigin(PO.x, PO.y, PO.z)
+mc.setBuildOrigin(ORIGIN.x, ORIGIN.y, ORIGIN.z)
 ```
 
 ### Installing the beta / ベータの導入
 
-`2100.0.0b2` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag.
+`2100.0.0b3` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag.
 
-`2100.0.0b2` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します。
+`2100.0.0b3` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します。
 
 ```bash
 # exact-pin from the GitHub tag / GitHub タグを明示指定
-uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2100.0.0b2"
+uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2100.0.0b3"
 ```
+
+***
+
+## What's new in b3: the live block/entity/particle catalog / b3 の新機能: 生きたカタログ
+
+`2100.0.0b3` adds `catalog.get` (wire §7.2.1). After an authenticated `hello`, `Minecraft.create()` acquires the connected server's live block/entity/particle registry, verifies it against the advertised and recomputed `catalogHash`, and stores the validated raw catalog in the user cache. It then publishes two disposable completion artifacts in the current working directory: `mc_constants.py` and `mc_constants.manifest.json`.
+
+`2100.0.0b3` で `catalog.get`（wire §7.2.1）が加わりました。認証済み `hello` の後、`Minecraft.create()` が接続先サーバーの生きたブロック／エンティティ／パーティクル registry を取得し、hello が示した `catalogHash` と再計算した hash の両方で検証して、ユーザーcacheへ保存します。その後、現在の作業ディレクトリへ補完用の一時生成物 `mc_constants.py` と `mc_constants.manifest.json` を公開します。
+
+Outside the tracked starter, initialize the ignore rules once for each Git-managed project. This command only updates `.gitignore` for `param_mc_remote.py` and the projection files; it does not create the template, connect, or generate a projection. / tracked starter以外のGit管理projectでは、projectごとにignore規則を一度用意します。このコマンドは `param_mc_remote.py` とprojection生成物のために `.gitignore` を更新するだけで、template作成・接続・projection生成は行いません。
+
+```shell
+mcremote init
+```
+
+The first Hello World connects without importing `mc_constants`, posts to chat, and places one block. Completion is acquired by that successful connection. The commented import in [`starter/hello.py`](starter/hello.py) lets learners observe the unresolved import before connecting, then see it resolve afterward. / 最初のHello Worldは `mc_constants` をimportせず、chatへの投稿とブロック1個の設置まで行います。その接続成功によって補完を獲得します。[`starter/hello.py`](starter/hello.py) のコメントアウトされたimportを使い、接続前の未解決状態と接続後の解決状態を観察できます。
+
+```python
+import param_mc_remote as param
+from param_mc_remote import BUILD_ORIGIN as ORIGIN
+from mc_remote.minecraft import Minecraft
+
+mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
+mc.setBuildOrigin(ORIGIN.x, ORIGIN.y, ORIGIN.z)
+mc.postToChat("Hello, Minecraft from Python!")
+mc.setBlock(5, 62 + 5, 5, "sea_lantern")
+```
+
+After projection succeeds, the generated constants can be imported and used. / projection成功後は、生成された定数をimportして利用できます。
+
+```python
+from mc_constants import block, world_info
+
+mc.setBlock(6, world_info.Y_SEA + 5, 5, block.GOLD_BLOCK)
+```
+
+- A cache miss is fetched on a separate short-lived authenticated stream. Catalog or projection failure produces an actionable warning, but `Minecraft.create()` still returns the connected build client. Fix the reported stage and retry with `mc.sync_constants(force=True)`. / cache missの取得には、建築用とは別の短命な認証済みstreamを使います。catalogまたはprojectionが失敗してもactionable warningとなり、`Minecraft.create()` は接続済み建築clientを返します。表示された段階を直し、`mc.sync_constants(force=True)` で再試行できます。
+- Pass `sync_catalog=False` to `Minecraft.create(...)` to skip catalog cache/projection work. / catalogのcache／projection処理を省く場合は `Minecraft.create(..., sync_catalog=False)` を指定します。
+- `mc_remote.catalog.block_ref(name, **state)` builds a `block_state_ref` string client-side, e.g. `block_ref("oak_log", axis="y")` → `"minecraft:oak_log[axis=y]"`; the server tolerates a missing namespace and partial state, so this is convenience only, not a wire requirement. / `mc_remote.catalog.block_ref(name, **state)` は client 側で `block_state_ref` 文字列を組み立てる便利関数です（サーバーは namespace 省略・state 部分指定を許容するため、これは書きやすさのためだけの補助です）。
+- The projection is neither bundled nor committed. Even when the raw catalog is already cached, a fresh clone receives no completion files until its own authenticated `hello` succeeds. In a Git project whose projection files are not ignored, generation is refused and `mcremote init` is suggested. / projectionは同梱もcommitもしません。生catalogがcache済みでも、fresh cloneではその環境自身の認証済み `hello` が成功するまで補完ファイルは現れません。Git管理下で生成物がignoreされていない場合は生成せず、`mcremote init` を案内します。
 
 ***
 
