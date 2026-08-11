@@ -1,0 +1,7 @@
+# Directory-local environment adapter (copy of the tracked template)
+/param_mc_remote.py
+
+# Live catalog projection (generated after authenticated hello)
+/mc_constants.py
+/mc_constants.manifest.json
+/.mc_constants.*

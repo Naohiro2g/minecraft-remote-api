@@ -20,7 +20,20 @@ import os
 import sys
 import time
 
-from .connection import McRpcError
+from .connection import McRemoteError, McRpcError
+
+
+class PairingRequiredError(McRemoteError):
+    """Authentication cannot continue because interactive pairing is off."""
+
+    def __init__(self, reason=None):
+        self.reason = reason
+        suffix = f" (server reason: {reason})" if reason else ""
+        super().__init__(
+            "Minecraft pairing is required but pair=False disables it"
+            f"{suffix}. Retry with pair=True in an interactive session, "
+            "or provide a credential before running this non-interactively."
+        )
 
 
 # §6.3 authentication family: any of these means the token (if any) is no good

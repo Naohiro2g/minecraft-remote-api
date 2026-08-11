@@ -35,8 +35,9 @@ from mc_remote.auth import (  # noqa: E402
     AUTH_DISCARD_REASONS,
 )
 from mc_remote.connection import McRpcError  # noqa: E402
-from mc_remote.minecraft import Minecraft, PROTOCOL  # noqa: E402
+from mc_remote.minecraft import Minecraft, PairingRequiredError, PROTOCOL  # noqa: E402
 import mc_remote.minecraft as minecraft_mod  # noqa: E402
+from scripts import auth_smoke  # noqa: E402
 
 
 class FakeConn:
@@ -171,6 +172,20 @@ def test_pairbegin_params():
     assert conn.calls[1] == ("auth.pairPoll", {"pairing_id": "pid-1"}), conn.calls[1]
 
 
+# 2a. The release-gate smoke helper exposes only current §6.5 token types.
+def test_auth_smoke_token_type_contract():
+    parser = auth_smoke._build_parser()
+    assert parser.parse_args([]).token_type == "session"
+    assert parser.parse_args(["--token-type", "long_lived"]).token_type == "long_lived"
+    with contextlib.redirect_stderr(io.StringIO()):
+        try:
+            parser.parse_args(["--token-type", "player"])
+        except SystemExit as exc:
+            assert exc.code == 2
+        else:
+            raise AssertionError("legacy token type player must be rejected")
+
+
 # 2b. Pair UX displays the copyable command with grouped digits (wire unchanged)
 def test_pair_prints_grouped_command():
     conn = FakeConn(_pair_responses(poll=("ok",)))
@@ -278,7 +293,27 @@ def test_discard_reasons_repair():
             assert is_auth_discard(err), reason
 
 
-# 8b. permission_denied is authorization, not auth: propagate, no pairing
+# 8b. pair=False still discards an invalid token, but never starts pairing
+def test_pair_false_discards_token_and_fails_actionably():
+    for reason in AUTH_DISCARD_REASONS:
+        with tmp_config():
+            save_token("srv:1", "mcrs_stale")
+            err = McRpcError(-32000, reason, {"reason": reason})
+            mc = Minecraft(FakeConn({"hello": err}))
+            try:
+                mc.authenticate("srv:1", pair=False)
+            except PairingRequiredError as exc:
+                assert exc.reason == reason
+            else:
+                raise AssertionError("expected PairingRequiredError")
+            assert load_token("srv:1") is None
+            assert mc.conn.calls == [
+                ("hello", {"protocol": PROTOCOL, "auth": {"token": "mcrs_stale"}})
+            ]
+            assert mc.conn.reconnects == 0
+
+
+# 8c. permission_denied is authorization, not auth: propagate, no pairing
 def test_permission_denied_propagates():
     with tmp_config():
         denied = McRpcError(-32000, "denied", {"reason": "permission_denied"})
@@ -296,7 +331,27 @@ def test_permission_denied_propagates():
         assert load_token("srv:1") == "mcrs_keep"  # authorization failure keeps token
 
 
-# 8c. protocol_mismatch is not an auth reason -> propagates
+# 8d. service availability does not invalidate or discard the credential
+def test_credential_store_unavailable_preserves_token():
+    with tmp_config():
+        unavailable = McRpcError(
+            -32000,
+            "store unavailable",
+            {"reason": "credential_store_unavailable"},
+        )
+        save_token("srv:1", "mcrs_keep")
+        mc = Minecraft(FakeConn({"hello": unavailable}))
+        try:
+            mc.authenticate("srv:1", pair=False)
+        except McRpcError as exc:
+            assert exc.reason == "credential_store_unavailable"
+        else:
+            raise AssertionError("expected credential_store_unavailable")
+        assert load_token("srv:1") == "mcrs_keep"
+        assert mc.conn.reconnects == 0
+
+
+# 8e. protocol_mismatch is not an auth reason -> propagates
 def test_protocol_mismatch_propagates():
     with tmp_config():
         mm = McRpcError(-32600, "mismatch", {"reason": "protocol_mismatch"})

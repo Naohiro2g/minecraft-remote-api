@@ -1,0 +1,20 @@
+{
+  "attach_code": {
+    "alphabet": "0123456789ABCDEFGHJKMNPQRSTVWXYZ",
+    "symbols": 8,
+    "entropy_bits": 40,
+    "ttl_seconds": 120,
+    "max_invalid_attempts": 5,
+    "max_reissues": 2,
+    "reissue_cooldown_seconds": 5
+  },
+  "buffers": {
+    "frame_max_bytes": 65536,
+    "history_max_frames": 100,
+    "history_max_bytes": 262144,
+    "ingress_max_events": 256,
+    "outbound_max_envelopes": 16,
+    "outbound_max_bytes": 1048576,
+    "attach_request_max_bytes": 1024
+  }
+}
