@@ -15,6 +15,7 @@ import secrets
 import sys
 import threading
 import time
+import webbrowser
 from collections import deque
 from dataclasses import dataclass
 
@@ -620,14 +621,14 @@ def _terminal_renderer(stream):
     return render
 
 
-def _start_station(station, *, terminal=None):
-    """Preflight the local profile.
-
-    The verified artifact loader and HTTP station are internal-ready.  Until
-    browser launch and artifact distribution land as one compatibility set, a
-    normal installed package still fails closed on the observer path and
-    ``Minecraft.create`` continues.
-    """
+def _start_station(
+    station,
+    *,
+    terminal=None,
+    _app_loader=None,
+    _browser_launcher=None,
+):
+    """Preflight and launch the browser-loopback reference profile."""
 
     if station._profile != "browser-loopback":
         raise _WireScopeStartError("unsupported WireScope station profile")
@@ -639,10 +640,22 @@ def _start_station(station, *, terminal=None):
     from ._wirescope_app import load_bundled_wirescope_app
     from ._wirescope_artifact import WireScopeArtifactError
 
+    app_loader = _app_loader or load_bundled_wirescope_app
+    browser_launcher = _browser_launcher or webbrowser.open
     try:
-        load_bundled_wirescope_app()
+        app = app_loader()
     except WireScopeArtifactError as exc:
         raise _WireScopeStartError(str(exc)) from exc
-    raise _WireScopeStartError(
-        "automatic browser launch is not implemented yet"
-    )
+    try:
+        runtime = _start_loopback_station(app=app, terminal=stream)
+    except Exception as exc:
+        raise _WireScopeStartError("the loopback station could not start") from exc
+    try:
+        launched = browser_launcher(runtime.url, new=2, autoraise=True)
+    except Exception as exc:
+        runtime.close()
+        raise _WireScopeStartError("the WireScope browser could not open") from exc
+    if not launched:
+        runtime.close()
+        raise _WireScopeStartError("the WireScope browser could not open")
+    return runtime

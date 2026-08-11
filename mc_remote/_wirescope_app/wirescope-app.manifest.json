@@ -1,0 +1,72 @@
+{
+  "manifest_schema": "mcremote.wirescope.app-manifest",
+  "manifest_version": 1,
+  "archive": {
+    "file": "wirescope-app.zip",
+    "format": "zip",
+    "format_version": 1,
+    "sha256": "947a6d478439ce60199be1b18b3c8d3cebdb46d2c022f8d9933138b23b2a5897"
+  },
+  "source": {
+    "repository": "https://github.com/Naohiro2g/scratch-editor",
+    "commit": "192d1e3ccd213fb5012b92655e51b779270e15be",
+    "subdirectory": "mc-remote/live",
+    "corresponding_source_url": "https://github.com/Naohiro2g/scratch-editor/tree/192d1e3ccd213fb5012b92655e51b779270e15be/mc-remote/live"
+  },
+  "build": {
+    "recipe": "npm ci && npm run build:artifact --workspace=@mc-remote/live -- --source-commit 192d1e3ccd213fb5012b92655e51b779270e15be",
+    "toolchain": {
+      "node": "24.19.0",
+      "rolldown-vite": "7.3.1",
+      "typescript": "5.9.3",
+      "jszip": "3.10.1"
+    },
+    "input_identity": {
+      "source_commit": "192d1e3ccd213fb5012b92655e51b779270e15be",
+      "package_json_sha256": "84b74060253ef940952db82c24e1cee4d18d652ae11449ee601a92d1f72a6bbe",
+      "package_lock_sha256": "35344ffda265019b946097f26edee6092954e4efd60af53ed43be0937dad4cf7"
+    }
+  },
+  "protocols": {
+    "observer_schema": {
+      "name": "mcremote.observer",
+      "version": 1
+    },
+    "observer_session": 1,
+    "scratch_handoff": 1,
+    "station_attach": 1
+  },
+  "assets": [
+    {
+      "path": "LICENSE",
+      "bytes": 34523,
+      "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+    },
+    {
+      "path": "NOTICE",
+      "bytes": 310,
+      "sha256": "a5a1f4e50ffa47063bc2cd9c903d167f6723db3bcf38c76007f7be6824bde8b0"
+    },
+    {
+      "path": "assets/index-BzXh0Yq8.js",
+      "bytes": 39333,
+      "sha256": "a44c58f881c2e397d5ebfda739ffec7155cd5968374f3affc7d52d361b67b91a"
+    },
+    {
+      "path": "assets/index-BzXh0Yq8.js.map",
+      "bytes": 106833,
+      "sha256": "080b15a3a8ec3f0284465f666e87c12b70cfc06b75b34f857da0e45957fe39b3"
+    },
+    {
+      "path": "assets/index-DjR58WpZ.css",
+      "bytes": 6930,
+      "sha256": "2fd79f52778cd1c58976d1db804240b4c665dc3ee63424bc294888038cf6962f"
+    },
+    {
+      "path": "index.html",
+      "bytes": 674,
+      "sha256": "4963be57a151b526a531ea566e00a2dbadd5d5a2f152e076e5399ace49f79cdc"
+    }
+  ],
+  "license_expression": "AGPL-3.0-only"
+}

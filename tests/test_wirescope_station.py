@@ -1,5 +1,6 @@
 """Deterministic tests for the Python browser-loopback station primitives."""
 
+import io
 import json
 import time
 import warnings
@@ -24,6 +25,11 @@ HELLO = {
     "origin": [200, 0, 200],
     "permissions": {"online": True, "offline": False, "buildRange": 100},
 }
+
+
+class Terminal(io.StringIO):
+    def isatty(self):
+        return True
 
 
 class MutableClock:
@@ -347,6 +353,70 @@ def test_wirescope_preflight_failure_warns_and_minecraft_continues():
         minecraft_mod.Connection = previous_connection
         minecraft_mod.load_token = previous_load_token
         wirescope_mod._start_station = previous_start
+
+
+def test_station_preflight_starts_loopback_then_opens_secret_free_url():
+    class Runtime:
+        url = "http://127.0.0.1:43123/"
+
+        def close(self):
+            raise AssertionError("successful launch must keep the runtime open")
+
+    runtime = Runtime()
+    calls = []
+    previous_loopback_start = wirescope_mod._start_loopback_station
+    wirescope_mod._start_loopback_station = lambda **_kwargs: runtime
+    try:
+        result = wirescope_mod._start_station(
+            WireScopeStation.local(),
+            terminal=Terminal(),
+            _app_loader=lambda: object(),
+            _browser_launcher=lambda url, **options: calls.append(
+                (url, options)
+            )
+            or True,
+        )
+        assert result is runtime
+        assert calls == [
+            (
+                "http://127.0.0.1:43123/",
+                {"new": 2, "autoraise": True},
+            )
+        ]
+        assert "attach" not in calls[0][0]
+        assert "code" not in calls[0][0]
+    finally:
+        wirescope_mod._start_loopback_station = previous_loopback_start
+
+
+def test_browser_launch_failure_closes_station_and_remains_fail_open():
+    class Runtime:
+        url = "http://127.0.0.1:43123/"
+
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    runtime = Runtime()
+    previous_loopback_start = wirescope_mod._start_loopback_station
+    wirescope_mod._start_loopback_station = lambda **_kwargs: runtime
+    try:
+        try:
+            wirescope_mod._start_station(
+                WireScopeStation.local(),
+                terminal=Terminal(),
+                _app_loader=lambda: object(),
+                _browser_launcher=lambda _url, **_options: False,
+            )
+        except wirescope_mod._WireScopeStartError as exc:
+            assert "browser could not open" in str(exc)
+        else:
+            raise AssertionError("browser launch failure must fail WireScope")
+        assert runtime.closed
+    finally:
+        wirescope_mod._start_loopback_station = previous_loopback_start
 
 
 def test_create_failure_closes_wirescope_runtime():
