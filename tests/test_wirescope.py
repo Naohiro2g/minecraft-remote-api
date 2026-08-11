@@ -235,7 +235,7 @@ class FakeSocket:
         pass
 
 
-def test_minecraft_create_attaches_observer_before_authenticated_hello():
+def test_minecraft_create_without_wirescope_does_not_attach_observer():
     class CreateConnection:
         def __init__(self, address, port, debug=False):
             self.address = address
@@ -250,13 +250,16 @@ def test_minecraft_create_attaches_observer_before_authenticated_hello():
 
         def rpc(self, method, params=None):
             self.request_id += 1
-            self.observer.observe_request(method, params, self.request_id)
+            if self.observer is not None:
+                self.observer.observe_request(method, params, self.request_id)
             result = HELLO if method == "hello" else None
-            self.observer.observe_result(method, result, self.request_id)
+            if self.observer is not None:
+                self.observer.observe_result(method, result, self.request_id)
             return result
 
         def close(self):
-            self.observer.connection_closed()
+            if self.observer is not None:
+                self.observer.connection_closed()
 
     previous_connection = minecraft_mod.Connection
     previous_load_token = minecraft_mod.load_token
@@ -264,11 +267,9 @@ def test_minecraft_create_attaches_observer_before_authenticated_hello():
     minecraft_mod.load_token = lambda _server_key: None
     try:
         mc = Minecraft.create(sync_catalog=False, pair=False)
-        assert mc.conn.observer is mc._observer
-        assert mc._observer.active
-        assert mc._observer.snapshot()["target"]["source_kind"] == "python"
+        assert mc.conn.observer is None
+        assert mc._observer is None
         mc.close()
-        assert not mc._observer.active
     finally:
         minecraft_mod.Connection = previous_connection
         minecraft_mod.load_token = previous_load_token

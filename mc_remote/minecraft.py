@@ -20,7 +20,7 @@ from .auth import (
 from . import catalog as _catalog
 from . import _constants_codegen
 from . import projection as _projection
-from .observer import PythonObserverSource
+from . import wirescope as _wirescope
 from .vec3 import Vec3
 from .util import flatten
 
@@ -33,6 +33,7 @@ __all__ = [
     "PairingRequiredError",
     "CatalogProjectionError",
     "CatalogProjectionWarning",
+    "WireScopeWarning",
     "mcpy",
 ]
 
@@ -43,6 +44,7 @@ PROTOCOL = "21.0.0"
 
 CatalogProjectionError = _projection.CatalogProjectionError
 CatalogProjectionWarning = _projection.CatalogProjectionWarning
+WireScopeWarning = _wirescope.WireScopeWarning
 
 
 def intFloor(*args):
@@ -78,6 +80,7 @@ class Minecraft:
     def __init__(self, connection):
         self.conn = connection
         self._observer = None
+        self._wirescope_runtime = None
         self._server_key = None
         self._catalog_connection_factory = None
         self._catalog_endpoint = (
@@ -363,7 +366,19 @@ class Minecraft:
 
     def close(self):
         """Close the connection to the Minecraft server"""
-        self.conn.close()
+        try:
+            self.conn.close()
+        finally:
+            if self._wirescope_runtime is not None:
+                try:
+                    self._wirescope_runtime.close()
+                except Exception:
+                    warnings.warn(
+                        "WireScope cleanup failed; Minecraft is already closed",
+                        _wirescope.WireScopeWarning,
+                        stacklevel=2,
+                    )
+                self._wirescope_runtime = None
         return True
 
     def authenticate(self, server_key, token_type="session", pair=True):
@@ -409,6 +424,7 @@ class Minecraft:
         pair=True,
         token_key=None,
         sync_catalog=True,
+        wirescope=None,
     ):
         """Connect and run the unified b2 auth flow (§6.5).
 
@@ -429,7 +445,12 @@ class Minecraft:
         :meth:`sync_constants` after a successful handshake. Cache misses use
         a separate short-lived stream and publish ``mc_constants.py`` plus its
         manifest. Projection failures are non-fatal actionable warnings; pass
-        ``False`` to skip catalog cache/projection work entirely."""
+        ``False`` to skip catalog cache/projection work entirely.
+
+        ``wirescope`` accepts ``None``/``False`` (fully disabled), ``True``
+        (the permanent low-floor alias for ``WireScopeStation.local()``), or
+        an explicit ``WireScopeStation.local()`` descriptor.  WireScope
+        preflight and observer failures warn but never block Minecraft."""
         env_host = _env_first("MCREMOTE_API_HOST", "JRP_API_HOST")
         if env_host is not None:
             address = env_host
@@ -439,28 +460,78 @@ class Minecraft:
                 port = int(env_port)
             except ValueError:
                 pass
+        station = _wirescope._coerce_station(wirescope)
+        runtime = None
+        if station is not None:
+            try:
+                runtime = _wirescope._start_station(station)
+            except _wirescope._WireScopeStartError as exc:
+                warnings.warn(
+                    f"WireScope was not started: {exc}; Minecraft will continue",
+                    _wirescope.WireScopeWarning,
+                    stacklevel=2,
+                )
+            except Exception:
+                warnings.warn(
+                    "WireScope station preflight failed; Minecraft will continue",
+                    _wirescope.WireScopeWarning,
+                    stacklevel=2,
+                )
         connection_factory = Connection
-        mc = Minecraft(connection_factory(address, port, debug))
-        mc._observer = PythonObserverSource()
-        attach_observer = getattr(mc.conn, "set_observer", None)
-        if attach_observer is not None:
-            attach_observer(mc._observer)
-        mc._catalog_endpoint = (address, port, debug)
-        mc._catalog_connection_factory = connection_factory
-        if handshake:
-            server_key = token_key or sandbox or f"{address}:{port}"
-            mc._server_key = server_key
-            mc.authenticate(server_key, token_type=token_type, pair=pair)
-            if sync_catalog:
+        mc = None
+        try:
+            mc = Minecraft(connection_factory(address, port, debug))
+            mc._wirescope_runtime = runtime
+            if runtime is not None:
+                attach_observer = getattr(mc.conn, "set_observer", None)
                 try:
-                    mc.sync_constants()
-                except _projection.CatalogProjectionError as exc:
+                    mc._observer = runtime.observer()
+                    if attach_observer is None:
+                        raise RuntimeError("connection has no observer hook")
+                    attach_observer(mc._observer)
+                except Exception:
+                    if attach_observer is not None:
+                        try:
+                            attach_observer(None)
+                        except Exception:
+                            pass
+                    try:
+                        runtime.close()
+                    except Exception:
+                        pass
+                    runtime = None
+                    mc._wirescope_runtime = None
+                    mc._observer = None
                     warnings.warn(
-                        _projection.format_warning(exc),
-                        _projection.CatalogProjectionWarning,
+                        "WireScope observer hook failed; Minecraft will continue",
+                        _wirescope.WireScopeWarning,
                         stacklevel=2,
                     )
-        return mc
+            mc._catalog_endpoint = (address, port, debug)
+            mc._catalog_connection_factory = connection_factory
+            if handshake:
+                server_key = token_key or sandbox or f"{address}:{port}"
+                mc._server_key = server_key
+                mc.authenticate(server_key, token_type=token_type, pair=pair)
+                if sync_catalog:
+                    try:
+                        mc.sync_constants()
+                    except _projection.CatalogProjectionError as exc:
+                        warnings.warn(
+                            _projection.format_warning(exc),
+                            _projection.CatalogProjectionWarning,
+                            stacklevel=2,
+                        )
+            return mc
+        except Exception:
+            if mc is not None:
+                try:
+                    mc.close()
+                except Exception:
+                    pass
+            elif runtime is not None:
+                runtime.close()
+            raise
 
 
 def mcpy(func):

@@ -573,11 +573,14 @@ class PythonObserverSource:
         self,
         frame_consumer: Callable[[dict], None] | None = None,
         *,
+        lifecycle_consumer: Callable[[str, "PythonObserverSource"], None]
+        | None = None,
         clock: Callable[[], int | float] | None = None,
         target_id_factory: Callable[[], str] | None = None,
         alias_factory: Callable[[], str] | None = None,
     ):
         self._frame_consumer = frame_consumer
+        self._lifecycle_consumer = lifecycle_consumer
         self._clock = clock or (lambda: time.time_ns() // 1_000_000)
         self._target_id_factory = target_id_factory or (
             lambda: f"target-{secrets.token_hex(16)}"
@@ -590,6 +593,15 @@ class PythonObserverSource:
 
         self._frame_consumer = consumer
 
+    def set_lifecycle_consumer(self, consumer):
+        """Set an in-process sink for target lifecycle events."""
+
+        self._lifecycle_consumer = consumer
+
+    def _emit_lifecycle(self, event):
+        if self._lifecycle_consumer is not None:
+            self._lifecycle_consumer(event, self)
+
     def connection_opened(self):
         self._release_alias()
         self.active = False
@@ -601,9 +613,12 @@ class PythonObserverSource:
         self._pending_hello = []
 
     def connection_closed(self):
+        was_active = self.active
         self._release_alias()
         self.active = False
         self._pending_hello = []
+        if was_active:
+            self._emit_lifecycle("target-ended")
 
     def _release_alias(self):
         alias = getattr(self, "display_alias", None)
@@ -691,6 +706,7 @@ class PythonObserverSource:
                 self._emit(pending)
             self._pending_hello = []
             self._emit(frame)
+            self._emit_lifecycle("target-activated")
             return
         if self.active:
             self.status = "connected"
