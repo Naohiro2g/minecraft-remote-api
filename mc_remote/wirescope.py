@@ -19,6 +19,8 @@ from collections import deque
 from dataclasses import dataclass
 from importlib import resources
 
+from . import _wirescope_station_contract as _station_contract
+
 __all__ = ["WireScopeStation", "WireScopeWarning"]
 
 
@@ -35,10 +37,10 @@ HISTORY_MAX_BYTES = 256 * 1024
 INGRESS_MAX_EVENTS = 256
 OUTBOUND_MAX_ENVELOPES = 16
 OUTBOUND_MAX_BYTES = 1024 * 1024
-ATTACH_REQUEST_MAX_BYTES = 1024
+ATTACH_REQUEST_MAX_BYTES = _station_contract.STATION_ATTACH_REQUEST_MAX_BYTES
 
-BOOTSTRAP_PATH = "/__mcremote/wirescope/bootstrap/v1"
-ATTACH_PATH = "/__mcremote/wirescope/attach/v1"
+BOOTSTRAP_PATH = _station_contract.STATION_BOOTSTRAP_PATH
+ATTACH_PATH = _station_contract.STATION_ATTACH_PATH
 
 
 class WireScopeWarning(RuntimeWarning):
@@ -363,12 +365,7 @@ class _LoopbackRequestPolicy:
 
     @property
     def response_headers(self):
-        return {
-            "Cache-Control": "no-store",
-            "Cross-Origin-Opener-Policy": "same-origin",
-            "Referrer-Policy": "no-referrer",
-            "X-Content-Type-Options": "nosniff",
-        }
+        return dict(_station_contract.STATION_REQUIRED_RESPONSE_HEADERS)
 
     def validate_bootstrap(self, *, host, origin=None):
         self._validate_host(host)
@@ -379,7 +376,7 @@ class _LoopbackRequestPolicy:
         self._validate_host(host)
         if origin != self.origin:
             raise _RequestBoundaryError("origin mismatch")
-        if content_type != "application/json":
+        if content_type != _station_contract.STATION_JSON_CONTENT_TYPE:
             raise _RequestBoundaryError("content type must be application/json")
         if (
             isinstance(content_length, bool)
