@@ -146,12 +146,12 @@ def _parse_hello(value):
             hello.get("supported_mc_versions"), "hello.supported_mc_versions"
         ),
         "catalog_hash": catalog_hash,
-        "world_constants": {"y_sea": y_sea},
     }
     if "world" in hello:
         parsed["world"] = _required_string(hello["world"], "hello.world")
     if "origin" in hello:
         parsed["origin"] = _number_tuple(hello["origin"], "hello.origin")
+    parsed["world_constants"] = {"y_sea": y_sea}
     if "permissions" in hello:
         parsed["permissions"] = _parse_permissions(hello["permissions"])
     return parsed
