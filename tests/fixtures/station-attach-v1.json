@@ -1,0 +1,102 @@
+{
+  "protocol_version": 1,
+  "paths": {
+    "bootstrap": "/__mcremote/wirescope/bootstrap/v1",
+    "attach": "/__mcremote/wirescope/attach/v1"
+  },
+  "content_types": {
+    "json": "application/json",
+    "ndjson": "application/x-ndjson"
+  },
+  "limits": {
+    "bootstrap_response_max_bytes": 4096,
+    "error_response_max_bytes": 4096,
+    "attach_request_max_bytes": 1024,
+    "ndjson_line_max_bytes": 524288
+  },
+  "bootstrap_ready": {
+    "station_attach_protocol_version": 1,
+    "observer_session_protocol_version": 1,
+    "observer_schema": {
+      "name": "mcremote.observer",
+      "version": 1
+    },
+    "artifact": {
+      "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "station_ready": true
+  },
+  "bootstrap_not_ready": {
+    "station_attach_protocol_version": 1,
+    "observer_session_protocol_version": 1,
+    "observer_schema": {
+      "name": "mcremote.observer",
+      "version": 1
+    },
+    "artifact": {
+      "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "station_ready": false
+  },
+  "attach_request": {
+    "attach_code": "00000000"
+  },
+  "attach_errors": [
+    {
+      "status": 409,
+      "body": {
+        "error": "target-not-ready"
+      },
+      "consumes_attempt": false
+    },
+    {
+      "status": 400,
+      "body": {
+        "error": "malformed-code"
+      },
+      "consumes_attempt": false
+    },
+    {
+      "status": 403,
+      "body": {
+        "error": "invalid-code"
+      },
+      "consumes_attempt": true
+    },
+    {
+      "status": 429,
+      "body": {
+        "error": "attempts-exhausted"
+      },
+      "consumes_attempt": true
+    },
+    {
+      "status": 410,
+      "body": {
+        "error": "code-expired"
+      },
+      "consumes_attempt": false
+    },
+    {
+      "status": 409,
+      "body": {
+        "error": "already-redeemed"
+      },
+      "consumes_attempt": false
+    },
+    {
+      "status": 400,
+      "body": {
+        "error": "invalid-request"
+      },
+      "consumes_attempt": false
+    }
+  ],
+  "required_response_headers": {
+    "Cache-Control": "no-store",
+    "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff"
+  }
+}
