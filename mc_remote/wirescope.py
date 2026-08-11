@@ -3,8 +3,8 @@
 The browser application, its immutable artifact manifest, and the exact
 observer-session envelope are shared contracts owned with ``@mc-remote/live``.
 This module deliberately does not invent those wire shapes.  It provides the
-public station descriptor and the bounded, transport-neutral runtime pieces
-that the future same-origin HTTP adapter consumes.
+public station descriptor and bounded runtime consumed by the internal
+same-origin HTTP adapter.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
-from importlib import resources
 
 from . import _wirescope_station_contract as _station_contract
 
@@ -265,29 +264,39 @@ class _LatestSnapshot:
     """One replaceable snapshot slot plus one non-replaceable terminal state."""
 
     def __init__(self):
-        self._lock = threading.Lock()
+        self._condition = threading.Condition()
         self._snapshot = None
         self._terminal = None
 
     def replace(self, snapshot, history_window):
-        with self._lock:
+        with self._condition:
             if self._terminal is None:
                 self._snapshot = (snapshot, history_window)
+                self._condition.notify_all()
 
     def end(self, reason):
-        with self._lock:
+        with self._condition:
             if self._terminal is None:
                 self._terminal = reason
+                self._condition.notify_all()
 
     def take_snapshot(self):
-        with self._lock:
+        with self._condition:
             value = self._snapshot
             self._snapshot = None
             return value
 
+    def wait(self, timeout):
+        with self._condition:
+            if self._snapshot is None and self._terminal is None:
+                self._condition.wait(timeout)
+            value = self._snapshot
+            self._snapshot = None
+            return value, self._terminal
+
     @property
     def terminal(self):
-        with self._lock:
+        with self._condition:
             return self._terminal
 
 
@@ -514,6 +523,15 @@ class _ObserverPipeline:
     def take_snapshot(self):
         return self._latest.take_snapshot()
 
+    def wait_output(self, timeout):
+        return self._latest.wait(timeout)
+
+    def new_outbound_queue(self):
+        return _EncodedOutboundQueue()
+
+    def end_backpressure(self):
+        self._end("backpressure")
+
     @property
     def terminal_reason(self):
         return self._latest.terminal
@@ -521,6 +539,10 @@ class _ObserverPipeline:
     @property
     def attach_code(self):
         return self._code.display_code()
+
+    @property
+    def station_ready(self):
+        return self.attach_code is not None and self.terminal_reason is None
 
     def close(self, *, source_closed=True):
         if source_closed:
@@ -533,9 +555,14 @@ class _ObserverPipeline:
 class _RuntimeHandle:
     """Internal interface consumed by ``Minecraft.create``."""
 
-    def __init__(self, pipeline):
+    def __init__(self, pipeline, http_station=None):
         self.pipeline = pipeline
+        self.http_station = http_station
         self.source = None
+
+    @property
+    def url(self):
+        return None if self.http_station is None else self.http_station.url
 
     def observer(self):
         from .observer import PythonObserverSource
@@ -548,7 +575,41 @@ class _RuntimeHandle:
         return source
 
     def close(self):
-        self.pipeline.close()
+        if self.http_station is None:
+            self.pipeline.close()
+        else:
+            self.http_station.close()
+
+
+def _start_loopback_station(
+    *,
+    app,
+    terminal,
+    clock=time.monotonic,
+    random_bits=secrets.randbits,
+):
+    """Start the internal HTTP profile around an already verified app."""
+
+    from ._wirescope_app import WireScopeApp
+    from ._wirescope_http import LoopbackHTTPStation
+
+    if not isinstance(app, WireScopeApp):
+        raise TypeError("app must be a verified WireScopeApp")
+    pipeline = _ObserverPipeline(
+        code_renderer=_terminal_renderer(terminal),
+        clock=clock,
+        random_bits=random_bits,
+    ).start()
+    try:
+        http_station = LoopbackHTTPStation(
+            app=app,
+            pipeline=pipeline,
+            policy_factory=_LoopbackRequestPolicy,
+        )
+    except Exception:
+        pipeline.close()
+        raise
+    return _RuntimeHandle(pipeline, http_station)
 
 
 def _terminal_renderer(stream):
@@ -559,20 +620,13 @@ def _terminal_renderer(stream):
     return render
 
 
-def _bundled_artifact_present():
-    root = resources.files("mc_remote").joinpath("_wirescope_app")
-    return (
-        root.joinpath("wirescope-app.zip").is_file()
-        and root.joinpath("wirescope-app.manifest.json").is_file()
-    )
-
-
 def _start_station(station, *, terminal=None):
     """Preflight the local profile.
 
-    The exact artifact manifest parser and same-origin HTTP adapter land with
-    the shared client fixture.  Until then a normal installed package fails
-    closed on the observer path and ``Minecraft.create`` continues.
+    The verified artifact loader and HTTP station are internal-ready.  Until
+    browser launch and artifact distribution land as one compatibility set, a
+    normal installed package still fails closed on the observer path and
+    ``Minecraft.create`` continues.
     """
 
     if station._profile != "browser-loopback":
@@ -582,10 +636,13 @@ def _start_station(station, *, terminal=None):
         raise _WireScopeStartError(
             "an interactive TTY is required to display the attach code"
         )
-    if not _bundled_artifact_present():
-        raise _WireScopeStartError(
-            "the immutable @mc-remote/live artifact is not installed"
-        )
+    from ._wirescope_app import load_bundled_wirescope_app
+    from ._wirescope_artifact import WireScopeArtifactError
+
+    try:
+        load_bundled_wirescope_app()
+    except WireScopeArtifactError as exc:
+        raise _WireScopeStartError(str(exc)) from exc
     raise _WireScopeStartError(
-        "the shared station attach fixture is not installed yet"
+        "automatic browser launch is not implemented yet"
     )
