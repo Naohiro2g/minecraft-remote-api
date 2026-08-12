@@ -165,7 +165,7 @@ def test_pipeline_retains_only_hello_before_attach_and_coalesces_snapshots():
         pipeline.accept_frame,
         lifecycle_consumer=pipeline.accept_lifecycle,
         target_id_factory=lambda: "target-python-01",
-        alias_factory=lambda: "5A17C0DE",
+        alias_factory=lambda: "MIND-STORM-000027",
     )
     try:
         observer.observe_request("hello", {"protocol": "21.0.0"}, 1)

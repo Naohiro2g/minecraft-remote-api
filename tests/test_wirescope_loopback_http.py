@@ -125,7 +125,7 @@ def request(runtime, method, path, *, body=None, headers=None):
 
 
 def activate(runtime):
-    alias = f"{next(ALIASES):08X}"
+    alias = f"MIND-STORM-{next(ALIASES):06d}"
     source = PythonObserverSource(
         runtime.pipeline.accept_frame,
         lifecycle_consumer=runtime.pipeline.accept_lifecycle,
