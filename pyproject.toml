@@ -4,8 +4,8 @@ version = "2100.0.0b3"
 description = "Python Client-API for Minecraft Remote or mc-remote"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
-license-files = ["LICENSE"]
+license = "MIT AND AGPL-3.0-only"
+license-files = ["LICENSE", "LICENSES/*"]
 keywords = ["minecraft", "remote", "API", "client"]
 classifiers = [
     "Programming Language :: Python :: 3.10",
@@ -27,6 +27,7 @@ mcremote = "mc_remote.cli:main"
 Homepage = "https://github.com/Naohiro2g/minecraft-remote-api"
 Repository = "https://github.com/Naohiro2g/minecraft-remote-api"
 Documentation = "https://github.com/Naohiro2g/minecraft-remote-api/blob/main/README.md"
+"WireScope Source" = "https://github.com/Naohiro2g/scratch-editor/tree/3bdcfef6268dee65c6967e27155d2daa17378cd5/mc-remote/live"
 
 [build-system]
 requires = ["uv_build>=0.11.7,<0.12.0"]

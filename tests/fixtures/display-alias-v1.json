@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "words": [
+    "MIND",
+    "STORM",
+    "SOCIETY",
+    "PAPERT",
+    "RESNICK",
+    "PIAGET",
+    "MINSKY",
+    "LIFE",
+    "DNA",
+    "MUSIC",
+    "WAVE",
+    "BRAIN",
+    "SELF",
+    "APPLE",
+    "ORANGE",
+    "LEMON"
+  ],
+  "separator": "-",
+  "suffix_digits": 6,
+  "example": "MIND-STORM-000027"
+}

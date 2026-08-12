@@ -27,7 +27,20 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
   - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b3` — protocol 21.0.0 b3（下記 Migration Guide 参照）
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
-- license（ライセンス）: `MIT`
+- license（ライセンス）: Python codeは`MIT`、同梱WireScope appは`AGPL-3.0-only`
+
+The wheel contains the shared `@mc-remote/live` WireScope browser app as an
+immutable detached ZIP and manifest pair. The component remains
+`AGPL-3.0-only`; its license, notice, exact asset hashes, and corresponding
+source are included in the distribution. The Python client code remains MIT.
+
+wheelには共通`@mc-remote/live` WireScope browser appを、bytesを変更しない
+detached ZIP／manifest pairとして同梱します。このcomponentは
+`AGPL-3.0-only`であり、license、notice、全asset hash、対応source導線を
+配布物に含めます。Python client codeは引き続きMITです。
+
+- WireScope corresponding source:
+  <https://github.com/Naohiro2g/scratch-editor/tree/3bdcfef6268dee65c6967e27155d2daa17378cd5/mc-remote/live>
 
 --
 

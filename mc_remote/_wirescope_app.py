@@ -13,6 +13,7 @@ from types import MappingProxyType
 from ._wirescope_artifact import (
     WireScopeArtifactError,
     parse_detached_manifest,
+    verify_sha256,
     verify_artifact_archive,
 )
 
@@ -20,7 +21,17 @@ from ._wirescope_artifact import (
 _ARTIFACT_ROOT = "_wirescope_app"
 _ARCHIVE_NAME = "wirescope-app.zip"
 _MANIFEST_NAME = "wirescope-app.manifest.json"
+_ARCHIVE_PACKAGE_PATH = f"mc_remote/{_ARTIFACT_ROOT}/{_ARCHIVE_NAME}"
 _MANIFEST_PACKAGE_PATH = f"mc_remote/{_ARTIFACT_ROOT}/{_MANIFEST_NAME}"
+
+BUNDLED_ARCHIVE_BYTES = 53312
+BUNDLED_ARCHIVE_SHA256 = (
+    "94341934b37e266f24d9574b3e192d56e93c9fa16d0c22dc8e4876f245ed3ac8"
+)
+BUNDLED_MANIFEST_BYTES = 2321
+BUNDLED_MANIFEST_SHA256 = (
+    "ea6948ef6a211ae7e026a548b4ac5c99bfd84d6e9d51765565ac433a15d05a2e"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,8 +99,8 @@ def _asset_content_type(path):
     return guessed or "application/octet-stream"
 
 
-def _record_manifest_sha256():
-    """Read the manifest's SHA-256 pin from the installed wheel RECORD."""
+def _record_sha256(package_path, *, label):
+    """Read one package-data SHA-256 pin from the installed wheel RECORD."""
 
     try:
         distribution = metadata.distribution("minecraft-remote-api")
@@ -100,29 +111,33 @@ def _record_manifest_sha256():
     matches = [
         item
         for item in (distribution.files or ())
-        if item.as_posix() == _MANIFEST_PACKAGE_PATH
+        if item.as_posix() == package_path
     ]
     if len(matches) != 1 or matches[0].hash is None:
         raise WireScopeArtifactError(
-            "the artifact manifest is not pinned by wheel RECORD"
+            f"the {label} is not pinned by wheel RECORD"
         )
     file_hash = matches[0].hash
     if file_hash.mode != "sha256":
         raise WireScopeArtifactError(
-            "the artifact manifest RECORD pin must use SHA-256"
+            f"the {label} RECORD pin must use SHA-256"
         )
     encoded = file_hash.value
     try:
         digest = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
     except (ValueError, TypeError) as exc:
         raise WireScopeArtifactError(
-            "the artifact manifest RECORD pin is malformed"
+            f"the {label} RECORD pin is malformed"
         ) from exc
     if len(digest) != 32:
         raise WireScopeArtifactError(
-            "the artifact manifest RECORD pin is malformed"
+            f"the {label} RECORD pin is malformed"
         )
     return digest.hex()
+
+
+def _record_manifest_sha256():
+    return _record_sha256(_MANIFEST_PACKAGE_PATH, label="artifact manifest")
 
 
 def load_bundled_wirescope_app():
@@ -136,8 +151,32 @@ def load_bundled_wirescope_app():
         raise WireScopeArtifactError(
             "the immutable @mc-remote/live artifact is not installed"
         ) from exc
+    if len(manifest_bytes) != BUNDLED_MANIFEST_BYTES:
+        raise WireScopeArtifactError("bundled manifest byte count mismatch")
+    if len(archive_bytes) != BUNDLED_ARCHIVE_BYTES:
+        raise WireScopeArtifactError("bundled archive byte count mismatch")
+    verify_sha256(
+        manifest_bytes,
+        BUNDLED_MANIFEST_SHA256,
+        label="bundled manifest build input",
+    )
+    verify_sha256(
+        archive_bytes,
+        BUNDLED_ARCHIVE_SHA256,
+        label="bundled archive build input",
+    )
+    verify_sha256(
+        manifest_bytes,
+        _record_manifest_sha256(),
+        label="bundled manifest RECORD",
+    )
+    verify_sha256(
+        archive_bytes,
+        _record_sha256(_ARCHIVE_PACKAGE_PATH, label="artifact archive"),
+        label="bundled archive RECORD",
+    )
     return WireScopeApp.from_bytes(
         manifest_bytes,
         archive_bytes,
-        manifest_sha256=_record_manifest_sha256(),
+        manifest_sha256=BUNDLED_MANIFEST_SHA256,
     )

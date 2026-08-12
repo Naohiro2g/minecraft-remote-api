@@ -1,0 +1,8 @@
+WireScope
+Copyright (C) 2026 Code2CreateClub
+
+This component is licensed under AGPL-3.0-only. The complete license text is
+included as LICENSE in the WireScope app archive.
+
+The detached wirescope-app.manifest.json identifies the exact corresponding
+source repository, commit, and subdirectory for this build.

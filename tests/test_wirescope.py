@@ -1,6 +1,7 @@
 """Deterministic conformance tests for the Python WireScope adapter slice."""
 
 import copy
+import hashlib
 import io
 import json
 import subprocess
@@ -12,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from mc_remote.connection import Connection, McRpcError  # noqa: E402
 from mc_remote.minecraft import Minecraft  # noqa: E402
 import mc_remote.minecraft as minecraft_mod  # noqa: E402
+import mc_remote.observer as observer_mod  # noqa: E402
 from mc_remote.observer import (  # noqa: E402
     ObserverValidationError,
     PythonObserverSource,
@@ -21,6 +23,10 @@ from mc_remote.observer import (  # noqa: E402
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "python-main-lifecycle.json"
+ALIAS_FIXTURE = Path(__file__).parent / "fixtures" / "display-alias-v1.json"
+ALIAS_SOURCE = (
+    Path(__file__).parent / "fixtures" / "display-alias-v1.source.json"
+)
 
 HELLO = {
     "protocol": "21.0.0",
@@ -53,7 +59,7 @@ class Clock:
 
 def source(frames=None, ids=None, aliases=None):
     ids = iter(ids or ["target-python-01"])
-    aliases = iter(aliases or ["5A17C0DE"])
+    aliases = iter(aliases or ["MIND-STORM-000027"])
     return PythonObserverSource(
         None if frames is None else frames.append,
         clock=Clock(),
@@ -85,6 +91,45 @@ def test_python_lifecycle_fixture_conforms():
     assert len(parsed[1]["streams"][0]["frames"]) == 1
 
 
+def test_default_display_alias_generator_conforms_to_scratch_fixture(monkeypatch):
+    contract = json.loads(ALIAS_FIXTURE.read_text(encoding="utf-8"))
+    source_metadata = json.loads(ALIAS_SOURCE.read_text(encoding="utf-8"))
+    assert source_metadata == {
+        "repository": "Naohiro2g/scratch-editor",
+        "branch": "develop",
+        "commit": "3b3d1f1c8a0dd66d265c5c6ea515cc5ac291209b",
+        "path": "mc-remote/live/test/fixtures/display-alias-v1.json",
+        "sha256": (
+            "85c8159a8b74788c0cf978078094d23a"
+            "3cdae83c0be5e9aa9552bb820c8389ca"
+        ),
+        "knowledge_commit": "83f44dc5c3d309e080e3007a0d86a0c180b9fdb8",
+        "decision_id": "2026-08-12-03",
+    }
+    assert hashlib.sha256(ALIAS_FIXTURE.read_bytes()).hexdigest() == (
+        source_metadata["sha256"]
+    )
+    assert tuple(contract["words"]) == observer_mod._DISPLAY_ALIAS_WORDS
+    assert contract["separator"] == observer_mod._DISPLAY_ALIAS_SEPARATOR
+    assert contract["suffix_digits"] == observer_mod._DISPLAY_ALIAS_SUFFIX_DIGITS
+
+    words = iter(("MIND", "STORM"))
+    limits = []
+    monkeypatch.setattr(observer_mod.secrets, "choice", lambda _words: next(words))
+    monkeypatch.setattr(
+        observer_mod.secrets,
+        "randbelow",
+        lambda limit: limits.append(limit) or 27,
+    )
+    observer = PythonObserverSource(
+        target_id_factory=lambda: "target-python-alias-contract",
+    )
+    activate(observer)
+    assert observer.display_alias == contract["example"]
+    assert limits == [1_000_000]
+    observer.connection_closed()
+
+
 def test_fixture_dump_command_is_deterministic_and_matches_committed_fixture():
     command = [
         sys.executable,
@@ -102,6 +147,10 @@ def test_fixture_dump_command_is_deterministic_and_matches_committed_fixture():
 
 def test_strict_validator_rejects_unknown_fields_and_shared_ids():
     snapshot = json.loads(FIXTURE.read_text(encoding="utf-8"))[0]
+    legacy_alias = copy.deepcopy(snapshot)
+    legacy_alias["target"]["display_alias"] = "5A17C0DE"
+    assert validate_snapshot(legacy_alias)["target"]["display_alias"] == "5A17C0DE"
+
     unknown = copy.deepcopy(snapshot)
     unknown["streams"][0]["hello"]["player"] = "uuid"
     try:
@@ -198,7 +247,7 @@ def test_reconnect_creates_a_new_target_and_alias():
     observer = source(
         frames,
         ids=["target-python-01", "target-python-02"],
-        aliases=["5A17C0DE", "A11CE002"],
+        aliases=["MIND-STORM-000027", "LIFE-DNA-000028"],
     )
     activate(observer)
     first = (observer.target_id, observer.display_alias)
@@ -211,15 +260,17 @@ def test_reconnect_creates_a_new_target_and_alias():
 
 
 def test_active_alias_collision_is_regenerated():
-    first = source(ids=["target-python-01"], aliases=["COLLIDE"])
+    first = source(
+        ids=["target-python-01"], aliases=["MIND-STORM-000027"]
+    )
     second = source(
         ids=["target-python-02"],
-        aliases=["COLLIDE", "UNIQUE01"],
+        aliases=["MIND-STORM-000027", "LIFE-DNA-000028"],
     )
     activate(first)
     activate(second)
-    assert first.display_alias == "COLLIDE"
-    assert second.display_alias == "UNIQUE01"
+    assert first.display_alias == "MIND-STORM-000027"
+    assert second.display_alias == "LIFE-DNA-000028"
     first.connection_closed()
     second.connection_closed()
 

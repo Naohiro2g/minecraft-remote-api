@@ -8,6 +8,7 @@ import json
 import socket
 import time
 import zipfile
+from pathlib import Path
 from types import SimpleNamespace
 
 from mc_remote import _wirescope_station_contract as contract
@@ -124,7 +125,7 @@ def request(runtime, method, path, *, body=None, headers=None):
 
 
 def activate(runtime):
-    alias = f"{next(ALIASES):08X}"
+    alias = f"MIND-STORM-{next(ALIASES):06d}"
     source = PythonObserverSource(
         runtime.pipeline.accept_frame,
         lifecycle_consumer=runtime.pipeline.accept_lifecycle,
@@ -175,6 +176,25 @@ def test_installed_manifest_pin_is_decoded_from_wheel_record(monkeypatch):
         lambda _name: SimpleNamespace(files=[RecordPath()]),
     )
     assert app_module._record_manifest_sha256() == digest.hex()
+
+
+def test_bundled_delivery_pair_matches_build_input_and_component_files():
+    package_root = Path(app_module.__file__).parent
+    artifact_root = package_root / "_wirescope_app"
+    archive = artifact_root / "wirescope-app.zip"
+    manifest = artifact_root / "wirescope-app.manifest.json"
+
+    assert archive.stat().st_size == app_module.BUNDLED_ARCHIVE_BYTES
+    assert manifest.stat().st_size == app_module.BUNDLED_MANIFEST_BYTES
+    assert sha256(archive.read_bytes()) == app_module.BUNDLED_ARCHIVE_SHA256
+    assert sha256(manifest.read_bytes()) == app_module.BUNDLED_MANIFEST_SHA256
+    with zipfile.ZipFile(archive) as bundled:
+        assert bundled.read("LICENSE") == (
+            Path("LICENSES/AGPL-3.0-only.txt").read_bytes()
+        )
+        assert bundled.read("NOTICE") == (
+            Path("LICENSES/WireScope-NOTICE.txt").read_bytes()
+        )
 
 
 def test_bootstrap_and_assets_require_exact_authority_and_leak_no_secret():

@@ -20,6 +20,27 @@ OBSERVER_SCHEMA = "mcremote.observer"
 OBSERVER_SCHEMA_VERSION = 1
 MAIN_STREAM_ID = "main"
 
+_DISPLAY_ALIAS_WORDS = (
+    "MIND",
+    "STORM",
+    "SOCIETY",
+    "PAPERT",
+    "RESNICK",
+    "PIAGET",
+    "MINSKY",
+    "LIFE",
+    "DNA",
+    "MUSIC",
+    "WAVE",
+    "BRAIN",
+    "SELF",
+    "APPLE",
+    "ORANGE",
+    "LEMON",
+)
+_DISPLAY_ALIAS_SEPARATOR = "-"
+_DISPLAY_ALIAS_SUFFIX_DIGITS = 6
+
 OBSERVED_METHODS = frozenset(
     {
         "hello",
@@ -37,6 +58,17 @@ OBSERVED_METHODS = frozenset(
 
 class ObserverValidationError(ValueError):
     """Raised when a snapshot does not conform to observer schema v1."""
+
+
+def _generate_display_alias():
+    """Generate a non-secret, human-readable display alias contract v1."""
+
+    first = secrets.choice(_DISPLAY_ALIAS_WORDS)
+    second = secrets.choice(_DISPLAY_ALIAS_WORDS)
+    suffix = secrets.randbelow(10**_DISPLAY_ALIAS_SUFFIX_DIGITS)
+    return _DISPLAY_ALIAS_SEPARATOR.join(
+        (first, second, f"{suffix:0{_DISPLAY_ALIAS_SUFFIX_DIGITS}d}")
+    )
 
 
 def _object(value, context):
@@ -585,7 +617,7 @@ class PythonObserverSource:
         self._target_id_factory = target_id_factory or (
             lambda: f"target-{secrets.token_hex(16)}"
         )
-        self._alias_factory = alias_factory or (lambda: secrets.token_hex(4).upper())
+        self._alias_factory = alias_factory or _generate_display_alias
         self.connection_opened()
 
     def set_frame_consumer(self, consumer: Callable[[dict], None] | None):

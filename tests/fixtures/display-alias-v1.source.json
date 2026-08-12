@@ -1,0 +1,9 @@
+{
+  "repository": "Naohiro2g/scratch-editor",
+  "branch": "develop",
+  "commit": "3b3d1f1c8a0dd66d265c5c6ea515cc5ac291209b",
+  "path": "mc-remote/live/test/fixtures/display-alias-v1.json",
+  "sha256": "85c8159a8b74788c0cf978078094d23a3cdae83c0be5e9aa9552bb820c8389ca",
+  "knowledge_commit": "83f44dc5c3d309e080e3007a0d86a0c180b9fdb8",
+  "decision_id": "2026-08-12-03"
+}

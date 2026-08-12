@@ -1,0 +1,72 @@
+{
+  "manifest_schema": "mcremote.wirescope.app-manifest",
+  "manifest_version": 1,
+  "archive": {
+    "file": "wirescope-app.zip",
+    "format": "zip",
+    "format_version": 1,
+    "sha256": "94341934b37e266f24d9574b3e192d56e93c9fa16d0c22dc8e4876f245ed3ac8"
+  },
+  "source": {
+    "repository": "https://github.com/Naohiro2g/scratch-editor",
+    "commit": "3bdcfef6268dee65c6967e27155d2daa17378cd5",
+    "subdirectory": "mc-remote/live",
+    "corresponding_source_url": "https://github.com/Naohiro2g/scratch-editor/tree/3bdcfef6268dee65c6967e27155d2daa17378cd5/mc-remote/live"
+  },
+  "build": {
+    "recipe": "npm ci && npm run build:artifact --workspace=@mc-remote/live -- --source-commit 3bdcfef6268dee65c6967e27155d2daa17378cd5",
+    "toolchain": {
+      "node": "24.19.0",
+      "rolldown-vite": "7.3.1",
+      "typescript": "5.9.3",
+      "jszip": "3.10.1"
+    },
+    "input_identity": {
+      "source_commit": "3bdcfef6268dee65c6967e27155d2daa17378cd5",
+      "package_json_sha256": "84b74060253ef940952db82c24e1cee4d18d652ae11449ee601a92d1f72a6bbe",
+      "package_lock_sha256": "35344ffda265019b946097f26edee6092954e4efd60af53ed43be0937dad4cf7"
+    }
+  },
+  "protocols": {
+    "observer_schema": {
+      "name": "mcremote.observer",
+      "version": 1
+    },
+    "observer_session": 1,
+    "scratch_handoff": 1,
+    "station_attach": 1
+  },
+  "assets": [
+    {
+      "path": "LICENSE",
+      "bytes": 34523,
+      "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+    },
+    {
+      "path": "NOTICE",
+      "bytes": 310,
+      "sha256": "a5a1f4e50ffa47063bc2cd9c903d167f6723db3bcf38c76007f7be6824bde8b0"
+    },
+    {
+      "path": "assets/index-DLLRgOgU.css",
+      "bytes": 6986,
+      "sha256": "dd0534d052efe392653cc711384128faecc8bbc910d87dffd276ed01ac364939"
+    },
+    {
+      "path": "assets/index-DkLIktgC.js",
+      "bytes": 39513,
+      "sha256": "cfe3d56f2bfc7f08d248ee72941dc5e1a972c9fd3c478602f29ef12150339ad6"
+    },
+    {
+      "path": "assets/index-DkLIktgC.js.map",
+      "bytes": 107528,
+      "sha256": "8707d99be331d05a15a911f133e4c4f48f22f0c18acdecc71a8b281311244b1f"
+    },
+    {
+      "path": "index.html",
+      "bytes": 674,
+      "sha256": "647f112bed5b6188340abd439da4f466e9333ce08e175e62f234e3eabe4d44eb"
+    }
+  ],
+  "license_expression": "AGPL-3.0-only"
+}
