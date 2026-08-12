@@ -40,7 +40,7 @@ detached ZIP／manifest pairとして同梱します。このcomponentは
 配布物に含めます。Python client codeは引き続きMITです。
 
 - WireScope corresponding source:
-  <https://github.com/Naohiro2g/scratch-editor/tree/192d1e3ccd213fb5012b92655e51b779270e15be/mc-remote/live>
+  <https://github.com/Naohiro2g/scratch-editor/tree/3bdcfef6268dee65c6967e27155d2daa17378cd5/mc-remote/live>
 
 --
 

@@ -20,12 +20,12 @@ MANIFEST_PATH = PurePosixPath(
 )
 EXPECTED_FILES = {
     ARCHIVE_PATH: (
-        53052,
-        "947a6d478439ce60199be1b18b3c8d3cebdb46d2c022f8d9933138b23b2a5897",
+        53312,
+        "94341934b37e266f24d9574b3e192d56e93c9fa16d0c22dc8e4876f245ed3ac8",
     ),
     MANIFEST_PATH: (
         2321,
-        "4310ae34ec04997dbf136afa463a39de08ef97acc651f6fb70357b272ea1a143",
+        "ea6948ef6a211ae7e026a548b4ac5c99bfd84d6e9d51765565ac433a15d05a2e",
     ),
 }
 LICENSE_EXPRESSION = "MIT AND AGPL-3.0-only"
@@ -36,7 +36,7 @@ LICENSE_FILES = {
 }
 SOURCE_URL = (
     "https://github.com/Naohiro2g/scratch-editor/tree/"
-    "192d1e3ccd213fb5012b92655e51b779270e15be/mc-remote/live"
+    "3bdcfef6268dee65c6967e27155d2daa17378cd5/mc-remote/live"
 )
 
 
