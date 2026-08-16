@@ -61,10 +61,11 @@ def _env_first(*names):
 class Minecraft:
     """Client for a running Minecraft server speaking protocol 21.x.
 
-    protocol 21.0.0 b3 surface: ``hello`` handshake (carrying an optional
+    protocol 21.0.0 b4 surface: ``hello`` handshake (carrying an optional
     ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
     block_state_ref strings, ``postToChat`` (wire ``chat.post``), paired-player
-    position helpers (``getPos`` / ``setPos``), the connection-scoped build
+    position and pose helpers (``getPos`` / ``setPos`` / ``getPose`` /
+    ``setPose``), the connection-scoped build
     state (``setWorld`` / ``setBuildOrigin``), and the live block/entity/
     particle catalog (``getCatalog`` / ``sync_constants``, wire ``catalog.get``,
     §7.2.1). Tokens are obtained by pairing (``auth.pairBegin`` /
@@ -216,6 +217,25 @@ class Minecraft:
         """
         coords = intFloor(x, y, z)
         return self.conn.rpc("player.setPos", [world] + coords)
+
+    def getPose(self):
+        """Get the paired player's current position and orientation.
+
+        Returns ``{"world": ..., "pos": [x, y, z], "yaw": ..., "pitch": ...}``.
+        Position is relative to this stream's build origin.  The target is the
+        authenticated/pair-bound player; no player identity is sent.
+        """
+        return self.conn.rpc("player.getPose", [])
+
+    def setPose(self, world, x, y, z, yaw, pitch):
+        """Move and orient the paired player with one atomic server operation.
+
+        ``world`` is explicit, position is relative to this stream's build
+        origin, and all five numeric values retain their fractional precision.
+        The server validates finite values and the pitch range, normalizes yaw,
+        and returns the resulting pose in the same shape as :meth:`getPose`.
+        """
+        return self.conn.rpc("player.setPose", [world, x, y, z, yaw, pitch])
 
     def _get_catalog_on_current_stream(self):
         """Fetch on this instance's stream (auxiliary instances only)."""

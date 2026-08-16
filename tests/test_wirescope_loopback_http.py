@@ -20,6 +20,7 @@ import mc_remote.wirescope as wirescope
 
 
 SOURCE_COMMIT = "192d1e3ccd213fb5012b92655e51b779270e15be"
+BUNDLED_APP_SOURCE_COMMIT = "56011f71291f47ced69cc4e3c377734f501b6081"
 HELLO = {
     "protocol": "21.0.0",
     "mc_version": "1.21.11",
@@ -188,6 +189,8 @@ def test_bundled_delivery_pair_matches_build_input_and_component_files():
     assert manifest.stat().st_size == app_module.BUNDLED_MANIFEST_BYTES
     assert sha256(archive.read_bytes()) == app_module.BUNDLED_ARCHIVE_SHA256
     assert sha256(manifest.read_bytes()) == app_module.BUNDLED_MANIFEST_SHA256
+    manifest_document = json.loads(manifest.read_text(encoding="utf-8"))
+    assert manifest_document["source"]["commit"] == BUNDLED_APP_SOURCE_COMMIT
     with zipfile.ZipFile(archive) as bundled:
         assert bundled.read("LICENSE") == (
             Path("LICENSES/AGPL-3.0-only.txt").read_bytes()
@@ -195,6 +198,15 @@ def test_bundled_delivery_pair_matches_build_input_and_component_files():
         assert bundled.read("NOTICE") == (
             Path("LICENSES/WireScope-NOTICE.txt").read_bytes()
         )
+        app_scripts = [
+            name
+            for name in bundled.namelist()
+            if name.startswith("assets/") and name.endswith(".js")
+        ]
+        assert len(app_scripts) == 1
+        app_script = bundled.read(app_scripts[0])
+        assert b"player.getPose" in app_script
+        assert b"player.setPose" in app_script
 
 
 def test_bootstrap_and_assets_require_exact_authority_and_leak_no_secret():

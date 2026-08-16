@@ -52,6 +52,8 @@ OBSERVED_METHODS = frozenset(
         "world.getBlock",
         "player.getPos",
         "player.setPos",
+        "player.getPose",
+        "player.setPose",
     }
 )
 
@@ -312,6 +314,21 @@ def _parse_result(method, value):
             ),
             "pos": _number_tuple(position.get("pos"), "frame.payload.result.pos"),
         }
+    if method in {"player.getPose", "player.setPose"}:
+        pose = _object(value, "frame.payload.result")
+        _exact_fields(
+            pose,
+            {"world", "pos", "yaw", "pitch"},
+            "frame.payload.result",
+        )
+        return {
+            "world": _required_string(
+                pose.get("world"), "frame.payload.result.world"
+            ),
+            "pos": _number_tuple(pose.get("pos"), "frame.payload.result.pos"),
+            "yaw": _finite_number(pose.get("yaw"), "frame.payload.result.yaw"),
+            "pitch": _finite_number(pose.get("pitch"), "frame.payload.result.pitch"),
+        }
     if method == "world.getBlock":
         if not isinstance(value, str):
             raise ObserverValidationError("frame.payload.result must be a string")
@@ -556,6 +573,18 @@ def _project_position(value):
     return {"world": world, "pos": pos} if world and pos else None
 
 
+def _project_pose(value):
+    if not isinstance(value, Mapping):
+        return None
+    world = _allowed_string(value.get("world"))
+    pos = _allowed_tuple(value.get("pos"))
+    yaw = _allowed_number(value.get("yaw"))
+    pitch = _allowed_number(value.get("pitch"))
+    if not world or pos is None or yaw is None or pitch is None:
+        return None
+    return {"world": world, "pos": pos, "yaw": yaw, "pitch": pitch}
+
+
 def _project_error(value):
     if isinstance(value, Mapping):
         code = value.get("code")
@@ -714,6 +743,8 @@ class PythonObserverSource:
             allowed = _project_hello(result)
         elif method in {"player.getPos", "player.setPos"}:
             allowed = _project_position(result)
+        elif method in {"player.getPose", "player.setPose"}:
+            allowed = _project_pose(result)
         elif method == "world.getBlock":
             allowed = result if isinstance(result, str) else None
         else:

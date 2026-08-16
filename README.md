@@ -4,7 +4,7 @@
 
 ## Python Client/API package for Minecraft Remote
 
-Write Python code to build automatically in the latest Minecraft world. This repository is dedicated to API development. For the current b3 learning path, start with the tracked [`starter/`](starter/) directory.
+Write Python code to build automatically in the latest Minecraft world. This repository is dedicated to API development. For the current beta learning path, start with the tracked [`starter/`](starter/) directory.
 
 Regarding the Minecraft Remote project, please refer to the section below, or visit the [project homepage at mc-remote.com](https://mc-remote.com).
 
@@ -12,7 +12,7 @@ Regarding the Minecraft Remote project, please refer to the section below, or vi
 
 ## マイクラリモコンのためのPythonクライアント/APIパッケージ
 
-Pythonコードを使って最新のマインクラフトの世界で自動建築が可能になります。このリポジトリはAPI開発用です。現行b3の学習導線は、Git管理された [`starter/`](starter/) ディレクトリから始めます。
+Pythonコードを使って最新のマインクラフトの世界で自動建築が可能になります。このリポジトリはAPI開発用です。現行betaの学習導線は、Git管理された [`starter/`](starter/) ディレクトリから始めます。
 
 Minecraft Remoteプロジェクトについては、以下のセクションをご覧いただくか、[mc-remote.comのプロジェクトホームページ](https://mc-remote.com)をご覧ください。
 
@@ -24,7 +24,7 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）:
   - stable（PyPI）: `2000.0.0` — protocol 20.0.0
-  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b3` — protocol 21.0.0 b3（下記 Migration Guide 参照）
+  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b4` — protocol 21.0.0 b4（下記 Migration Guide 参照）
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: Python codeは`MIT`、同梱WireScope appは`AGPL-3.0-only`
@@ -40,7 +40,7 @@ detached ZIP／manifest pairとして同梱します。このcomponentは
 配布物に含めます。Python client codeは引き続きMITです。
 
 - WireScope corresponding source:
-  <https://github.com/Naohiro2g/scratch-editor/tree/3bdcfef6268dee65c6967e27155d2daa17378cd5/mc-remote/live>
+  <https://github.com/Naohiro2g/scratch-editor/tree/56011f71291f47ced69cc4e3c377734f501b6081/mc-remote/live>
 
 --
 
@@ -150,9 +150,9 @@ Manual helper scripts live in `scripts/` and are run from the repo root with `uv
 
 ## Migration Guide: `setPlayer` → `setWorld` / `setBuildOrigin` (Draft) / 移行ガイド（ドラフト）
 
-> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b3`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b3` is published as a **GitHub pre-release tag only (not on PyPI)**.
+> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b4`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b4` is published as a **GitHub pre-release tag only (not on PyPI)**.
 >
-> protocol **21.0.0**（`2100.0.0b3`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b3` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
+> protocol **21.0.0**（`2100.0.0b4`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b4` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
 
 ### What changed / 変更点
 
@@ -160,7 +160,7 @@ Build state (world + origin) is now **separate from player identity** and **scop
 
 建築状態（ワールド＋原点）が**プレイヤーの識別情報から分離**され、**接続（ストリーム）ごと**に保持されるようになりました。`setPlayer(name, x, y, z)` の1メソッドが、2つのメソッドに置き換わります。
 
-| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b3`) |
+| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b4`) |
 | --- | --- |
 | `mc.setPlayer(PLAYER_NAME, x, y, z)` | `mc.setWorld("overworld")` then `mc.setBuildOrigin(x, y, z)` |
 
@@ -173,6 +173,8 @@ Build state (world + origin) is now **separate from player identity** and **scop
 - b2 では `hello` に token 認証が加わりました。`Minecraft.create(...)` 実行後、表示された `/mcremote pair NNN-NNN` を Minecraft 側で実行します。保存 token は `token_key` または `address:port` で管理されます。互換用の `sandbox` 引数はローカル token-store alias のみで、`hello.params` には送信されません。
 - `getPos()` / `setPos(world, x, y, z)` operate on the paired player. Positions are relative to this stream's build origin, and `setPos` takes an explicit target world.
 - `getPos()` / `setPos(world, x, y, z)` はペアリング済みプレイヤーを対象にします。座標はこの stream の build origin 相対で、`setPos` は移動先 world を明示します。
+- `getPose()` / `setPose(world, x, y, z, yaw, pitch)` add orientation while keeping the same paired-player and stream-origin model. `setPose` preserves fractional values and returns the server-normalized pose.
+- `getPose()` / `setPose(world, x, y, z, yaw, pitch)` は同じpaired player／stream originモデルに向きを加えます。`setPose`は小数値を保持し、serverで正規化されたposeを返します。
 
 ### Error handling / エラー処理
 
@@ -209,13 +211,39 @@ mc.setBuildOrigin(ORIGIN.x, ORIGIN.y, ORIGIN.z)
 
 ### Installing the beta / ベータの導入
 
-`2100.0.0b3` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag.
+`2100.0.0b4` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag.
 
-`2100.0.0b3` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します。
+`2100.0.0b4` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します。
 
 ```bash
 # exact-pin from the GitHub tag / GitHub タグを明示指定
-uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2100.0.0b3"
+uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2100.0.0b4"
+```
+
+***
+
+## What's new in b4: paired-player pose / b4 の新機能: paired player のpose
+
+`2100.0.0b4` adds `getPose()` and `setPose(world, x, y, z, yaw, pitch)`. The returned shape is `{"world": ..., "pos": [x, y, z], "yaw": ..., "pitch": ...}`. Position remains relative to the stream origin; `setPose` applies position and orientation in one server-side teleport. Yaw accepts any finite value and is returned normalized by Minecraft. Pitch accepts `-90..90`.
+
+`2100.0.0b4` では `getPose()` と `setPose(world, x, y, z, yaw, pitch)` を追加します。戻り値は `{"world": ..., "pos": [x, y, z], "yaw": ..., "pitch": ...}` です。位置は従来どおりstream origin相対で、`setPose`は位置と向きをserver側の1回のteleportで一体反映します。yawは任意の有限値を受理してMinecraftの通常表現へ正規化し、pitchは`-90..90`を受理します。
+
+WireScope observes the one main connection created by `Minecraft.create()`.
+The observer schema retains `streams[]` and separates target and stream IDs for
+forward compatibility, but b4 does not create or attach substreams.
+
+WireScopeが観察するのは`Minecraft.create()`で成立したmain connection 1件です。
+observer schemaは前方互換のため`streams[]`とtarget／stream IDの分離を維持しますが、
+b4ではsubstreamを生成・attachしません。
+
+```python
+pose = mc.getPose()
+mc.setPose(
+    pose["world"],
+    *pose["pos"],
+    pose["yaw"] + 90,
+    pose["pitch"],
+)
 ```
 
 ***

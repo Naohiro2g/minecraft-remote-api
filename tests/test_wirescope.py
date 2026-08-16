@@ -91,6 +91,16 @@ def test_python_lifecycle_fixture_conforms():
     assert len(parsed[1]["streams"][0]["frames"]) == 1
 
 
+def test_b4_python_source_emits_exactly_one_main_stream():
+    observer = source()
+    activate(observer)
+
+    snapshot = observer.snapshot([], emitted_at=1786118400050)
+
+    assert [stream["id"] for stream in snapshot["streams"]] == ["main"]
+    assert [stream["kind"] for stream in snapshot["streams"]] == ["main"]
+
+
 def test_default_display_alias_generator_conforms_to_scratch_fixture(monkeypatch):
     contract = json.loads(ALIAS_FIXTURE.read_text(encoding="utf-8"))
     source_metadata = json.loads(ALIAS_SOURCE.read_text(encoding="utf-8"))
@@ -225,6 +235,80 @@ def test_error_allowlist_includes_schema_fields_only():
         "violating": [100, 64, 100],
     }
     assert "must-not-project" not in serialize_snapshot(snapshot)
+
+
+def test_pose_methods_are_observed_with_method_specific_result_shape():
+    frames = []
+    observer = source(frames)
+    activate(observer)
+    observer.observe_request("player.getPose", [], 2)
+    observer.observe_result(
+        "player.getPose",
+        {
+            "world": "overworld",
+            "pos": [1.25, 64.5, -3.75],
+            "yaw": 90.0,
+            "pitch": -12.5,
+            "player_uuid": "must-not-project",
+        },
+        2,
+    )
+    observer.observe_request(
+        "player.setPose", ["the_end", 2.5, 70.25, 4.75, 725.0, 45.5], 3
+    )
+    observer.observe_result(
+        "player.setPose",
+        {
+            "world": "the_end",
+            "pos": [2.5, 70.25, 4.75],
+            "yaw": 5.0,
+            "pitch": 45.5,
+        },
+        3,
+    )
+
+    snapshot = observer.snapshot(frames, emitted_at=1786118400250)
+    pose_frames = snapshot["streams"][0]["frames"][-4:]
+    assert [frame["method"] for frame in pose_frames] == [
+        "player.getPose",
+        "player.getPose",
+        "player.setPose",
+        "player.setPose",
+    ]
+    assert pose_frames[1]["payload"]["result"] == {
+        "world": "overworld",
+        "pos": [1.25, 64.5, -3.75],
+        "yaw": 90.0,
+        "pitch": -12.5,
+    }
+    assert pose_frames[3]["payload"]["result"]["yaw"] == 5.0
+    assert "must-not-project" not in serialize_snapshot(snapshot)
+
+
+def test_pose_observer_drops_non_finite_results_and_projects_failure_reason():
+    frames = []
+    observer = source(frames)
+    activate(observer)
+    before = len(frames)
+    observer.observe_result(
+        "player.getPose",
+        {
+            "world": "overworld",
+            "pos": [0.0, 64.0, 0.0],
+            "yaw": float("nan"),
+            "pitch": 0.0,
+        },
+        2,
+    )
+    assert len(frames) == before
+
+    observer.observe_error(
+        "player.setPose",
+        McRpcError(-32000, "teleport failed", {"reason": "teleport_failed"}),
+        3,
+    )
+    error = frames[-1]["payload"]["error"]
+    assert error["data"] == {"reason": "teleport_failed"}
 
 
 def test_hello_is_immutable_across_build_state_frames():
