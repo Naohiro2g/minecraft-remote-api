@@ -29,7 +29,7 @@ ALIAS_SOURCE = (
 )
 
 HELLO = {
-    "protocol": "21.0.0",
+    "protocol": "22.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
@@ -72,7 +72,7 @@ def activate(observer, request_id=1):
     observer.observe_request(
         "hello",
         {
-            "protocol": "21.0.0",
+            "protocol": "22.0.0",
             "auth": {"token": "mcrs_secret"},
             "device_label": "classroom laptop",
         },
@@ -88,10 +88,21 @@ def test_python_lifecycle_fixture_conforms():
     assert parsed[0]["target"] == parsed[1]["target"]
     assert parsed[0]["streams"][0]["hello"] == parsed[1]["streams"][0]["hello"]
     assert parsed[0]["streams"][0]["frames"] == []
-    assert len(parsed[1]["streams"][0]["frames"]) == 1
+    frames = parsed[1]["streams"][0]["frames"]
+    assert len(frames) == 4
+    observed = [
+        (frame["direction"], frame["request_id"], frame["method"])
+        for frame in frames
+    ]
+    assert observed == [
+        ("send", 2, "build.setWorld"),
+        ("send", None, "world.setBlock"),
+        ("send", 3, "connection.flush"),
+        ("receive", 3, "connection.flush"),
+    ]
 
 
-def test_b4_python_source_emits_exactly_one_main_stream():
+def test_b5_python_source_emits_exactly_one_main_stream():
     observer = source()
     activate(observer)
 
@@ -217,7 +228,9 @@ def test_error_allowlist_includes_schema_fields_only():
         "outside build range",
         {
             "reason": "build_denied",
-            "ref": "minecraft:stone",
+            "block_id": "minecraft:stone",
+            "property": "axis",
+            "value": "w",
             "allowed": ["overworld", 100, True],
             "bounds": [0, 0, 0, 99, 255, 99],
             "violating": [100, 64, 100],
@@ -229,12 +242,74 @@ def test_error_allowlist_includes_schema_fields_only():
     error_data = snapshot["streams"][0]["frames"][-1]["payload"]["error"]["data"]
     assert error_data == {
         "reason": "build_denied",
-        "ref": "minecraft:stone",
+        "block_id": "minecraft:stone",
+        "property": "axis",
+        "value": "w",
         "allowed": ["overworld", 100, True],
         "bounds": [0, 0, 0, 99, 255, 99],
         "violating": [100, 64, 100],
     }
     assert "must-not-project" not in serialize_snapshot(snapshot)
+
+
+def test_protocol22_block_values_remain_structured_and_observable():
+    frames = []
+    observer = source(frames)
+    activate(observer)
+    observer.observe_request(
+        "world.setBlock",
+        [1, 2, 3, {"block_id": "stone", "state": {}}],
+        2,
+    )
+    observer.observe_request(
+        "world.setBlocks",
+        [0, 0, 0, 2, 2, 2, {"block_id": "oak_log", "state": {"axis": "z"}}],
+        3,
+    )
+    observer.observe_result(
+        "world.getBlock",
+        {
+            "block_id": "minecraft:oak_stairs",
+            "state": {"waterlogged": False, "facing": "north"},
+        },
+        4,
+    )
+    payloads = [frame["payload"] for frame in frames[-3:]]
+    assert payloads == [
+        {"params": [1, 2, 3, {"block_id": "stone", "state": {}}]},
+        {
+            "params": [
+                0,
+                0,
+                0,
+                2,
+                2,
+                2,
+                {"block_id": "oak_log", "state": {"axis": "z"}},
+            ]
+        },
+        {
+            "result": {
+                "block_id": "minecraft:oak_stairs",
+                "state": {"facing": "north", "waterlogged": False},
+            }
+        },
+    ]
+
+    before = len(frames)
+    observer.observe_request("world.setBlock", [1, 2, 3, "minecraft:stone"], 5)
+    observer.observe_result("world.getBlock", "minecraft:stone", 6)
+    observer.observe_request(
+        "world.setBlock",
+        [True, 2, 3, {"block_id": "stone", "state": {}}],
+        7,
+    )
+    observer.observe_request(
+        "world.setBlock",
+        [1, 2, 3, {"block_id": "stone", "state": None}],
+        8,
+    )
+    assert len(frames) == before
 
 
 def test_pose_methods_are_observed_with_method_specific_result_shape():
@@ -429,9 +504,12 @@ def test_connection_hook_uses_wire_request_ids_and_cannot_break_rpc():
     conn.is_connected = lambda: True
 
     assert conn.rpc(
-        "hello", {"protocol": "21.0.0", "auth": {"token": "mcrs_secret"}}
+        "hello", {"protocol": "22.0.0", "auth": {"token": "mcrs_secret"}}
     ) == HELLO
-    assert conn.rpc("world.setBlock", [1, 2, 3, "minecraft:stone"]) is None
+    assert conn.rpc(
+        "world.setBlock",
+        [1, 2, 3, {"block_id": "minecraft:stone", "state": {}}],
+    ) is None
     assert [frame["request_id"] for frame in frames] == [1, 1, 2, 2]
     assert "mcrs_secret" not in serialize_snapshot(observer.snapshot(frames))
 
@@ -439,9 +517,19 @@ def test_connection_hook_uses_wire_request_ids_and_cannot_break_rpc():
         lambda _frame: (_ for _ in ()).throw(RuntimeError("boom"))
     )
     conn.reader = io.StringIO(
-        json.dumps({"jsonrpc": "2.0", "id": 3, "result": "minecraft:stone"}) + "\n"
+        json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "result": {"block_id": "minecraft:stone", "state": {}},
+            }
+        )
+        + "\n"
     )
-    assert conn.rpc("world.getBlock", [1, 2, 3]) == "minecraft:stone"
+    assert conn.rpc("world.getBlock", [1, 2, 3]) == {
+        "block_id": "minecraft:stone",
+        "state": {},
+    }
     conn.close()
     assert not observer.active
 

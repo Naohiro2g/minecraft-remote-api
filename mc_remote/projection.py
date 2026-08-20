@@ -1,6 +1,7 @@
 """Project-local publication for the live catalog projection.
 
-The projection is deliberately disposable: ``mc_constants.py`` and its
+The projection is deliberately disposable: ``mc_constants.py``, its typing
+stub, and their
 manifest are created only after an authenticated hello, are never bundled,
 and must be ignored by Git.  The manifest is the commit marker; it is always
 published after the Python artifact.
@@ -19,13 +20,16 @@ from .connection import McRemoteError, McRpcError
 
 
 ARTIFACT_NAME = "mc_constants.py"
+STUB_NAME = "mc_constants.pyi"
+ARTIFACT_NAMES = (ARTIFACT_NAME, STUB_NAME)
 MANIFEST_NAME = "mc_constants.manifest.json"
 LOCK_NAME = ".mc_constants.lock"
-GENERATOR_VERSION = "1"
-PROJECTION_SCHEMA_VERSION = 1
+GENERATOR_VERSION = "2"
+PROJECTION_SCHEMA_VERSION = 2
 IGNORE_RULES = (
     "/param_mc_remote.py",
     "/mc_constants.py",
+    "/mc_constants.pyi",
     "/mc_constants.manifest.json",
     "/.mc_constants.*",
 )
@@ -66,14 +70,15 @@ def projection_key(catalog_hash):
     )
 
 
-def build_manifest(catalog_hash, source_bytes):
+def build_manifest(catalog_hash, artifacts):
     return {
         "catalogHash": catalog_hash,
         "projectionKey": projection_key(catalog_hash),
         "generatorVersion": GENERATOR_VERSION,
         "projectionSchemaVersion": PROJECTION_SCHEMA_VERSION,
         "artifacts": {
-            ARTIFACT_NAME: {"sha256": _sha256(source_bytes)},
+            name: {"sha256": _sha256(artifacts[name])}
+            for name in ARTIFACT_NAMES
         },
     }
 
@@ -108,10 +113,11 @@ def ensure_projection_allowed(target_dir):
     if not _is_git_managed(target_dir):
         return
     for name in (
-        ARTIFACT_NAME,
+        *ARTIFACT_NAMES,
         MANIFEST_NAME,
         LOCK_NAME,
         ".mc_constants.py.probe",
+        ".mc_constants.pyi.probe",
         ".mc_constants.manifest.probe",
     ):
         tracked = _run_git(target_dir, "ls-files", "--error-unmatch", "--", name)
@@ -168,16 +174,19 @@ def _read_json(path):
         return None
 
 
-def projection_is_current(target_dir, manifest, source_bytes):
-    expected = build_manifest(manifest["catalogHash"], source_bytes)
+def projection_is_current(target_dir, manifest, artifacts):
+    expected = build_manifest(manifest["catalogHash"], artifacts)
     if manifest != expected:
         return False
-    try:
-        with open(os.path.join(target_dir, ARTIFACT_NAME), "rb") as fh:
-            actual = fh.read()
-    except OSError:
-        return False
-    return _sha256(actual) == expected["artifacts"][ARTIFACT_NAME]["sha256"]
+    for name in ARTIFACT_NAMES:
+        try:
+            with open(os.path.join(target_dir, name), "rb") as fh:
+                actual = fh.read()
+        except OSError:
+            return False
+        if _sha256(actual) != expected["artifacts"][name]["sha256"]:
+            return False
+    return True
 
 
 class _ProjectLock:
@@ -261,8 +270,8 @@ def _refresh_import(target_dir):
             sys.modules.pop("mc_constants", None)
 
 
-def publish_projection(source, catalog_hash, target_dir=None):
-    """Atomically publish source then its manifest commit marker.
+def publish_projection(source, stub, catalog_hash, target_dir=None):
+    """Atomically publish runtime/stub artifacts then their commit marker.
 
     Returns the absolute path of ``mc_constants.py``.  An unchanged, fully
     verified projection is not rewritten.
@@ -275,7 +284,10 @@ def publish_projection(source, catalog_hash, target_dir=None):
             "publish", f"could not create projection directory {target_dir}", cause=exc
         ) from exc
     ensure_projection_allowed(target_dir)
-    source_bytes = source.encode("utf-8")
+    artifacts = {
+        ARTIFACT_NAME: source.encode("utf-8"),
+        STUB_NAME: stub.encode("utf-8"),
+    }
     artifact_path = os.path.join(target_dir, ARTIFACT_NAME)
     manifest_path = os.path.join(target_dir, MANIFEST_NAME)
 
@@ -283,52 +295,67 @@ def publish_projection(source, catalog_hash, target_dir=None):
         current = _read_json(manifest_path)
         if current and current.get("catalogHash") == catalog_hash:
             try:
-                if projection_is_current(target_dir, current, source_bytes):
+                if projection_is_current(target_dir, current, artifacts):
                     _refresh_import(target_dir)
                     return artifact_path
             except (KeyError, TypeError):
                 pass
 
-        manifest = build_manifest(catalog_hash, source_bytes)
+        manifest = build_manifest(catalog_hash, artifacts)
         manifest_bytes = _canonical_json(manifest) + b"\n"
         suffix = f".{os.getpid()}.{time.time_ns()}"
-        staged_artifact = os.path.join(target_dir, ".mc_constants.py" + suffix)
+        staged_artifacts = {
+            name: os.path.join(target_dir, f".{name}" + suffix)
+            for name in ARTIFACT_NAMES
+        }
         staged_manifest = os.path.join(target_dir, ".mc_constants.manifest" + suffix)
-        old_artifact = None
+        old_artifacts = {}
+        replaced = []
+
+        def rollback_replaced_artifacts():
+            # The unchanged old manifest remains the commit marker until the
+            # final replace. Restore every artifact already moved into place
+            # if any earlier artifact or the manifest publication fails.
+            for name in reversed(replaced):
+                target = os.path.join(target_dir, name)
+                old = old_artifacts[name]
+                try:
+                    if old is None:
+                        os.unlink(target)
+                    else:
+                        rollback = staged_artifacts[name] + ".rollback"
+                        _write_staged(rollback, old)
+                        os.replace(rollback, target)
+                except OSError:
+                    # A surviving old manifest/checksum mismatch makes an
+                    # interrupted rollback detectable on the next sync.
+                    pass
+
         try:
-            try:
-                with open(artifact_path, "rb") as fh:
-                    old_artifact = fh.read()
-            except FileNotFoundError:
-                pass
-            _write_staged(staged_artifact, source_bytes)
+            for name in ARTIFACT_NAMES:
+                try:
+                    with open(os.path.join(target_dir, name), "rb") as fh:
+                        old_artifacts[name] = fh.read()
+                except FileNotFoundError:
+                    old_artifacts[name] = None
+                _write_staged(staged_artifacts[name], artifacts[name])
             _write_staged(staged_manifest, manifest_bytes)
-            os.replace(staged_artifact, artifact_path)
+            for name in ARTIFACT_NAMES:
+                os.replace(staged_artifacts[name], os.path.join(target_dir, name))
+                replaced.append(name)
             _fsync_dir(target_dir)
-            try:
-                os.replace(staged_manifest, manifest_path)
-                _fsync_dir(target_dir)
-            except Exception:
-                # Best-effort process-level rollback.  A crash is detected on
-                # the next run because the old manifest checksum will differ.
-                if old_artifact is None:
-                    try:
-                        os.unlink(artifact_path)
-                    except FileNotFoundError:
-                        pass
-                else:
-                    rollback = staged_artifact + ".rollback"
-                    _write_staged(rollback, old_artifact)
-                    os.replace(rollback, artifact_path)
-                raise
+            os.replace(staged_manifest, manifest_path)
+            _fsync_dir(target_dir)
         except CatalogProjectionError:
+            rollback_replaced_artifacts()
             raise
         except Exception as exc:
+            rollback_replaced_artifacts()
             raise CatalogProjectionError(
                 "publish", "could not atomically publish the catalog projection", cause=exc
             ) from exc
         finally:
-            for path in (staged_artifact, staged_manifest):
+            for path in (*staged_artifacts.values(), staged_manifest):
                 try:
                     os.unlink(path)
                 except OSError:

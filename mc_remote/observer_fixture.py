@@ -11,7 +11,7 @@ from .observer import PythonObserverSource
 FIXTURE_TIME = 1786118400000
 
 FIXTURE_HELLO = {
-    "protocol": "21.0.0",
+    "protocol": "22.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
@@ -43,13 +43,20 @@ def build_fixture():
         target_id_factory=lambda: "target-python-01",
         alias_factory=lambda: "MIND-STORM-000027",
     )
-    source.observe_request("hello", {"protocol": "21.0.0"}, 1)
+    source.observe_request("hello", {"protocol": "22.0.0"}, 1)
     source.observe_result("hello", FIXTURE_HELLO, 1)
 
     initial = source.snapshot((), emitted_at=FIXTURE_TIME)
     frames.clear()
     clock.value = FIXTURE_TIME + 100
     source.observe_request("build.setWorld", ["nether"], 2)
+    source.observe_request(
+        "world.setBlock",
+        [0, 1, 2, {"block_id": "minecraft:oak_log", "state": {"axis": "z"}}],
+        None,
+    )
+    source.observe_request("connection.flush", [], 3)
+    source.observe_result("connection.flush", None, 3)
     updated = source.snapshot(frames, emitted_at=FIXTURE_TIME + 100)
     source.connection_closed()
     return [initial, updated]

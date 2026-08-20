@@ -1,4 +1,4 @@
-"""Protocol 21.0.0 b4 paired-player pose API tests."""
+"""Paired-player pose API regression tests carried into protocol 22."""
 
 from mc_remote.connection import McRpcError
 from mc_remote.minecraft import Minecraft

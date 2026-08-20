@@ -16,7 +16,7 @@ import mc_remote.wirescope as wirescope_mod
 FIXTURE = Path(__file__).parent / "fixtures" / "python-wirescope-local.json"
 
 HELLO = {
-    "protocol": "21.0.0",
+    "protocol": "22.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
@@ -168,12 +168,14 @@ def test_pipeline_retains_only_hello_before_attach_and_coalesces_snapshots():
         alias_factory=lambda: "MIND-STORM-000027",
     )
     try:
-        observer.observe_request("hello", {"protocol": "21.0.0"}, 1)
+        observer.observe_request("hello", {"protocol": "22.0.0"}, 1)
         observer.observe_result("hello", HELLO, 1)
         wait_for(lambda: pipeline.attach_code)
         assert rendered == ["0000-0001"]
 
-        observer.observe_request("world.setBlock", [1, 2, 3, "stone"], 2)
+        observer.observe_request(
+            "world.setBlock", [1, 2, 3, {"block_id": "stone", "state": {}}], 2
+        )
         observer.observe_result("world.setBlock", None, 2)
         assert pipeline.attach("0000-0001") == "redeemed"
         first = wait_for(pipeline.take_snapshot)

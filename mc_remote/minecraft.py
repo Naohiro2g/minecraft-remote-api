@@ -1,6 +1,11 @@
 import os
 import math
+import time
+import threading
 import warnings
+from collections.abc import Mapping
+from enum import Enum
+from typing import TypeVar, overload
 
 from .connection import (
     Connection,
@@ -23,6 +28,44 @@ from . import projection as _projection
 from . import wirescope as _wirescope
 from .vec3 import Vec3
 from .util import flatten
+from .block_value import (
+    BlockId,
+    BlockValue,
+    StateScalar,
+    block_spec,
+    decode_block_value,
+)
+
+_StateT = TypeVar("_StateT")
+_TRACE_DELAY_UNSET = object()
+
+
+class BuildMode(str, Enum):
+    """Connection-scoped execution policy for block-setting commands."""
+
+    DEBUG = "DEBUG"
+    TRACE = "TRACE"
+    FAST = "FAST"
+
+
+DEFAULT_TRACE_DELAY: float = 0.25
+
+
+def _validate_build_mode(value):
+    if not isinstance(value, BuildMode):
+        raise TypeError("build_mode must be a BuildMode")
+    return value
+
+
+def _validate_trace_delay(value):
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise ValueError("trace_delay must be a finite non-negative number")
+    return float(value)
 
 __all__ = [
     "Minecraft",
@@ -31,6 +74,8 @@ __all__ = [
     "ConnectionLostError",
     "RequestFailedError",
     "PairingRequiredError",
+    "BuildMode",
+    "BlockValue",
     "CatalogProjectionError",
     "CatalogProjectionWarning",
     "WireScopeWarning",
@@ -40,7 +85,7 @@ __all__ = [
 
 # Wire protocol version this client speaks (sent in the hello handshake and
 # checked by the server). Distinct from the PyPI/distribution version.
-PROTOCOL = "21.0.0"
+PROTOCOL = "22.0.0"
 
 CatalogProjectionError = _projection.CatalogProjectionError
 CatalogProjectionWarning = _projection.CatalogProjectionWarning
@@ -59,11 +104,11 @@ def _env_first(*names):
 
 
 class Minecraft:
-    """Client for a running Minecraft server speaking protocol 21.x.
+    """Client for a running Minecraft server speaking protocol 22.x.
 
-    protocol 21.0.0 b4 surface: ``hello`` handshake (carrying an optional
+    protocol 22.0.0 b5 surface: ``hello`` handshake (carrying an optional
     ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
-    block_state_ref strings, ``postToChat`` (wire ``chat.post``), paired-player
+    structured block values, ``postToChat`` (wire ``chat.post``), paired-player
     position and pose helpers (``getPos`` / ``setPos`` / ``getPose`` /
     ``setPose``), the connection-scoped build
     state (``setWorld`` / ``setBuildOrigin``), and the live block/entity/
@@ -71,15 +116,27 @@ class Minecraft:
     §7.2.1). Tokens are obtained by pairing (``auth.pairBegin`` /
     ``auth.pairPoll``, §6.5); :meth:`create` drives the unified connect flow
     (hello first, pair only on ``auth_required``, then sync the catalog if one
-    is advertised). Every call is an id-bearing JSON-RPC request (synchronous
-    result/error); the default send-only notification form for setBlock /
-    setBlocks / chat.post arrives in bN/debug integration. The legacy MCPI
+    is advertised). ``setBlock`` and ``setBlocks`` use connection-scoped
+    DEBUG, TRACE, or FAST execution while retaining one public setter API;
+    all other calls remain id-bearing requests. The legacy MCPI
     methods (entity / player / camera / events / sign / checkpoint / particle
     ...) were removed in the payload flip and will be re-introduced per
     protocol bump as they are ported to JSON-RPC."""
 
-    def __init__(self, connection):
+    def __init__(
+        self,
+        connection,
+        *,
+        build_mode=BuildMode.DEBUG,
+        trace_delay=DEFAULT_TRACE_DELAY,
+        _sleeper=None,
+    ):
         self.conn = connection
+        self._build_mode_lock = threading.RLock()
+        self._build_mode = _validate_build_mode(build_mode)
+        self._trace_delay = _validate_trace_delay(trace_delay)
+        self._sleeper = _sleeper or time.sleep
+        self._closed = False
         self._observer = None
         self._wirescope_runtime = None
         self._server_key = None
@@ -158,26 +215,170 @@ class Minecraft:
                 self._origin = Vec3(*origin)
         return resp
 
-    def setBlock(self, x, y, z, block):
-        """Set one block at (x, y, z) to a block_state_ref string, e.g.
-        ``"minecraft:oak_log[axis=y]"``. The namespace is required; the input
-        may omit/reorder state properties (the server canonicalises)."""
-        coords = intFloor(x, y, z)
-        return self.conn.rpc("world.setBlock", coords + [block])
+    @overload
+    def setBlock(
+        self, x, y, z, block_id: BlockId[_StateT], *, state: _StateT | None = None
+    ) -> None: ...
 
-    def getBlock(self, x, y, z):
-        """Get the block at (x, y, z) as a canonical full block_state_ref
-        string (all properties, names alphabetical) => round-trips with
-        setBlock by string equality."""
-        coords = intFloor(x, y, z)
-        return self.conn.rpc("world.getBlock", coords)
+    @overload
+    def setBlock(
+        self,
+        x,
+        y,
+        z,
+        block_id: str,
+        *,
+        state: Mapping[str, StateScalar] | None = None,
+    ) -> None: ...
 
-    def setBlocks(self, x0, y0, z0, x1, y1, z1, block):
-        """Set a cuboid (x0,y0,z0)-(x1,y1,z1) to a block_state_ref string.
-        Validation is all-or-nothing: a single invalid ref rejects the whole
-        request."""
+    def setBlock(self, x, y, z, block_id, *, state=None):
+        """Set one block using a protocol 22 structured ``BlockSpec``.
+
+        Vanilla ``block_id`` values may omit ``minecraft:``. ``state`` may be
+        partial; ``None`` is normalized to an empty object. The server fills
+        omitted properties from Minecraft defaults rather than merging with
+        the block currently in the world.
+        """
+        coords = intFloor(x, y, z)
+        self._execute_set(
+            "world.setBlock", coords + [block_spec(block_id, state)]
+        )
+        return None
+
+    def getBlock(self, x, y, z) -> BlockValue:
+        """Return an immutable canonical :class:`BlockValue` snapshot."""
+        coords = intFloor(x, y, z)
+        return decode_block_value(self.conn.rpc("world.getBlock", coords))
+
+    def getBlocks(self, x0, y0, z0, x1, y1, z1) -> tuple[BlockValue, ...]:
+        """Return canonical block snapshots in protocol-defined z-fastest order.
+
+        The server normalizes each axis to inclusive min/max bounds and owns
+        the per-axis and total work limits. The tuple and every BlockValue it
+        contains are immutable observations.
+        """
+
         coords = intFloor(x0, y0, z0, x1, y1, z1)
-        return self.conn.rpc("world.setBlocks", coords + [block])
+        result = self.conn.rpc("world.getBlocks", coords)
+        if not isinstance(result, list):
+            raise McRemoteError("world.getBlocks result must be an array")
+        return tuple(decode_block_value(value) for value in result)
+
+    @overload
+    def setBlocks(
+        self,
+        x0,
+        y0,
+        z0,
+        x1,
+        y1,
+        z1,
+        block_id: BlockId[_StateT],
+        *,
+        state: _StateT | None = None,
+    ) -> None: ...
+
+    @overload
+    def setBlocks(
+        self,
+        x0,
+        y0,
+        z0,
+        x1,
+        y1,
+        z1,
+        block_id: str,
+        *,
+        state: Mapping[str, StateScalar] | None = None,
+    ) -> None: ...
+
+    def setBlocks(self, x0, y0, z0, x1, y1, z1, block_id, *, state=None):
+        """Fill a cuboid using one protocol 22 structured ``BlockSpec``."""
+        coords = intFloor(x0, y0, z0, x1, y1, z1)
+        self._execute_set(
+            "world.setBlocks", coords + [block_spec(block_id, state)]
+        )
+        return None
+
+    @property
+    def build_mode(self) -> BuildMode:
+        """The current read-only connection execution mode."""
+
+        with self._build_mode_lock:
+            return self._build_mode
+
+    @property
+    def trace_delay(self) -> float:
+        """The read-only TRACE delay in seconds for future setters."""
+
+        with self._build_mode_lock:
+            return self._trace_delay
+
+    def _execute_set(self, method, params):
+        pending = None
+        result = None
+        with self._build_mode_lock:
+            mode = self._build_mode
+            delay = self._trace_delay
+            if mode is BuildMode.FAST:
+                notify = getattr(self.conn, "notify", None)
+                if notify is None:
+                    raise McRemoteError(
+                        "FAST mode requires notification-capable connection"
+                    )
+                notify(method, params)
+            else:
+                enqueue = getattr(self.conn, "_enqueue_request", None)
+                if enqueue is None:
+                    # Synchronous test doubles use the call itself as their
+                    # registration point for transition ordering.
+                    result = self.conn.rpc(method, params)
+                else:
+                    pending = enqueue(method, params)
+
+        if mode is BuildMode.FAST:
+            return None
+        if pending is not None:
+            result = pending.result()
+        if result is not None:
+            raise McRemoteError(f"{method} success result must be null")
+        if mode is BuildMode.TRACE:
+            self._sleeper(delay)
+        return None
+
+    @overload
+    def setBuildMode(self, mode: BuildMode) -> None: ...
+
+    @overload
+    def setBuildMode(self, mode: BuildMode, *, trace_delay: float) -> None: ...
+
+    def setBuildMode(self, mode, *, trace_delay=_TRACE_DELAY_UNSET):
+        """Flush earlier commands, then atomically install a new build mode."""
+
+        mode = _validate_build_mode(mode)
+        with self._build_mode_lock:
+            delay = (
+                self._trace_delay
+                if trace_delay is _TRACE_DELAY_UNSET
+                else _validate_trace_delay(trace_delay)
+            )
+            if mode is self._build_mode and delay == self._trace_delay:
+                return None
+            self.flush()
+            self._build_mode = mode
+            self._trace_delay = delay
+        return None
+
+    def flush(self) -> None:
+        """Wait for preceding commands without reading world state."""
+
+        flush = getattr(self.conn, "flush", None)
+        if flush is None:
+            raise McRemoteError("connection does not support connection.flush")
+        result = flush()
+        if result is not None:
+            raise McRemoteError("connection.flush success result must be null")
+        return None
 
     def setWorld(self, dimension):
         """Set the build world/dimension (overworld, nether, end, or an exact
@@ -366,16 +567,16 @@ class Minecraft:
                 for key, value in (self.world_constants or {}).items()
                 if value is not None
             } or None
-            source = _constants_codegen.generate_source(
+            source, stub = _constants_codegen.generate_projection(
                 data, self.mc_version, self.catalog_hash, world_info=world_info
             )
         except Exception as exc:
             raise _projection.CatalogProjectionError(
-                "generate", "could not generate mc_constants.py", cause=exc
+                "generate", "could not generate mc_constants projection", cause=exc
             ) from exc
         try:
             return _projection.publish_projection(
-                source, self.catalog_hash, target_dir=target_dir
+                source, stub, self.catalog_hash, target_dir=target_dir
             )
         except _projection.CatalogProjectionError:
             raise
@@ -385,10 +586,13 @@ class Minecraft:
             ) from exc
 
     def close(self):
-        """Close the connection to the Minecraft server"""
+        """Flush pending FAST commands and close the Minecraft connection."""
+        if self._closed:
+            return True
         try:
             self.conn.close()
         finally:
+            self._closed = True
             if self._wirescope_runtime is not None:
                 try:
                     self._wirescope_runtime.close()
@@ -400,6 +604,28 @@ class Minecraft:
                     )
                 self._wirescope_runtime = None
         return True
+
+    def __enter__(self) -> "Minecraft":
+        if self._closed:
+            raise McRemoteError("Minecraft connection is already closed")
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            self.close()
+        else:
+            try:
+                self.close()
+            except Exception:
+                # Preserve the learner's original exception while still making
+                # the completion-guarantee failure visible.
+                warnings.warn(
+                    "Minecraft close/flush also failed; preserving the "
+                    "active exception",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+        return False
 
     def authenticate(self, server_key, token_type="session", pair=True):
         """Run the unified b2 auth flow (§6.5) and return the hello response.
@@ -445,7 +671,9 @@ class Minecraft:
         token_key=None,
         sync_catalog=True,
         wirescope=None,
-    ):
+        build_mode=BuildMode.DEBUG,
+        trace_delay=DEFAULT_TRACE_DELAY,
+    ) -> "Minecraft":
         """Connect and run the unified b2 auth flow (§6.5).
 
         Tries ``hello`` first, reusing a stored token if one exists for this
@@ -470,7 +698,13 @@ class Minecraft:
         ``wirescope`` accepts ``None``/``False`` (fully disabled), ``True``
         (the permanent low-floor alias for ``WireScopeStation.local()``), or
         an explicit ``WireScopeStation.local()`` descriptor.  WireScope
-        preflight and observer failures warn but never block Minecraft."""
+        preflight and observer failures warn but never block Minecraft.
+
+        ``build_mode`` defaults to :attr:`BuildMode.DEBUG`. ``trace_delay`` is
+        the connection-local TRACE pause in seconds and defaults to ``0.25``.
+        Neither value is sent in hello or method params."""
+        build_mode = _validate_build_mode(build_mode)
+        trace_delay = _validate_trace_delay(trace_delay)
         env_host = _env_first("MCREMOTE_API_HOST", "JRP_API_HOST")
         if env_host is not None:
             address = env_host
@@ -500,7 +734,11 @@ class Minecraft:
         connection_factory = Connection
         mc = None
         try:
-            mc = Minecraft(connection_factory(address, port, debug))
+            mc = Minecraft(
+                connection_factory(address, port, debug),
+                build_mode=build_mode,
+                trace_delay=trace_delay,
+            )
             mc._wirescope_runtime = runtime
             if runtime is not None:
                 attach_observer = getattr(mc.conn, "set_observer", None)

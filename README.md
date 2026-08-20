@@ -24,7 +24,7 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）:
   - stable（PyPI）: `2000.0.0` — protocol 20.0.0
-  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b4` — protocol 21.0.0 b4（下記 Migration Guide 参照）
+  - beta実装（未release承認）: `2200.0.0b5` — protocol 22.0.0 b5
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: Python codeは`MIT`、同梱WireScope appは`AGPL-3.0-only`
@@ -148,11 +148,99 @@ Manual helper scripts live in `scripts/` and are run from the repo root with `uv
 
 ***
 
-## Migration Guide: `setPlayer` → `setWorld` / `setBuildOrigin` (Draft) / 移行ガイド（ドラフト）
+## What's new in b5: structured block values / b5の新機能: 構造化block value
 
-> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b4`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b4` is published as a **GitHub pre-release tag only (not on PyPI)**.
+Protocol 22 replaces the combined block-state string with separate `block_id`
+and `state` values. Vanilla IDs may omit `minecraft:` on set; state mappings may
+be partial. The plugin fills omitted properties from Minecraft defaults.
+`getBlock()` returns one fully qualified, full-state immutable `BlockValue`;
+`getBlocks()` returns an immutable tuple of those values.
+
+protocol 22では、block IDとstateを一体化した文字列を、`block_id`と`state`へ
+分離します。set入力のvanilla IDは`minecraft:`を省略でき、state mappingは部分指定
+できます。省略propertyはpluginがMinecraft既定値で補います。`getBlock()`は完全修飾IDと
+full stateを持つimmutableな`BlockValue`を一つ返し、`getBlocks()`はそのimmutableな
+tupleを返します。
+
+```python
+mc.setBlock(1, 2, 3, "oak_log", state={"axis": "z"})
+
+value = mc.getBlock(1, 2, 3)
+print(value.block_id)
+print(value.state["axis"])
+
+values = mc.getBlocks(0, 0, 0, 2, 2, 2)
+print(values[0].block_id)
+```
+
+`setBlock()` and `setBlocks()` are commands and always return `None`. Choose
+how the same setters run with a connection-scoped build mode: `DEBUG` waits for
+the server response, `TRACE` additionally pauses the calling thread after each
+successful setter, and `FAST` sends id-less notifications. The library default
+is `DEBUG`; the default TRACE delay is 0.25 seconds.
+
+`setBlock()`と`setBlocks()`はcommandで、常に`None`を返します。同じsetterの
+実行方法はconnection単位のbuild modeで切り替えます。`DEBUG`はserver responseを
+待ち、`TRACE`は成功後に呼出元threadだけを待機させ、`FAST`はidなしnotificationを
+送ります。library既定は`DEBUG`、TRACEの既定delayは0.25秒です。
+
+```python
+from mc_remote.minecraft import BuildMode, Minecraft
+
+mc = Minecraft.create(
+    address="localhost",
+    port=25575,
+    build_mode=BuildMode.TRACE,
+    trace_delay=0.25,
+)
+
+mc.setBuildMode(BuildMode.FAST)  # earlier commands are flushed first
+mc.setBlock(0, 0, 0, "stone")
+mc.flush()                       # explicit connection.flush barrier
+mc.close()                       # pending FAST commands are auto-flushed
+```
+
+`flush()` proves that preceding commands on this connection reached a terminal
+server outcome; it does not recover individual notification errors or wait for
+Minecraft client rendering. Mode changes and normal close also use this
+barrier. FAST uses a bounded FIFO and applies backpressure instead of dropping
+commands.
+
+`flush()`は同じconnection上の先行commandがserver側の終端へ到達したことを保証します。
+notification個別のerror復元やMinecraft client側の描画完了までは保証しません。mode切替と
+正常closeもこのbarrierを使います。FASTは有限FIFOを使い、commandを捨てずに
+backpressureを適用します。
+
+The live catalog projection now publishes `mc_constants.py`,
+`mc_constants.pyi`, and their manifest as one disposable set. Generated block
+constants carry per-block `TypedDict`/`Literal` types for editor completion.
+The generated `block_state` builder is the explicit completion path when an
+editor does not offer keys reliably inside an inline mapping.
+
+live catalog projectionは`mc_constants.py`、`mc_constants.pyi`、manifestを一組の
+一時生成物として公開します。block定数にはblockごとの`TypedDict`／`Literal`型が
+付きます。inline mapping内でエディタがkey候補を安定表示しない場合は、生成された
+`block_state` builderを明示的な補完経路として使えます。
+
+```python
+from mc_constants import block, block_state
+
+mc.setBlock(1, 2, 3, block.OAK_LOG, state={"axis": "z"})
+mc.setBlock(4, 2, 3, block.OAK_LOG, state=block_state.OAK_LOG(axis="z"))
+```
+
+There is no protocol 21 union input, auto-detection, or permanent `block_ref`
+compatibility helper. / protocol 21とのunion入力、自動判定、恒久的な`block_ref`
+互換helperは設けません。
+
+***
+
+## Historical b4 migration: `setPlayer` → `setWorld` / `setBuildOrigin`
+
+> **Historical protocol 21/b4 note.** This section records the earlier
+> `setPlayer` migration; it is not the active b5 implementation plan.
 >
-> protocol **21.0.0**（`2100.0.0b4`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b4` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
+> **protocol 21/b4の履歴。** この節は過去の`setPlayer`移行記録であり、b5のactive計画ではありません。
 
 ### What changed / 変更点
 
@@ -250,9 +338,9 @@ mc.setPose(
 
 ## What's new in b3: the live block/entity/particle catalog / b3 の新機能: 生きたカタログ
 
-`2100.0.0b3` adds `catalog.get` (wire §7.2.1). After an authenticated `hello`, `Minecraft.create()` acquires the connected server's live block/entity/particle registry, verifies it against the advertised and recomputed `catalogHash`, and stores the validated raw catalog in the user cache. It then publishes two disposable completion artifacts in the current working directory: `mc_constants.py` and `mc_constants.manifest.json`.
+`2100.0.0b3` added `catalog.get` (wire §7.2.1). After an authenticated `hello`, `Minecraft.create()` acquires the connected server's live block/entity/particle registry, verifies it against the advertised and recomputed `catalogHash`, and stores the validated raw catalog in the user cache. In b5 it publishes three disposable completion artifacts in the current working directory: `mc_constants.py`, `mc_constants.pyi`, and `mc_constants.manifest.json`.
 
-`2100.0.0b3` で `catalog.get`（wire §7.2.1）が加わりました。認証済み `hello` の後、`Minecraft.create()` が接続先サーバーの生きたブロック／エンティティ／パーティクル registry を取得し、hello が示した `catalogHash` と再計算した hash の両方で検証して、ユーザーcacheへ保存します。その後、現在の作業ディレクトリへ補完用の一時生成物 `mc_constants.py` と `mc_constants.manifest.json` を公開します。
+`2100.0.0b3` で `catalog.get`（wire §7.2.1）が加わりました。認証済み `hello` の後、`Minecraft.create()` が接続先サーバーの生きたブロック／エンティティ／パーティクル registry を取得し、hello が示した `catalogHash` と再計算した hash の両方で検証して、ユーザーcacheへ保存します。b5では現在の作業ディレクトリへ補完用の一時生成物 `mc_constants.py`、`mc_constants.pyi`、`mc_constants.manifest.json` を公開します。
 
 Outside the tracked starter, initialize the ignore rules once for each Git-managed project. This command only updates `.gitignore` for `param_mc_remote.py` and the projection files; it does not create the template, connect, or generate a projection. / tracked starter以外のGit管理projectでは、projectごとにignore規則を一度用意します。このコマンドは `param_mc_remote.py` とprojection生成物のために `.gitignore` を更新するだけで、template作成・接続・projection生成は行いません。
 
@@ -283,7 +371,7 @@ mc.setBlock(6, world_info.Y_SEA + 5, 5, block.GOLD_BLOCK)
 
 - A cache miss is fetched on a separate short-lived authenticated stream. Catalog or projection failure produces an actionable warning, but `Minecraft.create()` still returns the connected build client. Fix the reported stage and retry with `mc.sync_constants(force=True)`. / cache missの取得には、建築用とは別の短命な認証済みstreamを使います。catalogまたはprojectionが失敗してもactionable warningとなり、`Minecraft.create()` は接続済み建築clientを返します。表示された段階を直し、`mc.sync_constants(force=True)` で再試行できます。
 - Pass `sync_catalog=False` to `Minecraft.create(...)` to skip catalog cache/projection work. / catalogのcache／projection処理を省く場合は `Minecraft.create(..., sync_catalog=False)` を指定します。
-- `mc_remote.catalog.block_ref(name, **state)` builds a `block_state_ref` string client-side, e.g. `block_ref("oak_log", axis="y")` → `"minecraft:oak_log[axis=y]"`; the server tolerates a missing namespace and partial state, so this is convenience only, not a wire requirement. / `mc_remote.catalog.block_ref(name, **state)` は client 側で `block_state_ref` 文字列を組み立てる便利関数です（サーバーは namespace 省略・state 部分指定を許容するため、これは書きやすさのためだけの補助です）。
+- Use `state={...}` directly, or generated `block_state.<BLOCK>(...)` when explicit key/value completion is useful. Both paths send the same structured mapping. / `state={...}`を直接使うか、key／value補完を明示したい場合は生成された`block_state.<BLOCK>(...)`を使います。どちらも同じ構造化mappingを送信します。
 - The projection is neither bundled nor committed. Even when the raw catalog is already cached, a fresh clone receives no completion files until its own authenticated `hello` succeeds. In a Git project whose projection files are not ignored, generation is refused and `mcremote init` is suggested. / projectionは同梱もcommitもしません。生catalogがcache済みでも、fresh cloneではその環境自身の認証済み `hello` が成功するまで補完ファイルは現れません。Git管理下で生成物がignoreされていない場合は生成せず、`mcremote init` を案内します。
 
 ***

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import secrets
 import threading
 import time
@@ -50,12 +51,16 @@ OBSERVED_METHODS = frozenset(
         "world.setBlock",
         "world.setBlocks",
         "world.getBlock",
+        "world.getBlocks",
+        "connection.flush",
         "player.getPos",
         "player.setPos",
         "player.getPose",
         "player.setPose",
     }
 )
+_QUALIFIED_BLOCK_ID = re.compile(r"^[a-z0-9_.-]+:[a-z0-9/._-]+$")
+_SHORT_BLOCK_ID = re.compile(r"^[a-z0-9/._-]+$")
 
 
 class ObserverValidationError(ValueError):
@@ -120,6 +125,45 @@ def _number_tuple(value, context):
         _finite_number(value[1], f"{context}[1]"),
         _finite_number(value[2], f"{context}[2]"),
     ]
+
+
+def _parse_block_value(value, context, *, require_namespace):
+    block = _object(value, context)
+    _exact_fields(block, {"block_id", "state"}, context)
+    if set(block) != {"block_id", "state"}:
+        raise ObserverValidationError(
+            f"{context} must contain exactly block_id and state"
+        )
+    block_id = _required_string(block["block_id"], f"{context}.block_id")
+    valid_id = (
+        _QUALIFIED_BLOCK_ID.fullmatch(block_id)
+        if require_namespace
+        else (
+            _QUALIFIED_BLOCK_ID.fullmatch(block_id)
+            or _SHORT_BLOCK_ID.fullmatch(block_id)
+        )
+    )
+    if valid_id is None:
+        raise ObserverValidationError(
+            f"{context}.block_id has an invalid block ID shape"
+        )
+    state = _object(block["state"], f"{context}.state")
+    property_names = list(state)
+    if any(not isinstance(name, str) or not name for name in property_names):
+        raise ObserverValidationError(
+            f"{context}.state property names must be non-empty strings"
+        )
+    parsed_state = {}
+    for property_name in sorted(property_names):
+        item = state[property_name]
+        if item is None:
+            raise ObserverValidationError(
+                f"{context}.state.{property_name} must be a JSON scalar"
+            )
+        parsed_state[property_name] = _json_scalar(
+            item, f"{context}.state.{property_name}"
+        )
+    return {"block_id": block_id, "state": parsed_state}
 
 
 def _parse_permissions(value):
@@ -195,17 +239,33 @@ def _parse_error_data(value):
     data = _object(value, "frame.payload.error.data")
     _exact_fields(
         data,
-        {"reason", "ref", "allowed", "bounds", "violating"},
+        {
+            "reason",
+            "block_id",
+            "property",
+            "value",
+            "allowed",
+            "bounds",
+            "violating",
+        },
         "frame.payload.error.data",
     )
     parsed = {}
-    for key in ("reason", "ref"):
+    for key in ("reason", "block_id", "property"):
         if key in data:
             if not isinstance(data[key], str):
                 raise ObserverValidationError(
                     f"frame.payload.error.data.{key} must be a string"
                 )
             parsed[key] = data[key]
+    if "value" in data:
+        if data["value"] is None:
+            raise ObserverValidationError(
+                "frame.payload.error.data.value must be a JSON scalar"
+            )
+        parsed["value"] = _json_scalar(
+            data["value"], "frame.payload.error.data.value"
+        )
     if "allowed" in data:
         allowed = data["allowed"]
         if not isinstance(allowed, list):
@@ -296,6 +356,47 @@ def _parse_params(method, value):
         return parsed
     if not isinstance(value, list):
         raise ObserverValidationError("frame.payload.params must be an array")
+    block_index = None
+    if method == "world.setBlock":
+        if len(value) != 4:
+            raise ObserverValidationError(
+                "world.setBlock params must contain x, y, z, and BlockSpec"
+            )
+        block_index = 3
+    elif method == "world.setBlocks":
+        if len(value) != 7:
+            raise ObserverValidationError(
+                "world.setBlocks params must contain two coordinates and BlockSpec"
+            )
+        block_index = 6
+    elif method == "world.getBlock" and len(value) != 3:
+        raise ObserverValidationError(
+            "world.getBlock params must contain x, y, and z"
+        )
+    elif method == "world.getBlocks" and len(value) != 6:
+        raise ObserverValidationError(
+            "world.getBlocks params must contain two coordinates"
+        )
+    elif method == "connection.flush" and value != []:
+        raise ObserverValidationError("connection.flush params must be an empty array")
+    if block_index is not None:
+        parsed = [
+            _finite_number(item, f"frame.payload.params[{index}]")
+            for index, item in enumerate(value[:block_index])
+        ]
+        parsed.append(
+            _parse_block_value(
+                value[block_index],
+                f"frame.payload.params[{block_index}]",
+                require_namespace=False,
+            )
+        )
+        return parsed
+    if method in {"world.getBlock", "world.getBlocks"}:
+        return [
+            _finite_number(item, f"frame.payload.params[{index}]")
+            for index, item in enumerate(value)
+        ]
     return [
         _json_scalar(item, f"frame.payload.params[{index}]")
         for index, item in enumerate(value)
@@ -330,9 +431,28 @@ def _parse_result(method, value):
             "pitch": _finite_number(pose.get("pitch"), "frame.payload.result.pitch"),
         }
     if method == "world.getBlock":
-        if not isinstance(value, str):
-            raise ObserverValidationError("frame.payload.result must be a string")
-        return value
+        return _parse_block_value(
+            value, "frame.payload.result", require_namespace=True
+        )
+    if method == "world.getBlocks":
+        if not isinstance(value, list):
+            raise ObserverValidationError(
+                "world.getBlocks success result must be an array"
+            )
+        return [
+            _parse_block_value(
+                item,
+                f"frame.payload.result[{index}]",
+                require_namespace=True,
+            )
+            for index, item in enumerate(value)
+        ]
+    if method in {"world.setBlock", "world.setBlocks", "connection.flush"}:
+        if value is not None:
+            raise ObserverValidationError(
+                f"{method} success result must be null"
+            )
+        return None
     return _json_scalar(value, "frame.payload.result")
 
 
@@ -565,6 +685,54 @@ def _project_array(value):
     return projected
 
 
+def _project_block_value(value, *, require_namespace):
+    try:
+        return _parse_block_value(
+            value, "projected block value", require_namespace=require_namespace
+        )
+    except ObserverValidationError:
+        return None
+
+
+def _project_block_values(value):
+    if not isinstance(value, list):
+        return None
+    projected = [
+        _project_block_value(item, require_namespace=True) for item in value
+    ]
+    return projected if all(item is not None for item in projected) else None
+
+
+def _project_params(method, value):
+    if not isinstance(value, list):
+        return None
+    block_index = None
+    if method == "world.setBlock":
+        if len(value) != 4:
+            return None
+        block_index = 3
+    elif method == "world.setBlocks":
+        if len(value) != 7:
+            return None
+        block_index = 6
+    elif method == "world.getBlock" and len(value) != 3:
+        return None
+    elif method == "world.getBlocks" and len(value) != 6:
+        return None
+    elif method == "connection.flush" and value != []:
+        return None
+    if block_index is None:
+        if method in {"world.getBlock", "world.getBlocks"}:
+            projected = [_allowed_number(item) for item in value]
+            return projected if all(item is not None for item in projected) else None
+        return _project_array(value)
+    prefix = [_allowed_number(item) for item in value[:block_index]]
+    if any(item is None for item in prefix):
+        return None
+    block = _project_block_value(value[block_index], require_namespace=False)
+    return prefix + [block] if prefix is not None and block is not None else None
+
+
 def _project_position(value):
     if not isinstance(value, Mapping):
         return None
@@ -600,9 +768,13 @@ def _project_error(value):
     projected = {"code": code, "message": message}
     if isinstance(data, Mapping):
         projected_data = {}
-        for key in ("reason", "ref"):
+        for key in ("reason", "block_id", "property"):
             if isinstance(data.get(key), str):
                 projected_data[key] = data[key]
+        if data.get("value") is not None:
+            value = _allowed_scalar(data["value"])
+            if value is not None:
+                projected_data["value"] = value
         allowed = data.get("allowed")
         if isinstance(allowed, list):
             projected_allowed = [_allowed_scalar(item) for item in allowed]
@@ -728,7 +900,7 @@ class PythonObserverSource:
         if method == "hello":
             allowed = _project_hello_params(params)
         else:
-            allowed = _project_array(params)
+            allowed = _project_params(method, params)
         if allowed is None:
             return
         frame = self._next_frame("send", request_id, method, {"params": allowed})
@@ -746,7 +918,12 @@ class PythonObserverSource:
         elif method in {"player.getPose", "player.setPose"}:
             allowed = _project_pose(result)
         elif method == "world.getBlock":
-            allowed = result if isinstance(result, str) else None
+            allowed = _project_block_value(result, require_namespace=True)
+        elif method == "world.getBlocks":
+            allowed = _project_block_values(result)
+        elif method in {"world.setBlock", "world.setBlocks", "connection.flush"}:
+            allowed = None
+            valid_null = result is None
         else:
             allowed = _allowed_scalar(result)
             valid_null = result is None

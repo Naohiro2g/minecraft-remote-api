@@ -1,10 +1,9 @@
-"""protocol 21.0.0 b1 round-trip tests.
+"""Current protocol round-trip regression tests.
 
 Covers the b1 reachability checklist:
   1. hello succeeds (flat response cached)
-  2. setBlock("minecraft:stone") succeeds
-  3. setBlock("minecraft:oak_log[axis=y]") succeeds
-  4. getBlock returns the full canonical block_state_ref
+  2. setBlock sends a structured BlockSpec
+  3. getBlock returns the full canonical immutable BlockValue
   5. b1 error reasons (unknown_block / invalid_property_value / build_denied)
      surface with the right reason / data
 plus: error responses echo the request id; postToChat maps to chat.post.
@@ -45,7 +44,7 @@ class FakeConn:
 # Live server hello: catalog is a single catalogHash scalar; y_sea is bundled
 # under world_constants (knowledge DECISIONS 2026-07-02-02).
 HELLO = {
-    "protocol": "21.0.0",
+    "protocol": "22.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "world_constants": {"y_sea": 63},
@@ -64,7 +63,7 @@ def test_hello_declares_protocol_and_caches():
     resp = mc.hello()
     assert resp == HELLO
     assert conn.calls == [("hello", {"protocol": PROTOCOL})]  # §6.1 object params
-    assert mc.protocol == "21.0.0"
+    assert mc.protocol == "22.0.0"
     assert mc.mc_version == "1.21.11"
     assert mc.supported_mc_versions == ["1.21.11"]
     assert mc.y_sea == 63
@@ -94,43 +93,53 @@ def test_y_sea_only_from_world_constants():
 def test_hello_protocol_mismatch_error():
     line = ('{"jsonrpc":"2.0","id":1,"error":{"code":-32600,'
             '"message":"protocol_mismatch","data":{"reason":"protocol_mismatch",'
-            '"server":"21.0.0","client_requires":"2100.0.0b1"}}}')
+            '"server":"22.0.0","client_requires":"2200.0.0b5"}}}')
     try:
         Connection._parse_response(line, 1)
     except McRpcError as e:
         assert e.reason == "protocol_mismatch"
-        assert e.data["server"] == "21.0.0"
-        assert e.data["client_requires"] == "2100.0.0b1"
+        assert e.data["server"] == "22.0.0"
+        assert e.data["client_requires"] == "2200.0.0b5"
     else:
         raise AssertionError("expected McRpcError")
 
 
-# 2 & 3. setBlock sends coords + block_state_ref string verbatim.
+# 2. setBlock sends coordinates plus an exact BlockSpec object.
 def test_setblock_payloads():
-    conn = FakeConn({"world.setBlock": "ok"})
+    conn = FakeConn({"world.setBlock": None})
     mc = Minecraft(conn)
     mc.setBlock(0, 0, 0, "minecraft:stone")
-    mc.setBlock(1, 2, 3, "minecraft:oak_log[axis=y]")
+    mc.setBlock(1, 2, 3, "minecraft:oak_log", state={"axis": "y"})
     assert conn.calls == [
-        ("world.setBlock", [0, 0, 0, "minecraft:stone"]),
-        ("world.setBlock", [1, 2, 3, "minecraft:oak_log[axis=y]"]),
+        ("world.setBlock", [0, 0, 0, {"block_id": "minecraft:stone", "state": {}}]),
+        (
+            "world.setBlock",
+            [1, 2, 3, {"block_id": "minecraft:oak_log", "state": {"axis": "y"}}],
+        ),
     ]
 
 
-# 4. getBlock returns the full canonical block_state_ref string.
+# 3. getBlock returns the full canonical immutable BlockValue.
 def test_getblock_returns_full_canonical():
-    conn = FakeConn({"world.getBlock": "minecraft:oak_log[axis=y]"})
+    conn = FakeConn(
+        {"world.getBlock": {"block_id": "minecraft:oak_log", "state": {"axis": "y"}}}
+    )
     mc = Minecraft(conn)
-    assert mc.getBlock(0, 0, 0) == "minecraft:oak_log[axis=y]"
+    value = mc.getBlock(0, 0, 0)
+    assert value.block_id == "minecraft:oak_log"
+    assert value.state == {"axis": "y"}
     assert conn.calls == [("world.getBlock", [0, 0, 0])]
 
 
 def test_setblocks_payload():
-    conn = FakeConn({"world.setBlocks": "ok"})
+    conn = FakeConn({"world.setBlocks": None})
     mc = Minecraft(conn)
     mc.setBlocks(0, 0, 0, 2, 2, 2, "minecraft:stone")
     assert conn.calls == [
-        ("world.setBlocks", [0, 0, 0, 2, 2, 2, "minecraft:stone"]),
+        (
+            "world.setBlocks",
+            [0, 0, 0, 2, 2, 2, {"block_id": "minecraft:stone", "state": {}}],
+        ),
     ]
 
 
@@ -166,25 +175,34 @@ def _error_line(req_id, code, reason, **data):
     )
 
 
-# 5. ref-validation and world-state errors carry the right reason / data.
-# (missing_namespace was abolished: a bare name is valid and gets minecraft:
-# prepended -- DECISIONS 2026-06-27-02/03.)
+# 5. block-validation and world-state errors carry protocol 22 fields.
 def test_unknown_block_error():
     try:
         Connection._parse_response(
-            _error_line(1, -32602, "unknown_block", ref="definitely_not_a_block"), 1)
+            _error_line(
+                1, -32602, "unknown_block", block_id="definitely_not_a_block"
+            ),
+            1,
+        )
     except McRpcError as e:
         assert e.code == -32602
         assert e.reason == "unknown_block"
-        assert e.data["ref"] == "definitely_not_a_block"
+        assert e.data["block_id"] == "definitely_not_a_block"
+        assert "ref" not in e.data
     else:
         raise AssertionError("expected McRpcError")
 
 
 def test_invalid_property_value_error_with_allowed():
-    line = _error_line(7, -32602, "invalid_property_value",
-                       ref="minecraft:oak_log[axis=w]", property="axis",
-                       value="w", allowed=["x", "y", "z"])
+    line = _error_line(
+        7,
+        -32602,
+        "invalid_property_value",
+        block_id="minecraft:oak_log",
+        property="axis",
+        value="w",
+        allowed=["x", "y", "z"],
+    )
     try:
         Connection._parse_response(line, 7)
     except McRpcError as e:
@@ -195,16 +213,23 @@ def test_invalid_property_value_error_with_allowed():
 
 
 # world-state family. unloaded_chunk was dropped in b1 (auto-load), and
-# build_denied was promoted into b1 (config default_build_range): -32000 band
-# with data.ref -- knowledge wire-format §7.3 (2026-06-28).
+# build_denied may carry policy-specific bounds/violating details, never a
+# legacy combined-ref field.
 def test_build_denied_error():
-    line = _error_line(9, -32000, "build_denied", ref=[7000, 120, 7000])
+    line = _error_line(
+        9,
+        -32000,
+        "build_denied",
+        bounds={"min": [-100, -64, -100], "max": [100, 320, 100]},
+        violating=[7000, 120, 7000],
+    )
     try:
         Connection._parse_response(line, 9)
     except McRpcError as e:
         assert e.code == -32000
         assert e.reason == "build_denied"
-        assert e.data["ref"] == [7000, 120, 7000]
+        assert e.data["violating"] == [7000, 120, 7000]
+        assert "ref" not in e.data
     else:
         raise AssertionError("expected McRpcError")
 
@@ -227,13 +252,20 @@ def test_error_surfaces_even_with_null_id():
     import json
 
     line = json.dumps(
-        {"jsonrpc": "2.0", "id": None,
-         "error": {"code": -32602, "message": "bad", "data": {"reason": "malformed_ref"}}}
+        {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {
+                "code": -32602,
+                "message": "bad",
+                "data": {"reason": "invalid_params"},
+            },
+        }
     )
     try:
         Connection._parse_response(line, 3)
     except McRpcError as e:
-        assert e.reason == "malformed_ref"
+        assert e.reason == "invalid_params"
     else:
         raise AssertionError("expected McRpcError")
 

@@ -1,4 +1,4 @@
-"""Cross-adapter conformance for observer session envelope v1."""
+"""Observer session envelope v1 and protocol 22 candidate conformance."""
 
 import hashlib
 import json
@@ -33,26 +33,26 @@ def fixture_envelopes():
     return [json.loads(line) for line in fixture_lines()]
 
 
-def test_scratch_session_fixture_has_fixed_remote_provenance():
+def test_protocol22_session_fixture_has_fixed_candidate_provenance():
     source = json.loads(SESSION_SOURCE.read_text(encoding="utf-8"))
     assert source == {
-        "repository": "Naohiro2g/scratch-editor",
-        "commit": "e0794c1d09ecc99efceec786fe9d46c23a250db3",
-        "path": (
-            "mc-remote/live/test/fixtures/"
-            "observer-session-lifecycle.ndjson"
-        ),
+        "repository": "Naohiro2g/minecraft-remote-api",
+        "base_commit": "4d510442db58a94f8b249ddcd9d959381f97276c",
+        "path": "tests/fixtures/observer-session-lifecycle.ndjson",
         "sha256": (
-            "3c95e11cceb00318fdf1fc09a8dad335"
-            "7466a31a855846df18d7c1d28bce986c"
+            "8ee5759b6a54b5a2395d80bdd2ab87a"
+            "2af4f69705d6bcd1329b856ebadf3ead0"
         ),
+        "knowledge_commit": "b16f9cd6fb178a4562249f53a8f9c4749cac8922",
+        "decision_id": "2026-08-19-02",
+        "status": "python-candidate-awaiting-cross-adapter-confirmation",
     }
     assert hashlib.sha256(SESSION_FIXTURE.read_bytes()).hexdigest() == source[
         "sha256"
     ]
 
 
-def test_python_encoder_matches_scratch_ndjson_fixture_byte_for_byte():
+def test_python_encoder_matches_protocol22_candidate_byte_for_byte():
     lines = fixture_lines()
     snapshot, terminal = fixture_envelopes()
 
@@ -63,7 +63,7 @@ def test_python_encoder_matches_scratch_ndjson_fixture_byte_for_byte():
     assert encode_end(terminal["reason"]) == lines[1]
 
 
-def test_scratch_fixture_has_atomic_history_and_terminal_line_order():
+def test_candidate_fixture_has_atomic_history_and_terminal_line_order():
     snapshot, terminal = fixture_envelopes()
     assert snapshot == snapshot_envelope(
         snapshot["snapshot"],

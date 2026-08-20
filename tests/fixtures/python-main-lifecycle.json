@@ -14,7 +14,7 @@
         "kind": "main",
         "status": "connected",
         "hello": {
-          "protocol": "21.0.0",
+          "protocol": "22.0.0",
           "mc_version": "1.21.11",
           "supported_mc_versions": ["1.21.11"],
           "catalog_hash": null,
@@ -42,7 +42,7 @@
         "kind": "main",
         "status": "connected",
         "hello": {
-          "protocol": "21.0.0",
+          "protocol": "22.0.0",
           "mc_version": "1.21.11",
           "supported_mc_versions": ["1.21.11"],
           "catalog_hash": null,
@@ -59,6 +59,40 @@
             "request_id": 2,
             "method": "build.setWorld",
             "payload": {"params": ["nether"]}
+          },
+          {
+            "sequence": 4,
+            "observed_at": 1786118400101,
+            "direction": "send",
+            "request_id": null,
+            "method": "world.setBlock",
+            "payload": {
+              "params": [
+                0,
+                1,
+                2,
+                {
+                  "block_id": "minecraft:oak_log",
+                  "state": {"axis": "z"}
+                }
+              ]
+            }
+          },
+          {
+            "sequence": 5,
+            "observed_at": 1786118400102,
+            "direction": "send",
+            "request_id": 3,
+            "method": "connection.flush",
+            "payload": {"params": []}
+          },
+          {
+            "sequence": 6,
+            "observed_at": 1786118400103,
+            "direction": "receive",
+            "request_id": 3,
+            "method": "connection.flush",
+            "payload": {"result": null}
           }
         ]
       }

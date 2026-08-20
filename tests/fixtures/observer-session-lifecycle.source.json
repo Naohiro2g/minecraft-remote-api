@@ -1,6 +1,9 @@
 {
-  "repository": "Naohiro2g/scratch-editor",
-  "commit": "e0794c1d09ecc99efceec786fe9d46c23a250db3",
-  "path": "mc-remote/live/test/fixtures/observer-session-lifecycle.ndjson",
-  "sha256": "3c95e11cceb00318fdf1fc09a8dad3357466a31a855846df18d7c1d28bce986c"
+  "repository": "Naohiro2g/minecraft-remote-api",
+  "base_commit": "4d510442db58a94f8b249ddcd9d959381f97276c",
+  "path": "tests/fixtures/observer-session-lifecycle.ndjson",
+  "sha256": "8ee5759b6a54b5a2395d80bdd2ab87a2af4f69705d6bcd1329b856ebadf3ead0",
+  "knowledge_commit": "b16f9cd6fb178a4562249f53a8f9c4749cac8922",
+  "decision_id": "2026-08-19-02",
+  "status": "python-candidate-awaiting-cross-adapter-confirmation"
 }

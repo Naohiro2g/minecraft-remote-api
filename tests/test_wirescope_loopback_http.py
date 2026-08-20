@@ -22,7 +22,7 @@ import mc_remote.wirescope as wirescope
 SOURCE_COMMIT = "192d1e3ccd213fb5012b92655e51b779270e15be"
 BUNDLED_APP_SOURCE_COMMIT = "56011f71291f47ced69cc4e3c377734f501b6081"
 HELLO = {
-    "protocol": "21.0.0",
+    "protocol": "22.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
@@ -133,7 +133,7 @@ def activate(runtime):
         target_id_factory=lambda: "target-python-test",
         alias_factory=lambda: alias,
     )
-    source.observe_request("hello", {"protocol": "21.0.0"}, 1)
+    source.observe_request("hello", {"protocol": "22.0.0"}, 1)
     source.observe_result("hello", HELLO, 1)
     wait_for(lambda: runtime.pipeline.station_ready)
     return source

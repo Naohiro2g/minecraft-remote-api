@@ -8,11 +8,9 @@ authenticated and a catalog is advertised, the client can call
 shot (v1 has no paging or version-switching -- current registry only).
 
 This module owns the parts of that story that do not need a live connection:
-hashing/validating the fetched body, a local disk cache keyed by
+hashing/validating the fetched body and a local disk cache keyed by
 ``catalogHash`` so a repeat connect to the same registry skips the network
-round trip, and the input-side "kwargs sugar" for block state
-(wire-format-design §7.1/§7.2 keeps that convenience client-side, not on the
-wire). :mod:`mc_remote.minecraft` wires the fetch/cache pair to the live
+round trip. :mod:`mc_remote.minecraft` wires the fetch/cache pair to the live
 connection (``Minecraft.getCatalog`` / ``Minecraft.sync_constants``).
 """
 import hashlib
@@ -152,8 +150,8 @@ def validate_catalog(data, expected_hash=None):
     Checks: ``data`` is an object carrying a non-empty string
     ``catalogHash`` plus the ``block``/``entity``/``particle`` keys (each an
     object); every ``block`` entry carries ``states``/``default_state``
-    (§7.2.1: JSON-native types matching the §7.1 canonical block_state_ref
-    output); the declared ``catalogHash`` matches the digest recomputed from
+    (§7.2.1: JSON-native types matching protocol 22 structured block state);
+    the declared ``catalogHash`` matches the digest recomputed from
     the returned body. Raises :class:`CatalogError` on any mismatch;
     returns ``None`` on success."""
     if not isinstance(data, dict):
@@ -244,37 +242,3 @@ def save_cached_catalog(catalog_hash, data):
         except OSError:
             pass
         raise
-
-
-# --- kwargs sugar for block_state_ref input ---------------------------------
-
-def _format_state_value(value):
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    return str(value)
-
-
-def block_ref(name, **state):
-    """Build a ``block_state_ref`` string from a bare/namespaced block id and
-    optional state kwargs.
-
-    This is the input-side convenience wire-format-design §7.1/§7.2 keeps
-    off the wire: the server tolerates a missing namespace and
-    partial/out-of-order state and canonicalises the rest from the block's
-    ``default_state``, so this helper only assembles what the caller already
-    knows -- it does not need to see the live catalog to run.
-
-    >>> block_ref("oak_log", axis="y")
-    'minecraft:oak_log[axis=y]'
-    >>> block_ref("minecraft:water", level=0)
-    'minecraft:water[level=0]'
-    >>> block_ref("stone")
-    'minecraft:stone'
-    """
-    ref = name if ":" in name else f"minecraft:{name}"
-    if not state:
-        return ref
-    props = ",".join(
-        f"{key}={_format_state_value(value)}" for key, value in state.items()
-    )
-    return f"{ref}[{props}]"

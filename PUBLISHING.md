@@ -13,9 +13,9 @@
 > `uv sync` で開発環境を作り、コードを動かし／テストして push するだけです。
 > 本書は「PyPI へ配布する人」向けです。
 >
-> **ベータ（bN）は PyPI に出しません。** `2100.0.0b3`（protocol 21.0.0 b3）は
+> **ベータ（bN）は PyPI に出しません。** `2200.0.0b5`（protocol 22.0.0 b5）は
 > **GitHub の pre-release タグのみ**で配布します。Python API の tag は
-> `v2100.0.0b3`、package は `minecraft-remote-api==2100.0.0b3` です。
+> `v2200.0.0b5`、package は `minecraft-remote-api==2200.0.0b5` です。
 > PyPI 公開は rc/stable 以降です。採番・配布チャンネルの正本は
 > ナレッジ `10-protocol/versioning-design_ja.md`。
 
@@ -112,6 +112,25 @@ manifest と `~/.cache/mcremote/catalogs/<catalogHash>.json` が作られるこ�
 
 Python client repo には現時点で専用 lint 設定を置いていないため、b3 の Python 側 gate は
 unit tests + build + live smoke を blocker とする。lint は設定追加時に gate へ組み込む。
+
+### b5 / protocol 22 GitHub pre-release 確認
+
+`2200.0.0b5`はprotocol 22最初のexact compatibility setであり、構造化block値に加えて
+DEBUG／TRACE／FAST、bounded connection FIFO、`connection.flush`、自動flushを同じ
+候補へ収容する。部分実装をb5 GREENとしない。
+
+```bash
+uv --cache-dir /tmp/uv-cache run --with pytest pytest -q
+uv --cache-dir /tmp/uv-cache build
+unzip -p dist/minecraft_remote_api-2200.0.0b5-py3-none-any.whl \
+  '*/METADATA' | grep -iE '^Name:|^Version:|^Requires-Dist:'
+```
+
+deterministic gateでは、全modeのsetterが`None`、TRACEがsetter一回につき一回だけ待機、
+FAST notificationに`id`が無いこと、mode transition fence、queue backpressure、
+明示／正常closeのflush、WireScopeのrequest-id `null`／`connection.flush`投影を確認する。
+plugin、Scratch、common WireScope artifactとのexact fixtureおよびreal-browser／live evidenceは
+別gateとして記録する。
 
 ---
 

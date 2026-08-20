@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live-human b4 pose and WireScope browser-loopback verification."""
+"""Live-human b4 pose regression on the protocol 22/b5 client."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def _expect_invalid_without_pose_change(mc, params):
 
 
 def _exercise_pose_contract(mc):
-    assert PROTOCOL == "21.0.0"
+    assert PROTOCOL == "22.0.0"
     assert mc.protocol == PROTOCOL
     original_origin = tuple(mc._origin)
     original_pose = mc.getPose()
