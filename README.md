@@ -228,7 +228,9 @@ accepted = mc.spawnParticle(
     "minecraft:flame", 0.0, 8,
 )
 handle = mc.spawnEntity(2.25, height + 1, 2.75, "minecraft:pig")
-events = mc.pollEvents(limit=100)
+events = mc.pollEvents()  # plugin default event_poll_limit: 64
+for event in events.events:
+    mc.assertEventContext(event)
 print(events.events, events.loss_totals)
 ```
 
@@ -242,6 +244,15 @@ lost `spawnEntity` response.
 進めます。immutableな`EventBatch`からoverflow／capacity／明示破棄の累積値を確認できます。
 entity handleはconnection epoch限定のopaque stringであり、UUIDとして解析せず、responseを
 失った`spawnEntity`を自動再送しません。
+
+Events keep the world and origin captured when they occurred. Call
+`assertEventContext(event)` immediately before using an event position in a
+`world.*` method. A mismatch raises `EventContextMismatchError` and never
+changes the build world/origin implicitly.
+
+eventは発生時のworld／originを保持します。event位置を`world.*`へ渡す直前に
+`assertEventContext(event)`を呼びます。不一致時は`EventContextMismatchError`となり、
+build world／originを暗黙変更しません。
 
 The live catalog projection now publishes `mc_constants.py`,
 `mc_constants.pyi`, and their manifest as one disposable set. Generated block

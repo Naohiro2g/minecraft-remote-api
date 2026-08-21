@@ -4,17 +4,24 @@ import math
 import queue
 import threading
 import warnings
+from pathlib import Path
 
 from mc_remote.block_value import BlockValue
 from mc_remote.b5_values import (
     BlockRightClickEvent,
     ChatPostedEvent,
     EntityHandle,
+    EventContextMismatchError,
     ProjectileHitEvent,
 )
 from mc_remote.connection import Connection, ConnectionLostError, McRemoteError
 from mc_remote.minecraft import BuildMode, Minecraft, PROTOCOL
 from mc_remote.observer import PythonObserverSource
+
+
+EVENT_CONTEXT_FIXTURE = (
+    Path(__file__).parent / "fixtures" / "python-event-context-guard.json"
+)
 
 
 class FakeConn:
@@ -837,6 +844,84 @@ def test_poll_events_advances_cursor_only_after_a_valid_response():
         ("events.poll", [0, 10]),
         ("events.poll", [3, 10]),
     ]
+
+
+def test_poll_events_default_matches_plugin_event_poll_limit():
+    result = {
+        "events": [],
+        "through_sequence": 0,
+        "latest_sequence": 0,
+        "filtered_out": 0,
+        "overflow_dropped_total": 0,
+        "capacity_dropped_total": 0,
+        "explicitly_discarded_total": 0,
+    }
+    conn = FakeConn({"events.poll": result})
+    Minecraft(conn).pollEvents()
+    assert conn.calls == [("events.poll", [0, 64])]
+
+
+def test_assert_event_context_guards_use_without_mutating_or_discarding_event():
+    fixture = json.loads(EVENT_CONTEXT_FIXTURE.read_text(encoding="utf-8"))
+    assert fixture["knowledge_commit"] == (
+        "c721613ca871d4fe00261436a8a13ede1a738ae0"
+    )
+    assert fixture["decision_id"] == "2026-08-21-01"
+    assert fixture["helper"] == "Minecraft.assertEventContext"
+    assert fixture["error"] == "EventContextMismatchError"
+    assert fixture["reason"] == "event_context_mismatch"
+    conn = FakeConn({"build.setWorld": None, "build.setOrigin": None})
+    mc = Minecraft(conn)
+    event_value = fixture["event"]
+    event = ChatPostedEvent(
+        sequence=event_value["sequence"],
+        world=event_value["world"],
+        origin=tuple(event_value["origin"]),
+        message=event_value["message"],
+    )
+    matching, wrong_world, wrong_origin = fixture["cases"]
+    assert matching["outcome"] == "match"
+    assert mc.assertEventContext(event) is None
+
+    mc.setWorld(wrong_world["current_world"])
+    try:
+        mc.assertEventContext(event)
+    except EventContextMismatchError as exc:
+        assert exc.reason == "event_context_mismatch"
+        assert exc.event_world == "overworld"
+        assert exc.current_world == "nether"
+        assert "setWorld(event.world)" in str(exc)
+    else:
+        raise AssertionError("changed world was not guarded")
+
+    mc.setWorld(wrong_origin["current_world"])
+    mc.setBuildOrigin(*wrong_origin["current_origin"])
+    try:
+        mc.assertEventContext(event)
+    except EventContextMismatchError as exc:
+        assert exc.event_origin == (200, 0, 200)
+        assert exc.current_origin == (10, 20, 30)
+        assert "setBuildOrigin(*event.origin)" in str(exc)
+    else:
+        raise AssertionError("changed origin was not guarded")
+
+    mc.setBuildOrigin(*event.origin)
+    assert mc.assertEventContext(event) is None
+    assert event == ChatPostedEvent(
+        sequence=1,
+        world="overworld",
+        origin=(200, 0, 200),
+        message="hello",
+    )
+
+
+def test_assert_event_context_rejects_non_event_values():
+    try:
+        Minecraft(FakeConn({})).assertEventContext({"world": "overworld"})
+    except TypeError as exc:
+        assert "protocol 22 event" in str(exc)
+    else:
+        raise AssertionError("non-event value was accepted")
 
 
 if __name__ == "__main__":

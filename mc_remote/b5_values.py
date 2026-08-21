@@ -24,6 +24,25 @@ class EntityHandle(str):
         return super().__new__(cls, value)
 
 
+class EventContextMismatchError(McRemoteError):
+    """An event's captured coordinate context differs from the build context."""
+
+    reason = "event_context_mismatch"
+
+    def __init__(self, *, event_world, event_origin, current_world, current_origin):
+        self.event_world = event_world
+        self.event_origin = event_origin
+        self.current_world = current_world
+        self.current_origin = current_origin
+        super().__init__(
+            "event context does not match the current build context; "
+            f"event world/origin={event_world!r}/{event_origin!r}, "
+            f"current={current_world!r}/{current_origin!r}; explicitly call "
+            "setWorld(event.world) and setBuildOrigin(*event.origin) before "
+            "using event coordinates"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class BlockTarget:
     pos: tuple[int, int, int]
@@ -268,6 +287,7 @@ __all__ = [
     "EntityHandle",
     "EntityTarget",
     "EventBatch",
+    "EventContextMismatchError",
     "EventValue",
     "PlayerTarget",
     "ProjectileHitEvent",

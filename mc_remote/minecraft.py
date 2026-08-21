@@ -43,6 +43,7 @@ from .b5_values import (
     EntityHandle,
     EntityTarget,
     EventBatch,
+    EventContextMismatchError,
     EventValue,
     PlayerTarget,
     ProjectileHitEvent,
@@ -98,6 +99,7 @@ __all__ = [
     "EntityHandle",
     "EntityTarget",
     "EventBatch",
+    "EventContextMismatchError",
     "EventValue",
     "PlayerTarget",
     "ProjectileHitEvent",
@@ -421,7 +423,7 @@ class Minecraft:
         except ValueError as exc:
             raise McRemoteError(f"invalid world.spawnEntity result: {exc}") from exc
 
-    def pollEvents(self, limit=100) -> EventBatch:
+    def pollEvents(self, limit=64) -> EventBatch:
         """Poll this connection epoch without destructively dequeuing events.
 
         The cursor advances only after a complete, valid response. A lost
@@ -440,6 +442,34 @@ class Minecraft:
         batch = decode_event_batch(result, after_sequence=after_sequence)
         self._event_cursor = batch.through_sequence
         return batch
+
+    def assertEventContext(self, event: EventValue) -> None:
+        """Reject use of event coordinates under a changed build context.
+
+        Events retain the world and origin captured when they occurred. This
+        local guard never discards an event or changes build state; callers use
+        it immediately before passing an event-relative position to a
+        ``world.*`` operation.
+        """
+
+        if not isinstance(
+            event,
+            (BlockRightClickEvent, ChatPostedEvent, ProjectileHitEvent),
+        ):
+            raise TypeError("event must be a protocol 22 event value")
+        current_origin = (
+            self._origin.x,
+            self._origin.y,
+            self._origin.z,
+        )
+        if event.world != self._world or event.origin != current_origin:
+            raise EventContextMismatchError(
+                event_world=event.world,
+                event_origin=event.origin,
+                current_world=self._world,
+                current_origin=current_origin,
+            )
+        return None
 
     @overload
     def setBlocks(

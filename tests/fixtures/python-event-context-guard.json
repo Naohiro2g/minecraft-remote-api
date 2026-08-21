@@ -1,0 +1,31 @@
+{
+  "knowledge_commit": "c721613ca871d4fe00261436a8a13ede1a738ae0",
+  "decision_id": "2026-08-21-01",
+  "helper": "Minecraft.assertEventContext",
+  "error": "EventContextMismatchError",
+  "reason": "event_context_mismatch",
+  "event": {
+    "sequence": 1,
+    "type": "chat_posted",
+    "world": "overworld",
+    "origin": [200, 0, 200],
+    "message": "hello"
+  },
+  "cases": [
+    {
+      "current_world": "overworld",
+      "current_origin": [200, 0, 200],
+      "outcome": "match"
+    },
+    {
+      "current_world": "nether",
+      "current_origin": [200, 0, 200],
+      "outcome": "event_context_mismatch"
+    },
+    {
+      "current_world": "overworld",
+      "current_origin": [10, 20, 30],
+      "outcome": "event_context_mismatch"
+    }
+  ]
+}
