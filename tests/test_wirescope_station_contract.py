@@ -34,15 +34,15 @@ def test_station_fixture_has_fixed_scratch_and_knowledge_provenance():
     source = json.loads(CONTRACT_SOURCE.read_text(encoding="utf-8"))
     assert source == {
         "repository": "Naohiro2g/scratch-editor",
-        "branch": "agent/wirescope-session-artifact",
-        "commit": "192d1e3ccd213fb5012b92655e51b779270e15be",
+        "branch": "agent/b5-protocol22-block-value",
+        "commit": "acb76ea89bc8a95ffc5337133a6cd93210808e76",
         "path": "mc-remote/live/test/fixtures/station-attach-v1.json",
         "sha256": (
-            "b50ce8e0cb8a6bb06f75d9bdad59b830"
-            "06c92683bd73ced84a18223dde21fa81"
+            "143afe138233ba8a136ff361ea6c319ed"
+            "b38b91c1b14eeb75ec9e543d8ce30a5"
         ),
-        "knowledge_commit": "367e1cf5ee936cf9ffef53fa9a3a910501fb927f",
-        "decision_id": "2026-08-12-01",
+        "knowledge_commit": "c721613ca871d4fe00261436a8a13ede1a738ae0",
+        "decision_id": "2026-08-21-01",
     }
     assert hashlib.sha256(CONTRACT_FIXTURE.read_bytes()).hexdigest() == source[
         "sha256"

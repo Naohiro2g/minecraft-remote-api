@@ -20,7 +20,7 @@ import mc_remote.wirescope as wirescope
 
 
 SOURCE_COMMIT = "192d1e3ccd213fb5012b92655e51b779270e15be"
-BUNDLED_APP_SOURCE_COMMIT = "56011f71291f47ced69cc4e3c377734f501b6081"
+BUNDLED_APP_SOURCE_COMMIT = "acb76ea89bc8a95ffc5337133a6cd93210808e76"
 HELLO = {
     "protocol": "22.0.0",
     "mc_version": "1.21.11",
@@ -86,7 +86,7 @@ def app_fixture():
             },
         },
         "protocols": {
-            "observer_schema": {"name": "mcremote.observer", "version": 1},
+            "observer_schema": {"name": "mcremote.observer", "version": 1.1},
             "observer_session": 1,
             "scratch_handoff": 1,
             "station_attach": 1,

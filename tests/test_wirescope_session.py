@@ -37,15 +37,15 @@ def test_protocol22_session_fixture_has_fixed_candidate_provenance():
     source = json.loads(SESSION_SOURCE.read_text(encoding="utf-8"))
     assert source == {
         "repository": "Naohiro2g/minecraft-remote-api",
-        "base_commit": "4d510442db58a94f8b249ddcd9d959381f97276c",
+        "base_commit": "af8a801b1c91a500445a92f31da4ab454ac053e2",
         "path": "tests/fixtures/observer-session-lifecycle.ndjson",
         "sha256": (
-            "8ee5759b6a54b5a2395d80bdd2ab87a"
-            "2af4f69705d6bcd1329b856ebadf3ead0"
+            "90f170ef72d7cb7dc4ea0c8bb0030ce"
+            "2d908c67763348a49239ad1a4a8adb00a"
         ),
-        "knowledge_commit": "b16f9cd6fb178a4562249f53a8f9c4749cac8922",
-        "decision_id": "2026-08-19-02",
-        "status": "python-candidate-awaiting-cross-adapter-confirmation",
+        "knowledge_commit": "c721613ca871d4fe00261436a8a13ede1a738ae0",
+        "decision_id": "2026-08-21-01",
+        "status": "b5-cross-adapter-candidate",
     }
     assert hashlib.sha256(SESSION_FIXTURE.read_bytes()).hexdigest() == source[
         "sha256"
@@ -100,7 +100,7 @@ def test_non_wire_values_are_not_end_reasons(reason):
         end_envelope(reason)
 
 
-def test_snapshot_schema_v1_stays_strict_inside_session_envelope():
+def test_snapshot_schema_v1_1_stays_strict_inside_session_envelope():
     snapshot = fixture_envelopes()[0]["snapshot"]
     snapshot["history_window"] = {"dropped_frames": 7}
     with pytest.raises(ObserverValidationError, match="unknown field"):

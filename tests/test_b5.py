@@ -6,6 +6,12 @@ import threading
 import warnings
 
 from mc_remote.block_value import BlockValue
+from mc_remote.b5_values import (
+    BlockRightClickEvent,
+    ChatPostedEvent,
+    EntityHandle,
+    ProjectileHitEvent,
+)
 from mc_remote.connection import Connection, ConnectionLostError, McRemoteError
 from mc_remote.minecraft import BuildMode, Minecraft, PROTOCOL
 from mc_remote.observer import PythonObserverSource
@@ -679,6 +685,158 @@ def test_input_rejects_protocol21_ref_and_non_json_state_values():
             pass
         else:
             raise AssertionError(f"accepted invalid BlockSpec: {block_id!r}, {state!r}")
+
+
+def test_block_coordinates_reject_fractional_values_without_sending():
+    conn = FakeConn(
+        {
+            "world.setBlock": None,
+            "world.setBlocks": None,
+            "world.getBlock": {"block_id": "minecraft:air", "state": {}},
+            "world.getBlocks": [],
+            "build.setOrigin": None,
+        }
+    )
+    mc = Minecraft(conn)
+    calls = [
+        lambda: mc.setBlock(0.5, 0, 0, "stone"),
+        lambda: mc.setBlocks(0, 0, 0, 1, 1.5, 1, "stone"),
+        lambda: mc.getBlock(0, 0.25, 0),
+        lambda: mc.getBlocks(0, 0, 0, 1, 1, 1.5),
+        lambda: mc.setBuildOrigin(0, 0.5, 0),
+    ]
+    for call in calls:
+        try:
+            call()
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("fractional block coordinate was accepted")
+    assert conn.calls == []
+
+
+def test_integral_json_numbers_are_sent_as_integer_coordinates():
+    conn = FakeConn(
+        {"world.getBlock": {"block_id": "minecraft:air", "state": {}}}
+    )
+    Minecraft(conn).getBlock(1.0, -2.0, 3)
+    assert conn.calls == [("world.getBlock", [1, -2, 3])]
+
+
+def test_height_particle_and_entity_use_protocol22_exact_wire_order():
+    handle = "mceh_" + "A" * 22
+    conn = FakeConn(
+        {
+            "world.getHeight": 71,
+            "world.spawnParticle": 8,
+            "world.spawnEntity": handle,
+        }
+    )
+    mc = Minecraft(conn)
+    assert mc.getHeight(1, 2, 90) == 71
+    assert (
+        mc.spawnParticle(
+            1.25,
+            2.5,
+            3.75,
+            0.1,
+            0.2,
+            0.3,
+            "minecraft:dust",
+            0.4,
+            8,
+        )
+        == 8
+    )
+    assert mc.spawnEntity(4.25, 5.5, 6.75, "minecraft:pig") == handle
+    assert isinstance(mc.spawnEntity(1, 2, 3, "minecraft:cow"), EntityHandle)
+    assert conn.calls == [
+        ("world.getHeight", [1, 2, 90]),
+        (
+            "world.spawnParticle",
+            [
+                1.25,
+                2.5,
+                3.75,
+                0.1,
+                0.2,
+                0.3,
+                "minecraft:dust",
+                0.4,
+                8,
+            ],
+        ),
+        ("world.spawnEntity", [4.25, 5.5, 6.75, "minecraft:pig"]),
+        ("world.spawnEntity", [1, 2, 3, "minecraft:cow"]),
+    ]
+
+
+def test_poll_events_advances_cursor_only_after_a_valid_response():
+    handle = "mceh_" + "B" * 22
+    valid = {
+        "events": [
+            {
+                "sequence": 1,
+                "type": "block_right_click",
+                "world": "overworld",
+                "origin": [0, 64, 0],
+                "pos": [1, 65, 2],
+                "face": "UP",
+                "block": {"block_id": "minecraft:stone", "state": {}},
+                "hand": "HAND",
+            },
+            {
+                "sequence": 2,
+                "type": "chat_posted",
+                "world": "overworld",
+                "origin": [0, 64, 0],
+                "message": "hello",
+            },
+            {
+                "sequence": 3,
+                "type": "projectile_hit",
+                "world": "overworld",
+                "origin": [0, 64, 0],
+                "projectile": "minecraft:arrow",
+                "pos": [1.25, 65.5, 2.75],
+                "target": {"kind": "entity", "handle": handle},
+            },
+        ],
+        "through_sequence": 3,
+        "latest_sequence": 3,
+        "filtered_out": 0,
+        "overflow_dropped_total": 2,
+        "capacity_dropped_total": 1,
+        "explicitly_discarded_total": 0,
+    }
+    responses = [dict(valid, through_sequence=-1), valid, dict(valid, events=[])]
+
+    def response(_params):
+        return responses.pop(0)
+
+    conn = FakeConn({"events.poll": response})
+    mc = Minecraft(conn)
+    try:
+        mc.pollEvents(10)
+    except McRemoteError:
+        pass
+    else:
+        raise AssertionError("malformed cursor result was accepted")
+    batch = mc.pollEvents(10)
+    assert isinstance(batch.events[0], BlockRightClickEvent)
+    assert isinstance(batch.events[1], ChatPostedEvent)
+    assert isinstance(batch.events[2], ProjectileHitEvent)
+    assert batch.loss_totals == {
+        "overflow": 2,
+        "capacity": 1,
+        "explicitly_discarded": 0,
+    }
+    mc.pollEvents(10)
+    assert conn.calls == [
+        ("events.poll", [0, 10]),
+        ("events.poll", [0, 10]),
+        ("events.poll", [3, 10]),
+    ]
 
 
 if __name__ == "__main__":

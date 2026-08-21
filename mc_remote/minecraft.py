@@ -1,5 +1,6 @@
 import os
 import math
+import re
 import time
 import threading
 import warnings
@@ -35,9 +36,24 @@ from .block_value import (
     block_spec,
     decode_block_value,
 )
+from .b5_values import (
+    BlockRightClickEvent,
+    BlockTarget,
+    ChatPostedEvent,
+    EntityHandle,
+    EntityTarget,
+    EventBatch,
+    EventValue,
+    PlayerTarget,
+    ProjectileHitEvent,
+    ProjectileTarget,
+    decode_event_batch,
+)
 
 _StateT = TypeVar("_StateT")
 _TRACE_DELAY_UNSET = object()
+_FORCE_UNSET = object()
+_CANONICAL_ID = re.compile(r"^[a-z0-9_.-]+:[a-z0-9/._-]+$")
 
 
 class BuildMode(str, Enum):
@@ -76,6 +92,16 @@ __all__ = [
     "PairingRequiredError",
     "BuildMode",
     "BlockValue",
+    "BlockRightClickEvent",
+    "BlockTarget",
+    "ChatPostedEvent",
+    "EntityHandle",
+    "EntityTarget",
+    "EventBatch",
+    "EventValue",
+    "PlayerTarget",
+    "ProjectileHitEvent",
+    "ProjectileTarget",
     "CatalogProjectionError",
     "CatalogProjectionWarning",
     "WireScopeWarning",
@@ -92,8 +118,37 @@ CatalogProjectionWarning = _projection.CatalogProjectionWarning
 WireScopeWarning = _wirescope.WireScopeWarning
 
 
-def intFloor(*args):
-    return [int(math.floor(x)) for x in flatten(args)]
+def _integer_values(where, *values):
+    parsed = []
+    for index, value in enumerate(flatten(values)):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or int(value) != value
+        ):
+            raise ValueError(f"{where}[{index}] must be an integer")
+        parsed.append(int(value))
+    return parsed
+
+
+def _finite_values(where, *values):
+    parsed = []
+    for index, value in enumerate(flatten(values)):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
+            raise ValueError(f"{where}[{index}] must be a finite number")
+        parsed.append(value)
+    return parsed
+
+
+def _canonical_id(value, where):
+    if not isinstance(value, str) or _CANONICAL_ID.fullmatch(value) is None:
+        raise ValueError(f"{where} must be a canonical namespace ID")
+    return value
 
 
 def _env_first(*names):
@@ -163,6 +218,8 @@ class Minecraft:
         self.session = None
         self.player = None
         self.permissions = None
+        self._event_cursor = 0
+        self._event_epoch = getattr(connection, "epoch", None)
 
     def hello(self, auth_token=None):
         """Handshake. Declares this client's protocol (and, if held, its auth
@@ -239,7 +296,7 @@ class Minecraft:
         omitted properties from Minecraft defaults rather than merging with
         the block currently in the world.
         """
-        coords = intFloor(x, y, z)
+        coords = _integer_values("world.setBlock coordinates", x, y, z)
         self._execute_set(
             "world.setBlock", coords + [block_spec(block_id, state)]
         )
@@ -247,7 +304,7 @@ class Minecraft:
 
     def getBlock(self, x, y, z) -> BlockValue:
         """Return an immutable canonical :class:`BlockValue` snapshot."""
-        coords = intFloor(x, y, z)
+        coords = _integer_values("world.getBlock coordinates", x, y, z)
         return decode_block_value(self.conn.rpc("world.getBlock", coords))
 
     def getBlocks(self, x0, y0, z0, x1, y1, z1) -> tuple[BlockValue, ...]:
@@ -258,11 +315,131 @@ class Minecraft:
         contains are immutable observations.
         """
 
-        coords = intFloor(x0, y0, z0, x1, y1, z1)
+        coords = _integer_values(
+            "world.getBlocks coordinates", x0, y0, z0, x1, y1, z1
+        )
         result = self.conn.rpc("world.getBlocks", coords)
         if not isinstance(result, list):
             raise McRemoteError("world.getBlocks result must be an array")
         return tuple(decode_block_value(value) for value in result)
+
+    @overload
+    def getHeight(self, x, z) -> int: ...
+
+    @overload
+    def getHeight(self, x, z, max_y) -> int: ...
+
+    def getHeight(self, x, z, max_y=None):
+        """Return the highest exposed block at ``x,z`` up to inclusive max_y."""
+
+        params = _integer_values("world.getHeight coordinates", x, z)
+        if max_y is not None:
+            params.extend(_integer_values("world.getHeight max_y", max_y))
+        result = self.conn.rpc("world.getHeight", params)
+        if isinstance(result, bool) or not isinstance(result, int):
+            raise McRemoteError("world.getHeight result must be an integer")
+        return result
+
+    @overload
+    def spawnParticle(
+        self,
+        x,
+        y,
+        z,
+        offset_x,
+        offset_y,
+        offset_z,
+        particle,
+        speed,
+        count,
+    ) -> int: ...
+
+    @overload
+    def spawnParticle(
+        self,
+        x,
+        y,
+        z,
+        offset_x,
+        offset_y,
+        offset_z,
+        particle,
+        speed,
+        count,
+        force: bool,
+    ) -> int: ...
+
+    def spawnParticle(
+        self,
+        x,
+        y,
+        z,
+        offset_x,
+        offset_y,
+        offset_z,
+        particle,
+        speed,
+        count,
+        force=_FORCE_UNSET,
+    ):
+        """Spawn a b5 data-free particle without pre-rounding its position."""
+
+        position = _finite_values("world.spawnParticle position", x, y, z)
+        offsets = _finite_values(
+            "world.spawnParticle offsets", offset_x, offset_y, offset_z
+        )
+        speed_value = _finite_values("world.spawnParticle speed", speed)[0]
+        if any(value < 0 for value in offsets) or speed_value < 0:
+            raise ValueError("particle offsets and speed must be non-negative")
+        count_value = _integer_values("world.spawnParticle count", count)[0]
+        if count_value < 0:
+            raise ValueError("particle count must be non-negative")
+        params = position + offsets + [
+            _canonical_id(particle, "particle"),
+            speed_value,
+            count_value,
+        ]
+        if force is not _FORCE_UNSET:
+            if not isinstance(force, bool):
+                raise TypeError("force must be a boolean")
+            params.append(force)
+        result = self.conn.rpc("world.spawnParticle", params)
+        if isinstance(result, bool) or not isinstance(result, int) or result < 0:
+            raise McRemoteError(
+                "world.spawnParticle result must be a non-negative integer"
+            )
+        return result
+
+    def spawnEntity(self, x, y, z, entity) -> EntityHandle:
+        """Spawn an entity and return its opaque connection-epoch handle."""
+
+        params = _finite_values("world.spawnEntity position", x, y, z)
+        params.append(_canonical_id(entity, "entity"))
+        result = self.conn.rpc("world.spawnEntity", params)
+        try:
+            return EntityHandle(result)
+        except ValueError as exc:
+            raise McRemoteError(f"invalid world.spawnEntity result: {exc}") from exc
+
+    def pollEvents(self, limit=100) -> EventBatch:
+        """Poll this connection epoch without destructively dequeuing events.
+
+        The cursor advances only after a complete, valid response. A lost
+        response therefore retries from the same ``after_sequence``.
+        """
+
+        limit_value = _integer_values("events.poll limit", limit)[0]
+        if limit_value < 1:
+            raise ValueError("events.poll limit must be positive")
+        epoch = getattr(self.conn, "epoch", None)
+        if epoch != self._event_epoch:
+            self._event_cursor = 0
+            self._event_epoch = epoch
+        after_sequence = self._event_cursor
+        result = self.conn.rpc("events.poll", [after_sequence, limit_value])
+        batch = decode_event_batch(result, after_sequence=after_sequence)
+        self._event_cursor = batch.through_sequence
+        return batch
 
     @overload
     def setBlocks(
@@ -294,7 +471,9 @@ class Minecraft:
 
     def setBlocks(self, x0, y0, z0, x1, y1, z1, block_id, *, state=None):
         """Fill a cuboid using one protocol 22 structured ``BlockSpec``."""
-        coords = intFloor(x0, y0, z0, x1, y1, z1)
+        coords = _integer_values(
+            "world.setBlocks coordinates", x0, y0, z0, x1, y1, z1
+        )
         self._execute_set(
             "world.setBlocks", coords + [block_spec(block_id, state)]
         )
@@ -391,7 +570,7 @@ class Minecraft:
         """Set the build origin (x, y, z). Default is (200, 0, 200).
         Coordinates are absolute; no implicit Y offset is applied (abs y =
         origin y + dy)."""
-        coords = intFloor(x, y, z)
+        coords = _integer_values("build.setOrigin coordinates", x, y, z)
         result = self.conn.rpc("build.setOrigin", coords)
         self._origin = Vec3(*coords)
         return result
@@ -416,7 +595,7 @@ class Minecraft:
         The server applies ``absolute = stream.origin + [x, y, z]`` and returns
         the same shape as :meth:`getPos`.
         """
-        coords = intFloor(x, y, z)
+        coords = _finite_values("player.setPos coordinates", x, y, z)
         return self.conn.rpc("player.setPos", [world] + coords)
 
     def getPose(self):
@@ -445,10 +624,16 @@ class Minecraft:
     def _catalog_stream(self):
         factory = self._catalog_connection_factory
         address, port, debug = self._catalog_endpoint
-        if factory is None or address is None or port is None or self._server_key is None:
+        if (
+            factory is None
+            or address is None
+            or port is None
+            or self._server_key is None
+        ):
             raise _projection.CatalogProjectionError(
                 "fetch",
-                "catalog sync needs connection endpoint metadata; use Minecraft.create()",
+                "catalog sync needs connection endpoint metadata; "
+                "use Minecraft.create()",
             )
         auxiliary = None
         try:

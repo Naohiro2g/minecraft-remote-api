@@ -89,7 +89,7 @@ def test_python_lifecycle_fixture_conforms():
     assert parsed[0]["streams"][0]["hello"] == parsed[1]["streams"][0]["hello"]
     assert parsed[0]["streams"][0]["frames"] == []
     frames = parsed[1]["streams"][0]["frames"]
-    assert len(frames) == 4
+    assert len(frames) == 12
     observed = [
         (frame["direction"], frame["request_id"], frame["method"])
         for frame in frames
@@ -99,6 +99,14 @@ def test_python_lifecycle_fixture_conforms():
         ("send", None, "world.setBlock"),
         ("send", 3, "connection.flush"),
         ("receive", 3, "connection.flush"),
+        ("send", 4, "world.getHeight"),
+        ("receive", 4, "world.getHeight"),
+        ("send", 5, "world.spawnParticle"),
+        ("receive", 5, "world.spawnParticle"),
+        ("send", 6, "world.spawnEntity"),
+        ("receive", 6, "world.spawnEntity"),
+        ("send", 7, "events.poll"),
+        ("receive", 7, "events.poll"),
     ]
 
 

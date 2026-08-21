@@ -1,4 +1,4 @@
-"""Transport-neutral Python projection for ``mcremote.observer`` schema v1.
+"""Transport-neutral Python projection for ``mcremote.observer`` schema v1.1.
 
 This module deliberately does not launch WireScope, retain frame history, or
 choose a browser/relay transport.  It only projects the main connection through
@@ -16,9 +16,12 @@ import time
 import weakref
 from collections.abc import Callable, Iterable, Mapping
 
+from .connection import McRemoteError
+from .b5_values import decode_event_batch
+
 
 OBSERVER_SCHEMA = "mcremote.observer"
-OBSERVER_SCHEMA_VERSION = 1
+OBSERVER_SCHEMA_VERSION = 1.1
 MAIN_STREAM_ID = "main"
 
 _DISPLAY_ALIAS_WORDS = (
@@ -52,6 +55,10 @@ OBSERVED_METHODS = frozenset(
         "world.setBlocks",
         "world.getBlock",
         "world.getBlocks",
+        "world.getHeight",
+        "world.spawnParticle",
+        "world.spawnEntity",
+        "events.poll",
         "connection.flush",
         "player.getPos",
         "player.setPos",
@@ -64,7 +71,7 @@ _SHORT_BLOCK_ID = re.compile(r"^[a-z0-9/._-]+$")
 
 
 class ObserverValidationError(ValueError):
-    """Raised when a snapshot does not conform to observer schema v1."""
+    """Raised when a snapshot does not conform to observer schema v1.1."""
 
 
 def _generate_display_alias():
@@ -103,6 +110,30 @@ def _finite_number(value, context):
     if not math.isfinite(value):
         raise ObserverValidationError(f"{context} must be a finite number")
     return value
+
+
+def _integer(value, context, *, non_negative=False):
+    value = _finite_number(value, context)
+    if int(value) != value or (non_negative and value < 0):
+        qualifier = "non-negative " if non_negative else ""
+        raise ObserverValidationError(f"{context} must be a {qualifier}integer")
+    return int(value)
+
+
+def _canonical_id(value, context):
+    value = _required_string(value, context)
+    if _QUALIFIED_BLOCK_ID.fullmatch(value) is None:
+        raise ObserverValidationError(f"{context} must be a canonical namespace ID")
+    return value
+
+
+def _parse_event_batch(value):
+    try:
+        normalized = json.loads(json.dumps(value, allow_nan=False))
+        decode_event_batch(normalized, after_sequence=0)
+    except (McRemoteError, TypeError, ValueError) as exc:
+        raise ObserverValidationError(f"invalid events.poll result: {exc}") from exc
+    return normalized
 
 
 def _json_scalar(value, context):
@@ -377,11 +408,27 @@ def _parse_params(method, value):
         raise ObserverValidationError(
             "world.getBlocks params must contain two coordinates"
         )
+    elif method == "world.getHeight" and len(value) not in {2, 3}:
+        raise ObserverValidationError(
+            "world.getHeight params must contain x, z, and optional max_y"
+        )
+    elif method == "world.spawnParticle" and len(value) not in {9, 10}:
+        raise ObserverValidationError(
+            "world.spawnParticle params must contain 9 or 10 values"
+        )
+    elif method == "world.spawnEntity" and len(value) != 4:
+        raise ObserverValidationError(
+            "world.spawnEntity params must contain x, y, z, and entity"
+        )
+    elif method == "events.poll" and len(value) != 2:
+        raise ObserverValidationError(
+            "events.poll params must contain after_sequence and limit"
+        )
     elif method == "connection.flush" and value != []:
         raise ObserverValidationError("connection.flush params must be an empty array")
     if block_index is not None:
         parsed = [
-            _finite_number(item, f"frame.payload.params[{index}]")
+            _integer(item, f"frame.payload.params[{index}]")
             for index, item in enumerate(value[:block_index])
         ]
         parsed.append(
@@ -392,11 +439,58 @@ def _parse_params(method, value):
             )
         )
         return parsed
-    if method in {"world.getBlock", "world.getBlocks"}:
+    if method in {"world.getBlock", "world.getBlocks", "world.getHeight"}:
         return [
-            _finite_number(item, f"frame.payload.params[{index}]")
+            _integer(item, f"frame.payload.params[{index}]")
             for index, item in enumerate(value)
         ]
+    if method == "build.setOrigin":
+        if len(value) != 3:
+            raise ObserverValidationError(
+                "build.setOrigin params must contain x, y, and z"
+            )
+        return [
+            _integer(item, f"frame.payload.params[{index}]")
+            for index, item in enumerate(value)
+        ]
+    if method == "events.poll":
+        return [
+            _integer(item, f"frame.payload.params[{index}]", non_negative=True)
+            for index, item in enumerate(value)
+        ]
+    if method == "world.spawnEntity":
+        return [
+            *[
+                _finite_number(item, f"frame.payload.params[{index}]")
+                for index, item in enumerate(value[:3])
+            ],
+            _canonical_id(value[3], "frame.payload.params[3]"),
+        ]
+    if method == "world.spawnParticle":
+        parsed = [
+            _finite_number(item, f"frame.payload.params[{index}]")
+            for index, item in enumerate(value[:6])
+        ]
+        if any(item < 0 for item in parsed[3:6]):
+            raise ObserverValidationError("particle offsets must be non-negative")
+        parsed.extend(
+            [
+                _canonical_id(value[6], "frame.payload.params[6]"),
+                _finite_number(value[7], "frame.payload.params[7]"),
+                _integer(
+                    value[8], "frame.payload.params[8]", non_negative=True
+                ),
+            ]
+        )
+        if parsed[7] < 0:
+            raise ObserverValidationError("particle speed must be non-negative")
+        if len(value) == 10:
+            if not isinstance(value[9], bool):
+                raise ObserverValidationError(
+                    "frame.payload.params[9] must be a boolean"
+                )
+            parsed.append(value[9])
+        return parsed
     return [
         _json_scalar(item, f"frame.payload.params[{index}]")
         for index, item in enumerate(value)
@@ -447,6 +541,20 @@ def _parse_result(method, value):
             )
             for index, item in enumerate(value)
         ]
+    if method == "events.poll":
+        return _parse_event_batch(value)
+    if method == "world.getHeight":
+        return _integer(value, "frame.payload.result")
+    if method == "world.spawnParticle":
+        return _integer(value, "frame.payload.result", non_negative=True)
+    if method == "world.spawnEntity":
+        if not isinstance(value, str) or re.fullmatch(
+            r"mceh_[A-Za-z0-9_-]{22,}", value
+        ) is None:
+            raise ObserverValidationError(
+                "world.spawnEntity success result must be an entity handle"
+            )
+        return value
     if method in {"world.setBlock", "world.setBlocks", "connection.flush"}:
         if value is not None:
             raise ObserverValidationError(
@@ -704,33 +812,10 @@ def _project_block_values(value):
 
 
 def _project_params(method, value):
-    if not isinstance(value, list):
+    try:
+        return _parse_params(method, value)
+    except ObserverValidationError:
         return None
-    block_index = None
-    if method == "world.setBlock":
-        if len(value) != 4:
-            return None
-        block_index = 3
-    elif method == "world.setBlocks":
-        if len(value) != 7:
-            return None
-        block_index = 6
-    elif method == "world.getBlock" and len(value) != 3:
-        return None
-    elif method == "world.getBlocks" and len(value) != 6:
-        return None
-    elif method == "connection.flush" and value != []:
-        return None
-    if block_index is None:
-        if method in {"world.getBlock", "world.getBlocks"}:
-            projected = [_allowed_number(item) for item in value]
-            return projected if all(item is not None for item in projected) else None
-        return _project_array(value)
-    prefix = [_allowed_number(item) for item in value[:block_index]]
-    if any(item is None for item in prefix):
-        return None
-    block = _project_block_value(value[block_index], require_namespace=False)
-    return prefix + [block] if prefix is not None and block is not None else None
 
 
 def _project_position(value):
@@ -921,6 +1006,20 @@ class PythonObserverSource:
             allowed = _project_block_value(result, require_namespace=True)
         elif method == "world.getBlocks":
             allowed = _project_block_values(result)
+        elif method == "events.poll":
+            try:
+                allowed = _parse_event_batch(result)
+            except ObserverValidationError:
+                allowed = None
+        elif method in {
+            "world.getHeight",
+            "world.spawnParticle",
+            "world.spawnEntity",
+        }:
+            try:
+                allowed = _parse_result(method, result)
+            except ObserverValidationError:
+                allowed = None
         elif method in {"world.setBlock", "world.setBlocks", "connection.flush"}:
             allowed = None
             valid_null = result is None

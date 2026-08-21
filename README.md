@@ -40,7 +40,7 @@ detached ZIP／manifest pairとして同梱します。このcomponentは
 配布物に含めます。Python client codeは引き続きMITです。
 
 - WireScope corresponding source:
-  <https://github.com/Naohiro2g/scratch-editor/tree/56011f71291f47ced69cc4e3c377734f501b6081/mc-remote/live>
+  <https://github.com/Naohiro2g/scratch-editor/tree/acb76ea89bc8a95ffc5337133a6cd93210808e76/mc-remote/live>
 
 --
 
@@ -210,6 +210,38 @@ commands.
 notification個別のerror復元やMinecraft client側の描画完了までは保証しません。mode切替と
 正常closeもこのbarrierを使います。FASTは有限FIFOを使い、commandを捨てずに
 backpressureを適用します。
+
+The rest of the b5 world/event slice is projected without changing positional
+precision. Block coordinates (including `getHeight`) must be integral and a
+fractional value is rejected rather than floored. Player, particle, entity,
+and projectile positions remain continuous values.
+
+b5のworld／event sliceも座標精度を変えずに投影します。block座標（`getHeight`を含む）
+はinteger必須で、小数はfloorせず拒否します。player／particle／entity／projectile位置は
+連続値のままです。
+
+```python
+height = mc.getHeight(0, 0, 100)
+accepted = mc.spawnParticle(
+    0.25, height + 1.5, 0.75,
+    0.1, 0.2, 0.1,
+    "minecraft:flame", 0.0, 8,
+)
+handle = mc.spawnEntity(2.25, height + 1, 2.75, "minecraft:pig")
+events = mc.pollEvents(limit=100)
+print(events.events, events.loss_totals)
+```
+
+`pollEvents()` owns one cursor per connection and advances it only after a
+complete valid response. Its immutable `EventBatch` exposes overflow,
+capacity, and explicit-discard totals. Entity handles are opaque strings scoped
+to the connection epoch; the client does not parse them as UUIDs or retry a
+lost `spawnEntity` response.
+
+`pollEvents()`はconnectionごとにcursorを一つ持ち、完全で妥当なresponseを受理した後だけ
+進めます。immutableな`EventBatch`からoverflow／capacity／明示破棄の累積値を確認できます。
+entity handleはconnection epoch限定のopaque stringであり、UUIDとして解析せず、responseを
+失った`spawnEntity`を自動再送しません。
 
 The live catalog projection now publishes `mc_constants.py`,
 `mc_constants.pyi`, and their manifest as one disposable set. Generated block

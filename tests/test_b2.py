@@ -479,13 +479,15 @@ def test_getpos_wire_shape():
     assert fake.calls == [("player.getPos", [])], fake.calls
 
 
-# 11b. player.setPos uses explicit world + origin-relative integer coords
+# 11b. player.setPos preserves explicit world + continuous relative coordinates
 def test_setpos_wire_shape():
     result = {"world": "the_end", "pos": [1, 2, 3]}
     fake = FakeConn({"player.setPos": result})
     mc = Minecraft(fake)
     assert mc.setPos("the_end", 1.9, 2.1, 3.0) == result
-    assert fake.calls == [("player.setPos", ["the_end", 1, 2, 3])], fake.calls
+    assert fake.calls == [
+        ("player.setPos", ["the_end", 1.9, 2.1, 3.0])
+    ], fake.calls
 
 
 # 11c. authorization errors from player helpers propagate as permission_denied

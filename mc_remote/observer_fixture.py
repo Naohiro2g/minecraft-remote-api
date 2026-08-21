@@ -57,6 +57,42 @@ def build_fixture():
     )
     source.observe_request("connection.flush", [], 3)
     source.observe_result("connection.flush", None, 3)
+    source.observe_request("world.getHeight", [0, 2, 90], 4)
+    source.observe_result("world.getHeight", 71, 4)
+    source.observe_request(
+        "world.spawnParticle",
+        [0.25, 70.5, 2.75, 0.1, 0.2, 0.3, "minecraft:flame", 0.0, 8],
+        5,
+    )
+    source.observe_result("world.spawnParticle", 8, 5)
+    source.observe_request(
+        "world.spawnEntity", [0.25, 71.0, 2.75, "minecraft:pig"], 6
+    )
+    source.observe_result(
+        "world.spawnEntity", "mceh_AAAAAAAAAAAAAAAAAAAAAA", 6
+    )
+    source.observe_request("events.poll", [0, 100], 7)
+    source.observe_result(
+        "events.poll",
+        {
+            "events": [
+                {
+                    "sequence": 1,
+                    "type": "chat_posted",
+                    "world": "overworld",
+                    "origin": [200, 0, 200],
+                    "message": "hello",
+                }
+            ],
+            "through_sequence": 1,
+            "latest_sequence": 1,
+            "filtered_out": 0,
+            "overflow_dropped_total": 0,
+            "capacity_dropped_total": 0,
+            "explicitly_discarded_total": 0,
+        },
+        7,
+    )
     updated = source.snapshot(frames, emitted_at=FIXTURE_TIME + 100)
     source.connection_closed()
     return [initial, updated]
@@ -65,7 +101,7 @@ def build_fixture():
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="python -m mc_remote.observer_fixture",
-        description="Generate deterministic mcremote.observer schema v1 fixtures.",
+        description="Generate deterministic mcremote.observer schema v1.1 fixtures.",
     )
     parser.add_argument(
         "--dump-observer-fixture",

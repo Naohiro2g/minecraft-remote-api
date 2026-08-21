@@ -168,6 +168,7 @@ class Connection:
     def _start_sequencer(self):
         """Start a fresh connection-epoch FIFO around the current transport."""
 
+        self.epoch = getattr(self, "epoch", 0) + 1
         self._id = 0
         self._send_queue = queue.Queue(maxsize=self.send_queue_capacity)
         self._enqueue_lock = threading.Lock()
