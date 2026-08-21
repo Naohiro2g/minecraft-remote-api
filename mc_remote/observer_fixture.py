@@ -71,7 +71,7 @@ def build_fixture():
     source.observe_result(
         "world.spawnEntity", "mceh_AAAAAAAAAAAAAAAAAAAAAA", 6
     )
-    source.observe_request("events.poll", [0, 64], 7)
+    source.observe_request("events.poll", [0], 7)
     source.observe_result(
         "events.poll",
         {

@@ -13,6 +13,7 @@ from .connection import (
     McRemoteError,
     McRpcError,
     ConnectionLostError,
+    RequestTimeoutError,
     RequestFailedError,
 )
 from .auth import (
@@ -66,6 +67,7 @@ class BuildMode(str, Enum):
 
 
 DEFAULT_TRACE_DELAY: float = 0.25
+MAX_TRACE_DELAY: float = 2.0
 
 
 def _validate_build_mode(value):
@@ -80,8 +82,9 @@ def _validate_trace_delay(value):
         or not isinstance(value, (int, float))
         or not math.isfinite(value)
         or value < 0
+        or value > MAX_TRACE_DELAY
     ):
-        raise ValueError("trace_delay must be a finite non-negative number")
+        raise ValueError("trace_delay must be between 0 and 2.0 seconds")
     return float(value)
 
 __all__ = [
@@ -90,8 +93,11 @@ __all__ = [
     "McRpcError",
     "ConnectionLostError",
     "RequestFailedError",
+    "RequestTimeoutError",
     "PairingRequiredError",
     "BuildMode",
+    "DEFAULT_TRACE_DELAY",
+    "MAX_TRACE_DELAY",
     "BlockValue",
     "BlockRightClickEvent",
     "BlockTarget",
@@ -151,6 +157,17 @@ def _canonical_id(value, where):
     if not isinstance(value, str) or _CANONICAL_ID.fullmatch(value) is None:
         raise ValueError(f"{where} must be a canonical namespace ID")
     return value
+
+
+def _add_exception_note(exception, note, *, cause=None):
+    add_note = getattr(exception, "add_note", None)
+    if add_note is not None:
+        add_note(note)
+        return
+    if cause is not None and exception.__context__ is None:
+        exception.__context__ = cause
+        return
+    warnings.warn(note, RuntimeWarning, stacklevel=3)
 
 
 def _env_first(*names):
@@ -423,22 +440,29 @@ class Minecraft:
         except ValueError as exc:
             raise McRemoteError(f"invalid world.spawnEntity result: {exc}") from exc
 
-    def pollEvents(self, limit=64) -> EventBatch:
+    def pollEvents(self, max_events=None) -> EventBatch:
         """Poll this connection epoch without destructively dequeuing events.
 
         The cursor advances only after a complete, valid response. A lost
-        response therefore retries from the same ``after_sequence``.
+        response therefore retries from the same ``after_sequence``. Omitting
+        ``max_events`` delegates the batch size to the server. An explicit
+        value is a positive client-requested upper bound.
         """
 
-        limit_value = _integer_values("events.poll limit", limit)[0]
-        if limit_value < 1:
-            raise ValueError("events.poll limit must be positive")
         epoch = getattr(self.conn, "epoch", None)
         if epoch != self._event_epoch:
             self._event_cursor = 0
             self._event_epoch = epoch
         after_sequence = self._event_cursor
-        result = self.conn.rpc("events.poll", [after_sequence, limit_value])
+        params = [after_sequence]
+        if max_events is not None:
+            max_events_value = _integer_values(
+                "events.poll max_events", max_events
+            )[0]
+            if max_events_value < 1:
+                raise ValueError("events.poll max_events must be positive")
+            params.append({"max_events": max_events_value})
+        result = self.conn.rpc("events.poll", params)
         batch = decode_event_batch(result, after_sequence=after_sequence)
         self._event_cursor = batch.through_sequence
         return batch
@@ -562,7 +586,12 @@ class Minecraft:
     def setBuildMode(self, mode: BuildMode, *, trace_delay: float) -> None: ...
 
     def setBuildMode(self, mode, *, trace_delay=_TRACE_DELAY_UNSET):
-        """Flush earlier commands, then atomically install a new build mode."""
+        """Flush earlier commands, then atomically install a new build mode.
+
+        TRACE delays from 0 through 2.0 seconds are accepted without clamping.
+        A flush timeout keeps the previous mode and closes the connection
+        because completion of preceding commands is unknown.
+        """
 
         mode = _validate_build_mode(mode)
         with self._build_mode_lock:
@@ -579,12 +608,32 @@ class Minecraft:
         return None
 
     def flush(self) -> None:
-        """Wait for preceding commands without reading world state."""
+        """Wait for preceding commands without reading world state.
+
+        A timeout means completion is unknown. The request is not retried and
+        the connection is reclaimed before :class:`RequestTimeoutError` is
+        raised.
+        """
 
         flush = getattr(self.conn, "flush", None)
         if flush is None:
             raise McRemoteError("connection does not support connection.flush")
-        result = flush()
+        try:
+            result = flush()
+        except RequestTimeoutError as exc:
+            try:
+                self.conn.close()
+            except Exception as cleanup_exc:
+                _add_exception_note(
+                    exc,
+                    "connection cleanup after timeout also failed: "
+                    f"{type(cleanup_exc).__name__}: {cleanup_exc}",
+                    cause=cleanup_exc,
+                )
+            finally:
+                self._closed = True
+                self._close_wirescope_runtime()
+            raise
         if result is not None:
             raise McRemoteError("connection.flush success result must be null")
         return None
@@ -808,17 +857,21 @@ class Minecraft:
             self.conn.close()
         finally:
             self._closed = True
-            if self._wirescope_runtime is not None:
-                try:
-                    self._wirescope_runtime.close()
-                except Exception:
-                    warnings.warn(
-                        "WireScope cleanup failed; Minecraft is already closed",
-                        _wirescope.WireScopeWarning,
-                        stacklevel=2,
-                    )
-                self._wirescope_runtime = None
+            self._close_wirescope_runtime()
         return True
+
+    def _close_wirescope_runtime(self):
+        if self._wirescope_runtime is None:
+            return
+        try:
+            self._wirescope_runtime.close()
+        except Exception:
+            warnings.warn(
+                "WireScope cleanup failed; Minecraft is already closed",
+                _wirescope.WireScopeWarning,
+                stacklevel=2,
+            )
+        self._wirescope_runtime = None
 
     def __enter__(self) -> "Minecraft":
         if self._closed:
@@ -831,14 +884,15 @@ class Minecraft:
         else:
             try:
                 self.close()
-            except Exception:
+            except Exception as close_exc:
                 # Preserve the learner's original exception while still making
                 # the completion-guarantee failure visible.
-                warnings.warn(
-                    "Minecraft close/flush also failed; preserving the "
-                    "active exception",
-                    RuntimeWarning,
-                    stacklevel=2,
+                _add_exception_note(
+                    exc,
+                    "Minecraft close/flush also failed while preserving the "
+                    "active exception: "
+                    f"{type(close_exc).__name__}: {close_exc}",
+                    cause=close_exc,
                 )
         return False
 
@@ -916,8 +970,9 @@ class Minecraft:
         preflight and observer failures warn but never block Minecraft.
 
         ``build_mode`` defaults to :attr:`BuildMode.DEBUG`. ``trace_delay`` is
-        the connection-local TRACE pause in seconds and defaults to ``0.25``.
-        Neither value is sent in hello or method params."""
+        the connection-local TRACE pause in seconds, accepts the inclusive
+        range ``0`` through ``2.0``, and defaults to ``0.25``. Neither value
+        is sent in hello or method params."""
         build_mode = _validate_build_mode(build_mode)
         trace_delay = _validate_trace_delay(trace_delay)
         env_host = _env_first("MCREMOTE_API_HOST", "JRP_API_HOST")

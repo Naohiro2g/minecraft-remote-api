@@ -14,13 +14,29 @@ from mc_remote.b5_values import (
     EventContextMismatchError,
     ProjectileHitEvent,
 )
-from mc_remote.connection import Connection, ConnectionLostError, McRemoteError
-from mc_remote.minecraft import BuildMode, Minecraft, PROTOCOL
+from mc_remote.connection import (
+    DEFAULT_REQUEST_TIMEOUT_SECONDS,
+    DEFAULT_SEND_QUEUE_CAPACITY,
+    Connection,
+    ConnectionLostError,
+    McRemoteError,
+    RequestTimeoutError,
+)
+from mc_remote.minecraft import (
+    DEFAULT_TRACE_DELAY,
+    MAX_TRACE_DELAY,
+    BuildMode,
+    Minecraft,
+    PROTOCOL,
+)
 from mc_remote.observer import PythonObserverSource
 
 
 EVENT_CONTEXT_FIXTURE = (
     Path(__file__).parent / "fixtures" / "python-event-context-guard.json"
+)
+RUNTIME_POLICY_FIXTURE = (
+    Path(__file__).parent / "fixtures" / "python-b5-runtime-policy.json"
 )
 
 
@@ -84,6 +100,20 @@ class ScriptedReader:
 
     def readline(self):
         return self.lines.get(timeout=2)
+
+    def close(self):
+        self.closed = True
+
+
+class TimeoutReader:
+    def __init__(self):
+        self.closed = False
+
+    def push(self, _response):
+        pass
+
+    def readline(self):
+        raise TimeoutError("scripted request timeout")
 
     def close(self):
         self.closed = True
@@ -305,7 +335,7 @@ def test_failed_mode_transition_keeps_old_mode_and_delay():
 def test_invalid_mode_and_delay_are_rejected_before_transition():
     conn = ModeConn()
     mc = Minecraft(conn)
-    for invalid in (-1, math.inf, math.nan, True, "0.25"):
+    for invalid in (-1, 2.0001, math.inf, math.nan, True, "0.25"):
         try:
             mc.setBuildMode(BuildMode.TRACE, trace_delay=invalid)
         except ValueError:
@@ -319,6 +349,45 @@ def test_invalid_mode_and_delay_are_rejected_before_transition():
     else:
         raise AssertionError("accepted a string instead of BuildMode")
     assert conn.flush_count == 0
+
+
+def test_trace_delay_accepts_both_contract_boundaries_without_clamping():
+    conn = ModeConn()
+    mc = Minecraft(conn)
+    mc.setBuildMode(BuildMode.TRACE, trace_delay=0)
+    assert mc.trace_delay == 0.0
+    mc.setBuildMode(BuildMode.TRACE, trace_delay=2.0)
+    assert mc.trace_delay == 2.0
+    assert conn.flush_count == 2
+
+
+def test_b5_runtime_policy_fixture_locks_python_candidate_values():
+    fixture = json.loads(RUNTIME_POLICY_FIXTURE.read_text(encoding="utf-8"))
+    assert fixture == {
+        "knowledge_commit": "5b12a4360b969db9ad899b868cae993ce65cfa44",
+        "decision_id": "2026-08-21-02",
+        "send_queue": {
+            "capacity": DEFAULT_SEND_QUEUE_CAPACITY,
+            "overflow": "backpressure",
+            "silent_drop": False,
+        },
+        "request_timeout": {
+            "seconds": DEFAULT_REQUEST_TIMEOUT_SECONDS,
+            "completion": "unknown",
+            "automatic_retry": False,
+            "reclaim_connection": True,
+        },
+        "trace_delay": {
+            "default": DEFAULT_TRACE_DELAY,
+            "minimum": 0.0,
+            "maximum": MAX_TRACE_DELAY,
+        },
+        "events_poll": {
+            "omitted": "server-default",
+            "option": "max_events",
+        },
+        "status": "b5-finite-candidate-pending-b6-calibration",
+    }
 
 
 def test_connection_notification_and_flush_share_fifo_and_wire_shape():
@@ -432,17 +501,78 @@ def test_context_manager_auto_closes_and_preserves_body_exception():
             raise ConnectionLostError("close failed")
 
     failed = FailedCloseConn()
+    body_error = None
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         try:
             with Minecraft(failed):
                 raise ValueError("body failed")
         except ValueError as exc:
+            body_error = exc
             assert str(exc) == "body failed"
+            if hasattr(exc, "__notes__"):
+                assert any(
+                    "close/flush also failed" in note
+                    and "ConnectionLostError" in note
+                    for note in exc.__notes__
+                )
         else:
             raise AssertionError("context manager masked the body exception")
     assert failed.closed
-    assert len(caught) == 1
+    if hasattr(ValueError(), "add_note"):
+        assert caught == []
+    else:
+        assert body_error.__context__ is not None
+        assert isinstance(body_error.__context__, ConnectionLostError)
+
+
+def test_flush_timeout_reclaims_connection_and_is_never_retried():
+    conn = scripted_connection()
+    assert conn.rpc("hello", {"protocol": "22.0.0"}) == {
+        "protocol": "22.0.0"
+    }
+    timeout_reader = TimeoutReader()
+    conn.reader = timeout_reader
+    conn.socket.reader = timeout_reader
+    mc = Minecraft(conn)
+
+    try:
+        mc.flush()
+    except RequestTimeoutError as exc:
+        assert exc.method == "connection.flush"
+        assert exc.completion_unknown is True
+        assert "completion is unknown" in str(exc)
+        assert "not retried" in str(exc)
+    else:
+        raise AssertionError("flush timeout was not surfaced")
+
+    assert mc._closed is True
+    assert conn.socket.closed is True
+    assert timeout_reader.closed is True
+    assert [
+        message["method"] for message in conn.socket.messages
+    ] == ["hello", "connection.flush"]
+
+
+def test_mode_transition_timeout_keeps_old_mode_and_reclaims_connection():
+    conn = scripted_connection()
+    conn.rpc("hello", {"protocol": "22.0.0"})
+    timeout_reader = TimeoutReader()
+    conn.reader = timeout_reader
+    conn.socket.reader = timeout_reader
+    mc = Minecraft(conn)
+
+    try:
+        mc.setBuildMode(BuildMode.FAST)
+    except RequestTimeoutError:
+        pass
+    else:
+        raise AssertionError("mode transition accepted an unknown flush outcome")
+
+    assert mc.build_mode is BuildMode.DEBUG
+    assert mc.trace_delay == DEFAULT_TRACE_DELAY
+    assert mc._closed is True
+    assert conn.socket.closed is True
 
 
 def test_observer_distinguishes_notification_null_result_and_flush():
@@ -490,6 +620,57 @@ def test_observer_distinguishes_notification_null_result_and_flush():
     observer.observe_result("world.setBlock", {"applied": 1}, 3)
     observer.observe_request("connection.flush", [1], 4)
     assert len(frames) == before
+
+
+def test_observer_accepts_new_poll_options_and_rejects_old_flat_limit():
+    frames = []
+    observer = PythonObserverSource(
+        frames.append,
+        target_id_factory=lambda: "target-b5-poll-options",
+        alias_factory=lambda: "MIND-STORM-000028",
+    )
+    hello = {
+        "protocol": "22.0.0",
+        "mc_version": "1.21.11",
+        "supported_mc_versions": ["1.21.11"],
+        "catalog_hash": None,
+        "world": "overworld",
+        "origin": [200, 0, 200],
+        "world_constants": {"y_sea": 62},
+        "permissions": {
+            "online": True,
+            "offline": False,
+            "build_range": 100,
+        },
+    }
+    observer.observe_request("hello", {"protocol": "22.0.0"}, 1)
+    observer.observe_result("hello", hello, 1)
+    frames.clear()
+
+    observer.observe_request("events.poll", [0], 2)
+    observer.observe_request(
+        "events.poll", [0, {"max_events": 9999}], 3
+    )
+    assert [frame["payload"]["params"] for frame in frames] == [
+        [0],
+        [0, {"max_events": 9999}],
+    ]
+
+    for request_id, invalid in enumerate(
+        (
+            [0, 64],
+            [0, {}],
+            [0, {"max_events": 0}],
+            [0, {"max_events": -1}],
+            [0, {"max_events": 1.5}],
+            [0, {"max_events": True}],
+            [0, {"max_events": 1, "unknown": 2}],
+        ),
+        start=4,
+    ):
+        before = len(frames)
+        observer.observe_request("events.poll", invalid, request_id)
+        assert len(frames) == before
 
 
 def test_observer_projects_getblocks_as_canonical_blockvalue_array():
@@ -824,12 +1005,12 @@ def test_poll_events_advances_cursor_only_after_a_valid_response():
     conn = FakeConn({"events.poll": response})
     mc = Minecraft(conn)
     try:
-        mc.pollEvents(10)
+        mc.pollEvents(max_events=10)
     except McRemoteError:
         pass
     else:
         raise AssertionError("malformed cursor result was accepted")
-    batch = mc.pollEvents(10)
+    batch = mc.pollEvents(max_events=10)
     assert isinstance(batch.events[0], BlockRightClickEvent)
     assert isinstance(batch.events[1], ChatPostedEvent)
     assert isinstance(batch.events[2], ProjectileHitEvent)
@@ -838,15 +1019,15 @@ def test_poll_events_advances_cursor_only_after_a_valid_response():
         "capacity": 1,
         "explicitly_discarded": 0,
     }
-    mc.pollEvents(10)
+    mc.pollEvents(max_events=10)
     assert conn.calls == [
-        ("events.poll", [0, 10]),
-        ("events.poll", [0, 10]),
-        ("events.poll", [3, 10]),
+        ("events.poll", [0, {"max_events": 10}]),
+        ("events.poll", [0, {"max_events": 10}]),
+        ("events.poll", [3, {"max_events": 10}]),
     ]
 
 
-def test_poll_events_default_matches_plugin_event_poll_limit():
+def test_poll_events_default_delegates_to_server_runtime_policy():
     result = {
         "events": [],
         "through_sequence": 0,
@@ -858,15 +1039,28 @@ def test_poll_events_default_matches_plugin_event_poll_limit():
     }
     conn = FakeConn({"events.poll": result})
     Minecraft(conn).pollEvents()
-    assert conn.calls == [("events.poll", [0, 64])]
+    assert conn.calls == [("events.poll", [0])]
+
+
+def test_poll_events_rejects_invalid_client_max_before_sending():
+    conn = FakeConn({"events.poll": None})
+    mc = Minecraft(conn)
+    for invalid in (0, -1, 1.5, True, "16"):
+        try:
+            mc.pollEvents(max_events=invalid)
+        except (TypeError, ValueError):
+            pass
+        else:
+            raise AssertionError(f"accepted invalid max_events: {invalid!r}")
+    assert conn.calls == []
 
 
 def test_assert_event_context_guards_use_without_mutating_or_discarding_event():
     fixture = json.loads(EVENT_CONTEXT_FIXTURE.read_text(encoding="utf-8"))
     assert fixture["knowledge_commit"] == (
-        "c721613ca871d4fe00261436a8a13ede1a738ae0"
+        "5b12a4360b969db9ad899b868cae993ce65cfa44"
     )
-    assert fixture["decision_id"] == "2026-08-21-01"
+    assert fixture["decision_id"] == "2026-08-16-05"
     assert fixture["helper"] == "Minecraft.assertEventContext"
     assert fixture["error"] == "EventContextMismatchError"
     assert fixture["reason"] == "event_context_mismatch"

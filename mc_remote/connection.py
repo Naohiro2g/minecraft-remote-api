@@ -7,6 +7,7 @@ import threading
 
 
 DEFAULT_SEND_QUEUE_CAPACITY = 1024
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 60.0
 _STOP = object()
 
 
@@ -62,6 +63,19 @@ class ConnectionLostError(McRemoteError):
 
     Replaces the old ``sys.exit(1)`` so that one failed stream does not take
     down the whole process (build state is scoped per stream)."""
+
+
+class RequestTimeoutError(ConnectionLostError):
+    """A request timed out after transmission; its completion is unknown."""
+
+    completion_unknown = True
+
+    def __init__(self, method):
+        self.method = method
+        super().__init__(
+            f"{method} timed out; completion is unknown and the request "
+            "was not retried"
+        )
 
 
 class RequestFailedError(McRemoteError):
@@ -129,6 +143,7 @@ class Connection:
         self.port = port
         self.debug = debug
         self.send_queue_capacity = send_queue_capacity
+        self.request_timeout = DEFAULT_REQUEST_TIMEOUT_SECONDS
         self.lastSent = b""
         self._observer = None
         self._close_lock = threading.Lock()
@@ -161,7 +176,7 @@ class Connection:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(10)
         self.socket.connect((self.address, self.port))
-        self.socket.settimeout(60)  # doc suggests None for makefile
+        self.socket.settimeout(self.request_timeout)
         self.reader = self.socket.makefile("r")
         self._start_sequencer()
 
@@ -356,24 +371,34 @@ class Connection:
         results or errors.
         """
 
-        if not hasattr(self, "_send_queue"):
-            result = self._rpc_direct("connection.flush", [])
+        try:
+            if not hasattr(self, "_send_queue"):
+                result = self._rpc_direct("connection.flush", [])
+                if result is not None:
+                    raise McRemoteError(
+                        "connection.flush success result must be null"
+                    )
+                return None
+            with self._enqueue_lock:
+                self._ensure_accepting_locked()
+                if not self._hello_completed:
+                    raise McRemoteError(
+                        "connection.flush requires a successful hello"
+                    )
+                pending = self._enqueue_request_locked(
+                    "connection.flush",
+                    [],
+                    flush_target=self._notification_serial,
+                )
+            result = pending.result()
             if result is not None:
-                raise McRemoteError("connection.flush success result must be null")
+                raise McRemoteError(
+                    "connection.flush success result must be null"
+                )
             return None
-        with self._enqueue_lock:
-            self._ensure_accepting_locked()
-            if not self._hello_completed:
-                raise McRemoteError("connection.flush requires a successful hello")
-            pending = self._enqueue_request_locked(
-                "connection.flush",
-                [],
-                flush_target=self._notification_serial,
-            )
-        result = pending.result()
-        if result is not None:
-            raise McRemoteError("connection.flush success result must be null")
-        return None
+        except RequestTimeoutError:
+            self._close_epoch(flush=False)
+            raise
 
     def _enqueue_request(self, method, params=None):
         with self._enqueue_lock:
@@ -469,6 +494,8 @@ class Connection:
 
             try:
                 line = self.reader.readline()
+            except TimeoutError as exc:
+                raise RequestTimeoutError(call.method) from exc
             except OSError as exc:
                 raise ConnectionLostError(
                     f"Failed to receive from the server: {exc}"
@@ -529,6 +556,8 @@ class Connection:
 
     @staticmethod
     def _copy_failure(failure):
+        if isinstance(failure, RequestTimeoutError):
+            return RequestTimeoutError(failure.method)
         if isinstance(failure, ConnectionLostError):
             return ConnectionLostError(str(failure))
         if isinstance(failure, McRemoteError):
@@ -551,6 +580,9 @@ class Connection:
         try:
             self.socket.sendall(payload)
             line = self.reader.readline()
+        except TimeoutError as exc:
+            self._notify_connection_closed_once()
+            raise RequestTimeoutError(method) from exc
         except OSError as exc:
             self._notify_connection_closed_once()
             raise ConnectionLostError(f"Failed to talk to the server: {exc}") from exc

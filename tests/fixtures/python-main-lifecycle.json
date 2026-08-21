@@ -215,8 +215,7 @@
             "method": "events.poll",
             "payload": {
               "params": [
-                0,
-                64
+                0
               ]
             }
           },

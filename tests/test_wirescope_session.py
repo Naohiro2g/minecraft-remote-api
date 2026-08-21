@@ -17,12 +17,13 @@ from mc_remote._wirescope_session import (
     end_envelope,
     snapshot_envelope,
 )
-from mc_remote.observer import ObserverValidationError
+from mc_remote.observer import ObserverValidationError, PythonObserverSource
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SESSION_FIXTURE = FIXTURES / "observer-session-lifecycle.ndjson"
 SESSION_SOURCE = FIXTURES / "observer-session-lifecycle.source.json"
+POLL_BOUNDARY_FIXTURE = FIXTURES / "python-events-poll-frame-boundary.json"
 
 
 def fixture_lines():
@@ -105,3 +106,77 @@ def test_snapshot_schema_v1_1_stays_strict_inside_session_envelope():
     snapshot["history_window"] = {"dropped_frames": 7}
     with pytest.raises(ObserverValidationError, match="unknown field"):
         snapshot_envelope(snapshot, dropped_frames=7)
+
+
+def test_maximum_poll_response_fits_one_schema_v1_1_session_frame():
+    fixture = json.loads(POLL_BOUNDARY_FIXTURE.read_text(encoding="utf-8"))
+    assert fixture["knowledge_commit"] == (
+        "5b12a4360b969db9ad899b868cae993ce65cfa44"
+    )
+    assert fixture["decision_id"] == "2026-08-21-02"
+
+    response = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": {
+            "events": [
+                {
+                    "sequence": 1,
+                    "type": "chat_posted",
+                    "world": "overworld",
+                    "origin": [200, 0, 200],
+                    "message": "",
+                }
+            ],
+            "through_sequence": 1,
+            "latest_sequence": 1,
+            "filtered_out": 0,
+            "overflow_dropped_total": 0,
+            "capacity_dropped_total": 0,
+            "explicitly_discarded_total": 0,
+        },
+    }
+
+    def compact_bytes(value):
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+    response_limit = fixture["compact_jsonrpc_response_max_bytes"]
+    unit = "".join(
+        chr(code_point)
+        for code_point in fixture["message_pattern"]["unit_code_points"]
+    )
+    empty_size = len(compact_bytes(response))
+    encoded_unit_size = len(compact_bytes(unit)) - len(compact_bytes(""))
+    repetitions = (response_limit - empty_size) // encoded_unit_size
+    assert repetitions >= fixture["message_pattern"]["minimum_repetitions"]
+    message = unit * repetitions
+    response["result"]["events"][0]["message"] = message
+    remaining = response_limit - len(compact_bytes(response))
+    response["result"]["events"][0]["message"] += "x" * remaining
+    assert len(compact_bytes(response)) == response_limit
+
+    frames = []
+    observer = PythonObserverSource(
+        frames.append,
+        target_id_factory=lambda: "target-b5-poll-boundary",
+        alias_factory=lambda: "MIND-STORM-000029",
+        clock=lambda: 1786122000000,
+    )
+    hello = fixture_envelopes()[0]["snapshot"]["streams"][0]["hello"]
+    observer.observe_request("hello", {"protocol": "22.0.0"}, 1)
+    observer.observe_result("hello", hello, 1)
+    frames.clear()
+    observer.observe_request("events.poll", [0], 2)
+    observer.observe_result("events.poll", response["result"], 2)
+    assert len(frames) == 2
+
+    encoded = encode_snapshot(
+        observer.snapshot(frames, emitted_at=1786122000100),
+        dropped_frames=0,
+    )
+    assert len(encoded) <= fixture["observer_session_frame_max_bytes"]

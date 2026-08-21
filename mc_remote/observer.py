@@ -420,9 +420,9 @@ def _parse_params(method, value):
         raise ObserverValidationError(
             "world.spawnEntity params must contain x, y, z, and entity"
         )
-    elif method == "events.poll" and len(value) != 2:
+    elif method == "events.poll" and len(value) not in {1, 2}:
         raise ObserverValidationError(
-            "events.poll params must contain after_sequence and limit"
+            "events.poll params must contain after_sequence and optional options"
         )
     elif method == "connection.flush" and value != []:
         raise ObserverValidationError("connection.flush params must be an empty array")
@@ -454,10 +454,31 @@ def _parse_params(method, value):
             for index, item in enumerate(value)
         ]
     if method == "events.poll":
-        return [
-            _integer(item, f"frame.payload.params[{index}]", non_negative=True)
-            for index, item in enumerate(value)
+        parsed = [
+            _integer(
+                value[0], "frame.payload.params[0]", non_negative=True
+            )
         ]
+        if len(value) == 2:
+            options = _object(value[1], "frame.payload.params[1]")
+            _exact_fields(
+                options, {"max_events"}, "frame.payload.params[1]"
+            )
+            if set(options) != {"max_events"}:
+                raise ObserverValidationError(
+                    "events.poll options must contain exactly max_events"
+                )
+            max_events = _integer(
+                options["max_events"],
+                "frame.payload.params[1].max_events",
+                non_negative=True,
+            )
+            if max_events == 0:
+                raise ObserverValidationError(
+                    "events.poll max_events must be positive"
+                )
+            parsed.append({"max_events": max_events})
+        return parsed
     if method == "world.spawnEntity":
         return [
             *[

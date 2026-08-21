@@ -177,12 +177,15 @@ print(values[0].block_id)
 how the same setters run with a connection-scoped build mode: `DEBUG` waits for
 the server response, `TRACE` additionally pauses the calling thread after each
 successful setter, and `FAST` sends id-less notifications. The library default
-is `DEBUG`; the default TRACE delay is 0.25 seconds.
+is `DEBUG`; the default TRACE delay is 0.25 seconds. TRACE accepts 0 through
+2.0 seconds inclusive and rejects values outside that range instead of
+clamping them.
 
 `setBlock()`と`setBlocks()`はcommandで、常に`None`を返します。同じsetterの
 実行方法はconnection単位のbuild modeで切り替えます。`DEBUG`はserver responseを
 待ち、`TRACE`は成功後に呼出元threadだけを待機させ、`FAST`はidなしnotificationを
-送ります。library既定は`DEBUG`、TRACEの既定delayは0.25秒です。
+送ります。library既定は`DEBUG`、TRACEの既定delayは0.25秒です。TRACE delayは
+0〜2.0秒を両端込みで受理し、範囲外をclampせず拒否します。
 
 ```python
 from mc_remote.minecraft import BuildMode, Minecraft
@@ -204,12 +207,14 @@ mc.close()                       # pending FAST commands are auto-flushed
 server outcome; it does not recover individual notification errors or wait for
 Minecraft client rendering. Mode changes and normal close also use this
 barrier. FAST uses a bounded FIFO and applies backpressure instead of dropping
-commands.
+commands. A request timeout leaves completion unknown: the client does not
+retry the operation, rejects a pending mode change, and reclaims the connection.
 
 `flush()`は同じconnection上の先行commandがserver側の終端へ到達したことを保証します。
 notification個別のerror復元やMinecraft client側の描画完了までは保証しません。mode切替と
 正常closeもこのbarrierを使います。FASTは有限FIFOを使い、commandを捨てずに
-backpressureを適用します。
+backpressureを適用します。request timeout時は完了不明であり、自動retryせず、保留中の
+mode変更を成立させずにconnectionを回収します。
 
 The rest of the b5 world/event slice is projected without changing positional
 precision. Block coordinates (including `getHeight`) must be integral and a
@@ -228,7 +233,8 @@ accepted = mc.spawnParticle(
     "minecraft:flame", 0.0, 8,
 )
 handle = mc.spawnEntity(2.25, height + 1, 2.75, "minecraft:pig")
-events = mc.pollEvents()  # plugin default event_poll_limit: 64
+events = mc.pollEvents()  # server selects its current default
+small_batch = mc.pollEvents(max_events=16)  # client-requested upper bound
 for event in events.events:
     mc.assertEventContext(event)
 print(events.events, events.loss_totals)
