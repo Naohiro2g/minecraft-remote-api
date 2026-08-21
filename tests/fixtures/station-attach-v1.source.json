@@ -1,9 +1,9 @@
 {
   "repository": "Naohiro2g/scratch-editor",
-  "branch": "agent/b5-protocol22-block-value",
-  "commit": "acb76ea89bc8a95ffc5337133a6cd93210808e76",
+  "branch": "agent/wirescope-session-artifact",
+  "commit": "192d1e3ccd213fb5012b92655e51b779270e15be",
   "path": "mc-remote/live/test/fixtures/station-attach-v1.json",
-  "sha256": "143afe138233ba8a136ff361ea6c319edb38b91c1b14eeb75ec9e543d8ce30a5",
-  "knowledge_commit": "c721613ca871d4fe00261436a8a13ede1a738ae0",
-  "decision_id": "2026-08-21-01"
+  "sha256": "b50ce8e0cb8a6bb06f75d9bdad59b83006c92683bd73ced84a18223dde21fa81",
+  "knowledge_commit": "c9cf761453d67d120ec54a1b246e8f5e80a6160c",
+  "decision_id": "2026-08-12-01"
 }

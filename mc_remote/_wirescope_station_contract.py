@@ -179,8 +179,7 @@ def validate_bootstrap(value):
     )
     if (
         observer_schema["name"] != OBSERVER_SCHEMA
-        or isinstance(observer_schema["version"], bool)
-        or not isinstance(observer_schema["version"], (int, float))
+        or type(observer_schema["version"]) is not int
         or observer_schema["version"] != OBSERVER_SCHEMA_VERSION
     ):
         raise StationContractError("observer schema is unsupported")

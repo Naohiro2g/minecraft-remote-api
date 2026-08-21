@@ -85,6 +85,9 @@ def test_python_lifecycle_fixture_conforms():
     snapshots = json.loads(FIXTURE.read_text(encoding="utf-8"))
     parsed = [validate_snapshot(snapshot) for snapshot in snapshots]
     assert parsed == snapshots
+    assert observer_mod.OBSERVER_SCHEMA_VERSION == 1
+    assert observer_mod.OBSERVER_COMPATIBILITY_SET_REVISION == "v1.1"
+    assert {snapshot["schema_version"] for snapshot in parsed} == {1}
     assert parsed[0]["target"] == parsed[1]["target"]
     assert parsed[0]["streams"][0]["hello"] == parsed[1]["streams"][0]["hello"]
     assert parsed[0]["streams"][0]["frames"] == []
@@ -108,6 +111,22 @@ def test_python_lifecycle_fixture_conforms():
         ("send", 7, "events.poll"),
         ("receive", 7, "events.poll"),
     ]
+
+
+def test_schema_v1_rejects_non_integer_and_compatibility_wire_versions():
+    observer = source()
+    activate(observer)
+    snapshot = observer.snapshot([], emitted_at=1786118400050)
+    for invalid_version in (True, 1.0, 1.1):
+        snapshot["schema_version"] = invalid_version
+        try:
+            validate_snapshot(snapshot)
+        except ObserverValidationError as exc:
+            assert "unsupported observer schema version" in str(exc)
+        else:
+            raise AssertionError(
+                f"invalid schema version was accepted: {invalid_version!r}"
+            )
 
 
 def test_b5_python_source_emits_exactly_one_main_stream():

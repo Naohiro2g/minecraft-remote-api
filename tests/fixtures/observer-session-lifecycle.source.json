@@ -1,9 +1,9 @@
 {
   "repository": "Naohiro2g/minecraft-remote-api",
-  "base_commit": "af8a801b1c91a500445a92f31da4ab454ac053e2",
+  "base_commit": "7231418dc595d42ae0af841c8761e853046972dd",
   "path": "tests/fixtures/observer-session-lifecycle.ndjson",
-  "sha256": "90f170ef72d7cb7dc4ea0c8bb0030ce2d908c67763348a49239ad1a4a8adb00a",
-  "knowledge_commit": "c721613ca871d4fe00261436a8a13ede1a738ae0",
-  "decision_id": "2026-08-21-01",
-  "status": "b5-cross-adapter-candidate"
+  "sha256": "24fe493648eecf59276ffe65ec2e7861e8eac964d38f4a5738eccad9672d1762",
+  "knowledge_commit": "c9cf761453d67d120ec54a1b246e8f5e80a6160c",
+  "decision_id": "2026-08-21-02",
+  "status": "b5-schema-v1-local-candidate-awaiting-common-artifact"
 }

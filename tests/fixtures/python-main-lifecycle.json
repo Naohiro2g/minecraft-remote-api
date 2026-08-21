@@ -1,7 +1,7 @@
 [
   {
     "schema": "mcremote.observer",
-    "schema_version": 1.1,
+    "schema_version": 1,
     "emitted_at": 1786118400000,
     "target": {
       "id": "target-python-01",
@@ -41,7 +41,7 @@
   },
   {
     "schema": "mcremote.observer",
-    "schema_version": 1.1,
+    "schema_version": 1,
     "emitted_at": 1786118400100,
     "target": {
       "id": "target-python-01",

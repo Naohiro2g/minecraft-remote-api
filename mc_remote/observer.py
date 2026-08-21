@@ -1,8 +1,10 @@
-"""Transport-neutral Python projection for ``mcremote.observer`` schema v1.1.
+"""Transport-neutral Python projection for ``mcremote.observer`` schema v1.
 
 This module deliberately does not launch WireScope, retain frame history, or
 choose a browser/relay transport.  It only projects the main connection through
 a generation-side allowlist and validates snapshots against the shared schema.
+Protocol 22 b5 method support is tracked separately as compatibility set v1.1;
+it does not change the top-level snapshot schema version.
 """
 
 from __future__ import annotations
@@ -21,7 +23,8 @@ from .b5_values import decode_event_batch
 
 
 OBSERVER_SCHEMA = "mcremote.observer"
-OBSERVER_SCHEMA_VERSION = 1.1
+OBSERVER_SCHEMA_VERSION = 1
+OBSERVER_COMPATIBILITY_SET_REVISION = "v1.1"
 MAIN_STREAM_ID = "main"
 
 _DISPLAY_ALIAS_WORDS = (
@@ -71,7 +74,7 @@ _SHORT_BLOCK_ID = re.compile(r"^[a-z0-9/._-]+$")
 
 
 class ObserverValidationError(ValueError):
-    """Raised when a snapshot does not conform to observer schema v1.1."""
+    """Raised when a snapshot does not conform to observer schema v1."""
 
 
 def _generate_display_alias():
@@ -662,7 +665,7 @@ def validate_snapshot(value):
             f"unsupported observer schema: {snapshot.get('schema')}"
         )
     version = snapshot.get("schema_version")
-    if isinstance(version, bool) or version != OBSERVER_SCHEMA_VERSION:
+    if type(version) is not int or version != OBSERVER_SCHEMA_VERSION:
         raise ObserverValidationError(f"unsupported observer schema version: {version}")
     target = _object(snapshot.get("target"), "target")
     _exact_fields(target, {"id", "display_alias", "source_kind"}, "target")

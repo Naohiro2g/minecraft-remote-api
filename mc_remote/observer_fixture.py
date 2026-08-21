@@ -101,7 +101,10 @@ def build_fixture():
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="python -m mc_remote.observer_fixture",
-        description="Generate deterministic mcremote.observer schema v1.1 fixtures.",
+        description=(
+            "Generate deterministic mcremote.observer schema v1 fixtures "
+            "for compatibility set v1.1."
+        ),
     )
     parser.add_argument(
         "--dump-observer-fixture",

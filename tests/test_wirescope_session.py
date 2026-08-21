@@ -38,15 +38,15 @@ def test_protocol22_session_fixture_has_fixed_candidate_provenance():
     source = json.loads(SESSION_SOURCE.read_text(encoding="utf-8"))
     assert source == {
         "repository": "Naohiro2g/minecraft-remote-api",
-        "base_commit": "af8a801b1c91a500445a92f31da4ab454ac053e2",
+        "base_commit": "7231418dc595d42ae0af841c8761e853046972dd",
         "path": "tests/fixtures/observer-session-lifecycle.ndjson",
         "sha256": (
-            "90f170ef72d7cb7dc4ea0c8bb0030ce"
-            "2d908c67763348a49239ad1a4a8adb00a"
+            "24fe493648eecf59276ffe65ec2e7861"
+            "e8eac964d38f4a5738eccad9672d1762"
         ),
-        "knowledge_commit": "c721613ca871d4fe00261436a8a13ede1a738ae0",
-        "decision_id": "2026-08-21-01",
-        "status": "b5-cross-adapter-candidate",
+        "knowledge_commit": "c9cf761453d67d120ec54a1b246e8f5e80a6160c",
+        "decision_id": "2026-08-21-02",
+        "status": "b5-schema-v1-local-candidate-awaiting-common-artifact",
     }
     assert hashlib.sha256(SESSION_FIXTURE.read_bytes()).hexdigest() == source[
         "sha256"
@@ -101,19 +101,21 @@ def test_non_wire_values_are_not_end_reasons(reason):
         end_envelope(reason)
 
 
-def test_snapshot_schema_v1_1_stays_strict_inside_session_envelope():
+def test_snapshot_schema_v1_stays_strict_inside_v1_1_compatibility_set():
     snapshot = fixture_envelopes()[0]["snapshot"]
     snapshot["history_window"] = {"dropped_frames": 7}
     with pytest.raises(ObserverValidationError, match="unknown field"):
         snapshot_envelope(snapshot, dropped_frames=7)
 
 
-def test_maximum_poll_response_fits_one_schema_v1_1_session_frame():
+def test_maximum_poll_response_fits_one_schema_v1_session_frame():
     fixture = json.loads(POLL_BOUNDARY_FIXTURE.read_text(encoding="utf-8"))
     assert fixture["knowledge_commit"] == (
-        "5b12a4360b969db9ad899b868cae993ce65cfa44"
+        "c9cf761453d67d120ec54a1b246e8f5e80a6160c"
     )
     assert fixture["decision_id"] == "2026-08-21-02"
+    assert fixture["observer_schema_version"] == 1
+    assert fixture["compatibility_set_revision"] == "v1.1"
 
     response = {
         "jsonrpc": "2.0",
