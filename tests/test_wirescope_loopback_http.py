@@ -20,7 +20,7 @@ import mc_remote.wirescope as wirescope
 
 
 SOURCE_COMMIT = "192d1e3ccd213fb5012b92655e51b779270e15be"
-BUNDLED_APP_SOURCE_COMMIT = "acb76ea89bc8a95ffc5337133a6cd93210808e76"
+BUNDLED_APP_SOURCE_COMMIT = "602ecdf809f87a7e33e50d7c465b7248429e26dc"
 HELLO = {
     "protocol": "22.0.0",
     "mc_version": "1.21.11",
@@ -86,7 +86,7 @@ def app_fixture():
             },
         },
         "protocols": {
-            "observer_schema": {"name": "mcremote.observer", "version": 1.1},
+            "observer_schema": {"name": "mcremote.observer", "version": 1},
             "observer_session": 1,
             "scratch_handoff": 1,
             "station_attach": 1,
@@ -191,6 +191,12 @@ def test_bundled_delivery_pair_matches_build_input_and_component_files():
     assert sha256(manifest.read_bytes()) == app_module.BUNDLED_MANIFEST_SHA256
     manifest_document = json.loads(manifest.read_text(encoding="utf-8"))
     assert manifest_document["source"]["commit"] == BUNDLED_APP_SOURCE_COMMIT
+    assert manifest_document["protocols"] == {
+        "observer_schema": {"name": "mcremote.observer", "version": 1},
+        "observer_session": 1,
+        "scratch_handoff": 1,
+        "station_attach": 1,
+    }
     with zipfile.ZipFile(archive) as bundled:
         assert bundled.read("LICENSE") == (
             Path("LICENSES/AGPL-3.0-only.txt").read_bytes()
@@ -207,6 +213,11 @@ def test_bundled_delivery_pair_matches_build_input_and_component_files():
         app_script = bundled.read(app_scripts[0])
         assert b"player.getPose" in app_script
         assert b"player.setPose" in app_script
+        assert b"events.poll" in app_script
+        assert b"world.getHeight" in app_script
+        assert b"world.spawnParticle" in app_script
+        assert b"world.spawnEntity" in app_script
+        assert b"connection.flush" in app_script
 
 
 def test_bootstrap_and_assets_require_exact_authority_and_leak_no_secret():

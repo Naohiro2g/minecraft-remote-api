@@ -5,16 +5,16 @@
     "file": "wirescope-app.zip",
     "format": "zip",
     "format_version": 1,
-    "sha256": "dee6a32a39d8f7704f82fbd56ada479579488adc76d9890f8a27fcec1c6c53b6"
+    "sha256": "f3ffaa1c55122b21acaccf9467bbd39c775c44d7e982fa3b11658d10a14b0f49"
   },
   "source": {
     "repository": "https://github.com/Naohiro2g/scratch-editor",
-    "commit": "acb76ea89bc8a95ffc5337133a6cd93210808e76",
+    "commit": "602ecdf809f87a7e33e50d7c465b7248429e26dc",
     "subdirectory": "mc-remote/live",
-    "corresponding_source_url": "https://github.com/Naohiro2g/scratch-editor/tree/acb76ea89bc8a95ffc5337133a6cd93210808e76/mc-remote/live"
+    "corresponding_source_url": "https://github.com/Naohiro2g/scratch-editor/tree/602ecdf809f87a7e33e50d7c465b7248429e26dc/mc-remote/live"
   },
   "build": {
-    "recipe": "npm ci && npm run build:artifact --workspace=@mc-remote/live -- --source-commit acb76ea89bc8a95ffc5337133a6cd93210808e76",
+    "recipe": "npm ci && npm run build:artifact --workspace=@mc-remote/live -- --source-commit 602ecdf809f87a7e33e50d7c465b7248429e26dc",
     "toolchain": {
       "node": "24.19.0",
       "rolldown-vite": "7.3.1",
@@ -22,7 +22,7 @@
       "jszip": "3.10.1"
     },
     "input_identity": {
-      "source_commit": "acb76ea89bc8a95ffc5337133a6cd93210808e76",
+      "source_commit": "602ecdf809f87a7e33e50d7c465b7248429e26dc",
       "package_json_sha256": "84b74060253ef940952db82c24e1cee4d18d652ae11449ee601a92d1f72a6bbe",
       "package_lock_sha256": "a1daf7a610051488e46e7644d1d8086525c976de381d8b1eca9e691195532e4d"
     }
@@ -30,7 +30,7 @@
   "protocols": {
     "observer_schema": {
       "name": "mcremote.observer",
-      "version": 1.1
+      "version": 1
     },
     "observer_session": 1,
     "scratch_handoff": 1,
@@ -48,24 +48,24 @@
       "sha256": "a5a1f4e50ffa47063bc2cd9c903d167f6723db3bcf38c76007f7be6824bde8b0"
     },
     {
+      "path": "assets/index-BK2u2A07.js",
+      "bytes": 47095,
+      "sha256": "3839fb23b1d8a2b5a6e8286b133277b346f2ca3b23674f87b2d4c7320ed67ac4"
+    },
+    {
+      "path": "assets/index-BK2u2A07.js.map",
+      "bytes": 128559,
+      "sha256": "1b47c791d00384c900ab61e7f8ec9d05a1277eded34871dd588028f70e082126"
+    },
+    {
       "path": "assets/index-DLLRgOgU.css",
       "bytes": 6986,
       "sha256": "dd0534d052efe392653cc711384128faecc8bbc910d87dffd276ed01ac364939"
     },
     {
-      "path": "assets/index-DRRhqDoN.js",
-      "bytes": 42690,
-      "sha256": "d38daaa0013a4402ed94e2854510e6bdadb5b04b54f6afbbca87420247b5d713"
-    },
-    {
-      "path": "assets/index-DRRhqDoN.js.map",
-      "bytes": 116080,
-      "sha256": "153fb01c1cbc8d087d02cb7ec7e94d2864d37be9e21f9723f4dc53ca8794179d"
-    },
-    {
       "path": "index.html",
       "bytes": 674,
-      "sha256": "2b17f2f6fa2ade915d3bc6f1b2d104c655e064c076619ba9a88ecec49ab288bd"
+      "sha256": "7e551c52ecec0bd6093d5c762be005a2e51fa8e155bccf708440876d95fb7519"
     }
   ],
   "license_expression": "AGPL-3.0-only"

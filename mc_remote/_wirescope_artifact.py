@@ -296,7 +296,7 @@ def _validate_manifest(document):
     )
     _exact(
         observer_schema["version"],
-        1.1,
+        1,
         context="protocols.observer_schema.version",
     )
     for field in ("observer_session", "scratch_handoff", "station_attach"):
