@@ -22,7 +22,7 @@ class FakeConn:
 
 def test_getpose_uses_paired_player_without_identity_param():
     result = {
-        "world": "overworld",
+        "dimension": "minecraft:overworld",
         "pos": [1.25, 64.5, -3.75],
         "yaw": 90.0,
         "pitch": -12.5,
@@ -35,7 +35,7 @@ def test_getpose_uses_paired_player_without_identity_param():
 
 def test_setpose_preserves_fractional_values_and_server_normalized_result():
     result = {
-        "world": "the_end",
+        "dimension": "minecraft:the_end",
         "pos": [1.25, 2.5, 3.75],
         "yaw": 5.0,
         "pitch": 45.5,

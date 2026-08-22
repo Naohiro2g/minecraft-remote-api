@@ -3,9 +3,9 @@ from param_mc_remote import PLAYER_ORIGIN as PO
 from param_mc_remote import block
 from mc_remote.minecraft import Minecraft
 
-# Connect to Minecraft and set the build world/origin for this session
+# Connect to Minecraft and set the build dimension/origin for this session
 mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
-mc.setWorld("overworld")
+mc.setDimension("overworld")
 mc.setBuildOrigin(PO.x, PO.y, PO.z)
 
 mc.postToChat("Hello, Minecraft Server!!")

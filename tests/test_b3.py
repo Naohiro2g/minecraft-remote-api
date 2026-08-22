@@ -235,7 +235,7 @@ HELLO_WITH_CATALOG = {
     "world_constants": {"y_sea": 63},
     "session": "sess-1",
     "player": "00000000-0000-0000-0000-000000000001",
-    "world": "overworld",
+    "dimension": "minecraft:overworld",
     "origin": [200, 0, 200],
     "permissions": {"online": True, "offline": False, "buildRange": 1000},
 }

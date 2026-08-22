@@ -15,7 +15,7 @@ FIXTURE_HELLO = {
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
-    "world": "overworld",
+    "dimension": "minecraft:overworld",
     "origin": [200, 0, 200],
     "world_constants": {"y_sea": 62},
     "permissions": {"online": True, "offline": False, "buildRange": 100},
@@ -49,7 +49,12 @@ def build_fixture():
     initial = source.snapshot((), emitted_at=FIXTURE_TIME)
     frames.clear()
     clock.value = FIXTURE_TIME + 100
-    source.observe_request("build.setWorld", ["nether"], 2)
+    source.observe_request("build.setDimension", ["the_nether"], 2)
+    source.observe_result(
+        "build.setDimension",
+        {"dimension": "minecraft:the_nether", "origin": [200, 0, 200]},
+        2,
+    )
     source.observe_request(
         "world.setBlock",
         [0, 1, 2, {"block_id": "minecraft:oak_log", "state": {"axis": "z"}}],
@@ -79,7 +84,7 @@ def build_fixture():
                 {
                     "sequence": 1,
                     "type": "chat_posted",
-                    "world": "overworld",
+                    "dimension": "minecraft:overworld",
                     "origin": [200, 0, 200],
                     "message": "hello",
                 }

@@ -37,6 +37,11 @@ from .block_value import (
     block_spec,
     decode_block_value,
 )
+from .dimension import (
+    decode_build_context,
+    require_dimension_key,
+    require_dimension_ref,
+)
 from .b5_values import (
     BlockRightClickEvent,
     BlockTarget,
@@ -185,7 +190,7 @@ class Minecraft:
     structured block values, ``postToChat`` (wire ``chat.post``), paired-player
     position and pose helpers (``getPos`` / ``setPos`` / ``getPose`` /
     ``setPose``), the connection-scoped build
-    state (``setWorld`` / ``setBuildOrigin``), and the live block/entity/
+    state (``setDimension`` / ``setBuildOrigin``), and the live block/entity/
     particle catalog (``getCatalog`` / ``sync_constants``, wire ``catalog.get``,
     §7.2.1). Tokens are obtained by pairing (``auth.pairBegin`` /
     ``auth.pairPoll``, §6.5); :meth:`create` drives the unified connect flow
@@ -207,6 +212,7 @@ class Minecraft:
     ):
         self.conn = connection
         self._build_mode_lock = threading.RLock()
+        self._context_lock = threading.RLock()
         self._build_mode = _validate_build_mode(build_mode)
         self._trace_delay = _validate_trace_delay(trace_delay)
         self._sleeper = _sleeper or time.sleep
@@ -224,7 +230,7 @@ class Minecraft:
         # Build state, scoped to this connection/stream (one instance = one
         # stream = one build state). Kept as a local record of what this stream
         # last set; the server is authoritative and applies the origin.
-        self._world = "overworld"
+        self._dimension = "minecraft:overworld"
         self._origin = Vec3(200, 0, 200)
 
         # Populated by hello(); the server is the source of truth.
@@ -264,7 +270,8 @@ class Minecraft:
         ``steve_max_y`` without an envelope change; this client caches the
         whole object, not just ``y_sea``, so those show up in
         :meth:`sync_constants`'s generated ``world_info`` as soon as the
-        server sends them), the current build state (``world`` / ``origin``),
+        server sends them), the current build state (``dimension`` /
+        ``origin``),
         and the authenticated ``session`` / ``player`` / ``permissions``
         (§6.2, the single source for identity and permissions). World
         constants are informational only; the coordinate formula stays
@@ -273,22 +280,30 @@ class Minecraft:
         if auth_token:
             params["auth"] = {"token": auth_token}
         resp = self.conn.rpc("hello", params)
-        if isinstance(resp, dict):
-            self.protocol = resp.get("protocol")
-            self.mc_version = resp.get("mc_version")
-            self.supported_mc_versions = resp.get("supported_mc_versions", [])
-            # No top-level fallback -> an un-flipped server surfaces {} / None.
-            self.world_constants = resp.get("world_constants") or {}
-            self.y_sea = self.world_constants.get("y_sea")
-            self.catalog_hash = resp.get("catalogHash")
-            self.session = resp.get("session")
-            self.player = resp.get("player")
-            self.permissions = resp.get("permissions")
-            if resp.get("world"):
-                self._world = resp["world"]
-            origin = resp.get("origin")
-            if isinstance(origin, (list, tuple)) and len(origin) == 3:
-                self._origin = Vec3(*origin)
+        if not isinstance(resp, dict):
+            raise McRemoteError("hello result must be an object")
+        dimension = require_dimension_key(
+            resp.get("dimension"), "hello result.dimension"
+        )
+        context = decode_build_context(
+            {"dimension": dimension, "origin": resp.get("origin")},
+            "hello build context",
+        )
+        self.protocol = resp.get("protocol")
+        self.mc_version = resp.get("mc_version")
+        self.supported_mc_versions = resp.get("supported_mc_versions", [])
+        # No top-level fallback -> an un-flipped server surfaces {} / None.
+        self.world_constants = resp.get("world_constants") or {}
+        self.y_sea = self.world_constants.get("y_sea")
+        self.catalog_hash = resp.get("catalogHash")
+        self.session = resp.get("session")
+        self.player = resp.get("player")
+        self.permissions = resp.get("permissions")
+        dimension, origin = context
+        canonical_origin = Vec3(*origin)
+        with self._context_lock:
+            self._dimension = dimension
+            self._origin = canonical_origin
         return resp
 
     @overload
@@ -470,10 +485,10 @@ class Minecraft:
     def assertEventContext(self, event: EventValue) -> None:
         """Reject use of event coordinates under a changed build context.
 
-        Events retain the world and origin captured when they occurred. This
-        local guard never discards an event or changes build state; callers use
-        it immediately before passing an event-relative position to a
-        ``world.*`` operation.
+        Events retain the dimension and origin captured when they occurred.
+        This local guard never discards an event or changes build state;
+        callers use it immediately before passing an event-relative position
+        to a ``world.*`` operation.
         """
 
         if not isinstance(
@@ -481,16 +496,18 @@ class Minecraft:
             (BlockRightClickEvent, ChatPostedEvent, ProjectileHitEvent),
         ):
             raise TypeError("event must be a protocol 22 event value")
-        current_origin = (
-            self._origin.x,
-            self._origin.y,
-            self._origin.z,
-        )
-        if event.world != self._world or event.origin != current_origin:
+        with self._context_lock:
+            current_dimension = self._dimension
+            current_origin = (
+                self._origin.x,
+                self._origin.y,
+                self._origin.z,
+            )
+        if event.dimension != current_dimension or event.origin != current_origin:
             raise EventContextMismatchError(
-                event_world=event.world,
+                event_dimension=event.dimension,
                 event_origin=event.origin,
-                current_world=self._world,
+                current_dimension=current_dimension,
                 current_origin=current_origin,
             )
         return None
@@ -638,11 +655,18 @@ class Minecraft:
             raise McRemoteError("connection.flush success result must be null")
         return None
 
-    def setWorld(self, dimension):
-        """Set the build world/dimension (overworld, nether, end, or an exact
-        world name). Build state is scoped to this connection/stream."""
-        result = self.conn.rpc("build.setWorld", [dimension])
-        self._world = dimension
+    def setDimension(self, dimension):
+        """Set this stream's build dimension from a protocol 22 DimensionRef."""
+
+        dimension = require_dimension_ref(dimension, "dimension")
+        result = self.conn.rpc("build.setDimension", [dimension])
+        canonical_dimension, origin = decode_build_context(
+            result, "build.setDimension result"
+        )
+        canonical_origin = Vec3(*origin)
+        with self._context_lock:
+            self._dimension = canonical_dimension
+            self._origin = canonical_origin
         return result
 
     def setBuildOrigin(self, x, y, z):
@@ -651,7 +675,11 @@ class Minecraft:
         origin y + dy)."""
         coords = _integer_values("build.setOrigin coordinates", x, y, z)
         result = self.conn.rpc("build.setOrigin", coords)
-        self._origin = Vec3(*coords)
+        dimension, origin = decode_build_context(result, "build.setOrigin result")
+        canonical_origin = Vec3(*origin)
+        with self._context_lock:
+            self._dimension = dimension
+            self._origin = canonical_origin
         return result
 
     def postToChat(self, message):
@@ -659,42 +687,47 @@ class Minecraft:
         return self.conn.rpc("chat.post", [message])
 
     def getPos(self):
-        """Get the paired player's current world and position.
+        """Get the paired player's current dimension and position.
 
-        Returns ``{"world": ..., "pos": [x, y, z]}``, with ``pos`` expressed
-        relative to this stream's build origin. The target player is the
-        authenticated/pair-bound player; the client never sends a player name.
+        Returns ``{"dimension": ..., "pos": [x, y, z]}``, with ``pos``
+        expressed relative to this stream's build origin. The target player
+        is the authenticated/pair-bound player; the client never sends a
+        player name.
         """
         return self.conn.rpc("player.getPos", [])
 
-    def setPos(self, world, x, y, z):
-        """Move the paired player to a world and origin-relative position.
+    def setPos(self, dimension, x, y, z):
+        """Move the paired player to a dimension and origin-relative position.
 
-        ``world`` is explicit and does not depend on this stream's build world.
+        ``dimension`` is explicit and does not depend on this stream's build
+        dimension.
         The server applies ``absolute = stream.origin + [x, y, z]`` and returns
         the same shape as :meth:`getPos`.
         """
+        dimension = require_dimension_ref(dimension, "dimension")
         coords = _finite_values("player.setPos coordinates", x, y, z)
-        return self.conn.rpc("player.setPos", [world] + coords)
+        return self.conn.rpc("player.setPos", [dimension] + coords)
 
     def getPose(self):
         """Get the paired player's current position and orientation.
 
-        Returns ``{"world": ..., "pos": [x, y, z], "yaw": ..., "pitch": ...}``.
-        Position is relative to this stream's build origin.  The target is the
-        authenticated/pair-bound player; no player identity is sent.
+        Returns ``{"dimension": ..., "pos": [x, y, z], "yaw": ...,
+        "pitch": ...}``. Position is relative to this stream's build origin.
+        The target is the authenticated/pair-bound player; no player identity
+        is sent.
         """
         return self.conn.rpc("player.getPose", [])
 
-    def setPose(self, world, x, y, z, yaw, pitch):
+    def setPose(self, dimension, x, y, z, yaw, pitch):
         """Move and orient the paired player with one atomic server operation.
 
-        ``world`` is explicit, position is relative to this stream's build
+        ``dimension`` is explicit, position is relative to this stream's build
         origin, and all five numeric values retain their fractional precision.
         The server validates finite values and the pitch range, normalizes yaw,
         and returns the resulting pose in the same shape as :meth:`getPose`.
         """
-        return self.conn.rpc("player.setPose", [world, x, y, z, yaw, pitch])
+        dimension = require_dimension_ref(dimension, "dimension")
+        return self.conn.rpc("player.setPose", [dimension, x, y, z, yaw, pitch])
 
     def _get_catalog_on_current_stream(self):
         """Fetch on this instance's stream (auxiliary instances only)."""

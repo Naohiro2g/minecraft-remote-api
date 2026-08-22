@@ -12,7 +12,7 @@ from mc_remote.connection import McRpcError
 from mc_remote.minecraft import Minecraft, PROTOCOL
 
 
-POSE_FIELDS = {"world", "pos", "yaw", "pitch"}
+POSE_FIELDS = {"dimension", "pos", "yaw", "pitch"}
 
 
 def _close_number(left, right, tolerance=1e-4):
@@ -22,7 +22,7 @@ def _close_number(left, right, tolerance=1e-4):
 def _assert_pose_shape(pose):
     assert isinstance(pose, dict)
     assert set(pose) == POSE_FIELDS
-    assert isinstance(pose["world"], str) and pose["world"]
+    assert isinstance(pose["dimension"], str) and ":" in pose["dimension"]
     assert isinstance(pose["pos"], list) and len(pose["pos"]) == 3
     for value in [*pose["pos"], pose["yaw"], pose["pitch"]]:
         assert isinstance(value, (int, float)) and not isinstance(value, bool)
@@ -31,7 +31,7 @@ def _assert_pose_shape(pose):
 
 
 def _assert_pose_close(actual, expected):
-    assert actual["world"] == expected["world"]
+    assert actual["dimension"] == expected["dimension"]
     for actual_value, expected_value in zip(actual["pos"], expected["pos"]):
         assert _close_number(actual_value, expected_value)
     assert _close_number(actual["yaw"], expected["yaw"])
@@ -63,7 +63,7 @@ def _exercise_pose_contract(mc):
         mc.setBuildOrigin(*shifted_origin)
         shifted_pose = mc.getPose()
         _assert_pose_shape(shifted_pose)
-        assert shifted_pose["world"] == original_pose["world"]
+        assert shifted_pose["dimension"] == original_pose["dimension"]
         for shifted, initial, offset in zip(
             shifted_pose["pos"], original_pose["pos"], delta
         ):
@@ -75,7 +75,7 @@ def _exercise_pose_contract(mc):
         _assert_pose_close(mc.getPose(), original_pose)
 
         yaw_result = mc.setPose(
-            original_pose["world"],
+            original_pose["dimension"],
             *original_pose["pos"],
             725.0,
             original_pose["pitch"],
@@ -86,7 +86,7 @@ def _exercise_pose_contract(mc):
 
         for pitch in (-90.0, 90.0):
             pitch_result = mc.setPose(
-                original_pose["world"],
+                original_pose["dimension"],
                 *original_pose["pos"],
                 yaw_result["yaw"],
                 pitch,
@@ -95,7 +95,7 @@ def _exercise_pose_contract(mc):
             assert _close_number(pitch_result["pitch"], pitch)
 
         stable_pose = mc.setPose(
-            original_pose["world"],
+            original_pose["dimension"],
             *original_pose["pos"],
             original_pose["yaw"],
             original_pose["pitch"],
@@ -103,7 +103,7 @@ def _exercise_pose_contract(mc):
         _expect_invalid_without_pose_change(
             mc,
             [
-                stable_pose["world"],
+                stable_pose["dimension"],
                 *stable_pose["pos"],
                 stable_pose["yaw"],
                 90.0001,
@@ -111,12 +111,12 @@ def _exercise_pose_contract(mc):
         )
         _expect_invalid_without_pose_change(
             mc,
-            [stable_pose["world"], *stable_pose["pos"]],
+            [stable_pose["dimension"], *stable_pose["pos"]],
         )
     finally:
         mc.setBuildOrigin(*original_origin)
         mc.setPose(
-            original_pose["world"],
+            original_pose["dimension"],
             *original_pose["pos"],
             original_pose["yaw"],
             original_pose["pitch"],

@@ -173,6 +173,39 @@ values = mc.getBlocks(0, 0, 0, 2, 2, 2)
 print(values[0].block_id)
 ```
 
+Protocol 22 identifies every build, player, and event space with a Minecraft
+DimensionKey. `setDimension()` accepts a fully qualified `namespace:path`, or a
+path with the `minecraft:` namespace omitted. Server results are always fully
+qualified. The client updates its connection-scoped build context only from an
+authenticated hello or a successful build setter result; it never caches the
+setter input as the current dimension.
+
+protocol 22では、build／player／eventの空間identityをMinecraft DimensionKeyへ
+統一します。`setDimension()`は完全修飾`namespace:path`、または`minecraft:`だけを
+省略したpathを受理します。server出力は常に完全修飾形です。clientは認証済みhelloか
+成功したbuild setter resultからだけconnection単位のbuild contextを更新し、setterの
+入力値を現在dimensionとして直接保存しません。
+
+```python
+context = mc.setDimension("overworld")
+assert context["dimension"] == "minecraft:overworld"
+
+custom = mc.setDimension("myworld:world")
+assert custom["dimension"] == "myworld:world"
+
+context = mc.setBuildOrigin(200, 0, 200)
+print(context["dimension"], context["origin"])
+```
+
+`world`, `normal`, `nether`, and `end` are not aliases. No `setWorld()` wrapper
+or `world`/`dimension` union is provided in protocol 22. The `world.*` method
+namespace remains unchanged because it names operations on the Minecraft
+world, not the dimension identity field.
+
+`world`／`normal`／`nether`／`end`はaliasではありません。protocol 22には
+`setWorld()` wrapperも`world`／`dimension` unionもありません。`world.*` method
+namespaceはMinecraft worldへの操作を表すため、そのまま維持します。
+
 `setBlock()` and `setBlocks()` are commands and always return `None`. Choose
 how the same setters run with a connection-scoped build mode: `DEBUG` waits for
 the server response, `TRACE` additionally pauses the calling thread after each
@@ -251,14 +284,14 @@ lost `spawnEntity` response.
 entity handleはconnection epoch限定のopaque stringであり、UUIDとして解析せず、responseを
 失った`spawnEntity`を自動再送しません。
 
-Events keep the world and origin captured when they occurred. Call
+Events keep the fully qualified dimension and origin captured when they occurred. Call
 `assertEventContext(event)` immediately before using an event position in a
 `world.*` method. A mismatch raises `EventContextMismatchError` and never
-changes the build world/origin implicitly.
+changes the build dimension/origin implicitly.
 
-eventは発生時のworld／originを保持します。event位置を`world.*`へ渡す直前に
+eventは発生時の完全修飾dimension／originを保持します。event位置を`world.*`へ渡す直前に
 `assertEventContext(event)`を呼びます。不一致時は`EventContextMismatchError`となり、
-build world／originを暗黙変更しません。
+build dimension／originを暗黙変更しません。
 
 The live catalog projection now publishes `mc_constants.py`,
 `mc_constants.pyi`, and their manifest as one disposable set. Generated block

@@ -587,7 +587,7 @@ def test_observer_distinguishes_notification_null_result_and_flush():
         "mc_version": "1.21.11",
         "supported_mc_versions": ["1.21.11"],
         "catalog_hash": None,
-        "world": "overworld",
+        "dimension": "minecraft:overworld",
         "origin": [200, 0, 200],
         "world_constants": {"y_sea": 62},
         "permissions": {
@@ -634,7 +634,7 @@ def test_observer_accepts_new_poll_options_and_rejects_old_flat_limit():
         "mc_version": "1.21.11",
         "supported_mc_versions": ["1.21.11"],
         "catalog_hash": None,
-        "world": "overworld",
+        "dimension": "minecraft:overworld",
         "origin": [200, 0, 200],
         "world_constants": {"y_sea": 62},
         "permissions": {
@@ -685,7 +685,7 @@ def test_observer_projects_getblocks_as_canonical_blockvalue_array():
         "mc_version": "1.21.11",
         "supported_mc_versions": ["1.21.11"],
         "catalog_hash": None,
-        "world": "overworld",
+        "dimension": "minecraft:overworld",
         "origin": [200, 0, 200],
         "world_constants": {"y_sea": 62},
         "permissions": {
@@ -966,7 +966,7 @@ def test_poll_events_advances_cursor_only_after_a_valid_response():
             {
                 "sequence": 1,
                 "type": "block_right_click",
-                "world": "overworld",
+                "dimension": "minecraft:overworld",
                 "origin": [0, 64, 0],
                 "pos": [1, 65, 2],
                 "face": "UP",
@@ -976,14 +976,14 @@ def test_poll_events_advances_cursor_only_after_a_valid_response():
             {
                 "sequence": 2,
                 "type": "chat_posted",
-                "world": "overworld",
+                "dimension": "minecraft:overworld",
                 "origin": [0, 64, 0],
                 "message": "hello",
             },
             {
                 "sequence": 3,
                 "type": "projectile_hit",
-                "world": "overworld",
+                "dimension": "minecraft:overworld",
                 "origin": [0, 64, 0],
                 "projectile": "minecraft:arrow",
                 "pos": [1.25, 65.5, 2.75],
@@ -1058,37 +1058,53 @@ def test_poll_events_rejects_invalid_client_max_before_sending():
 def test_assert_event_context_guards_use_without_mutating_or_discarding_event():
     fixture = json.loads(EVENT_CONTEXT_FIXTURE.read_text(encoding="utf-8"))
     assert fixture["knowledge_commit"] == (
-        "5b12a4360b969db9ad899b868cae993ce65cfa44"
+        "f9d5dc7780ab2673b8872dc7481d230e10ca95d9"
     )
-    assert fixture["decision_id"] == "2026-08-16-05"
+    assert fixture["decision_id"] == "2026-08-22-02"
     assert fixture["helper"] == "Minecraft.assertEventContext"
     assert fixture["error"] == "EventContextMismatchError"
     assert fixture["reason"] == "event_context_mismatch"
-    conn = FakeConn({"build.setWorld": None, "build.setOrigin": None})
+    state = {
+        "dimension": "minecraft:overworld",
+        "origin": [200, 0, 200],
+    }
+
+    def set_dimension(params):
+        state["dimension"] = params[0]
+        return {"dimension": state["dimension"], "origin": list(state["origin"])}
+
+    def set_origin(params):
+        state["origin"] = list(params)
+        return {"dimension": state["dimension"], "origin": list(state["origin"])}
+
+    conn = FakeConn(
+        {"build.setDimension": set_dimension, "build.setOrigin": set_origin}
+    )
     mc = Minecraft(conn)
     event_value = fixture["event"]
     event = ChatPostedEvent(
         sequence=event_value["sequence"],
-        world=event_value["world"],
+        dimension=event_value["dimension"],
         origin=tuple(event_value["origin"]),
         message=event_value["message"],
     )
-    matching, wrong_world, wrong_origin = fixture["cases"]
+    matching, wrong_dimension, wrong_origin = fixture["cases"]
     assert matching["outcome"] == "match"
+    mc.setDimension(matching["current_dimension"])
     assert mc.assertEventContext(event) is None
 
-    mc.setWorld(wrong_world["current_world"])
+    mc.setDimension(wrong_dimension["current_dimension"])
     try:
         mc.assertEventContext(event)
     except EventContextMismatchError as exc:
         assert exc.reason == "event_context_mismatch"
-        assert exc.event_world == "overworld"
-        assert exc.current_world == "nether"
-        assert "setWorld(event.world)" in str(exc)
+        assert exc.event_dimension == "myworld:world"
+        assert exc.current_dimension == "minecraft:the_nether"
+        assert "setDimension(event.dimension)" in str(exc)
     else:
-        raise AssertionError("changed world was not guarded")
+        raise AssertionError("changed dimension was not guarded")
 
-    mc.setWorld(wrong_origin["current_world"])
+    mc.setDimension(wrong_origin["current_dimension"])
     mc.setBuildOrigin(*wrong_origin["current_origin"])
     try:
         mc.assertEventContext(event)
@@ -1103,7 +1119,7 @@ def test_assert_event_context_guards_use_without_mutating_or_discarding_event():
     assert mc.assertEventContext(event) is None
     assert event == ChatPostedEvent(
         sequence=1,
-        world="overworld",
+        dimension="myworld:world",
         origin=(200, 0, 200),
         message="hello",
     )
@@ -1111,7 +1127,9 @@ def test_assert_event_context_guards_use_without_mutating_or_discarding_event():
 
 def test_assert_event_context_rejects_non_event_values():
     try:
-        Minecraft(FakeConn({})).assertEventContext({"world": "overworld"})
+        Minecraft(FakeConn({})).assertEventContext(
+            {"dimension": "minecraft:overworld"}
+        )
     except TypeError as exc:
         assert "protocol 22 event" in str(exc)
     else:

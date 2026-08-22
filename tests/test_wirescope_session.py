@@ -38,15 +38,15 @@ def test_protocol22_session_fixture_has_fixed_candidate_provenance():
     source = json.loads(SESSION_SOURCE.read_text(encoding="utf-8"))
     assert source == {
         "repository": "Naohiro2g/minecraft-remote-api",
-        "base_commit": "7231418dc595d42ae0af841c8761e853046972dd",
+        "base_commit": "af2b19dd4a4f0404c4bde439021ca7e017904a04",
         "path": "tests/fixtures/observer-session-lifecycle.ndjson",
         "sha256": (
-            "24fe493648eecf59276ffe65ec2e7861"
-            "e8eac964d38f4a5738eccad9672d1762"
+            "e60001bdb04001490b3f21dcc97736055"
+            "4a1ebd25d4540a15e27db0bf0db4ea9"
         ),
-        "knowledge_commit": "c9cf761453d67d120ec54a1b246e8f5e80a6160c",
-        "decision_id": "2026-08-21-02",
-        "status": "b5-schema-v1-local-candidate-awaiting-common-artifact",
+        "knowledge_commit": "f9d5dc7780ab2673b8872dc7481d230e10ca95d9",
+        "decision_id": "2026-08-22-02",
+        "status": "dimension-key-local-candidate-awaiting-common-artifact",
     }
     assert hashlib.sha256(SESSION_FIXTURE.read_bytes()).hexdigest() == source[
         "sha256"
@@ -125,7 +125,7 @@ def test_maximum_poll_response_fits_one_schema_v1_session_frame():
                 {
                     "sequence": 1,
                     "type": "chat_posted",
-                    "world": "overworld",
+                    "dimension": "minecraft:overworld",
                     "origin": [200, 0, 200],
                     "message": "",
                 }

@@ -20,7 +20,7 @@
             "1.21.11"
           ],
           "catalog_hash": null,
-          "world": "overworld",
+          "dimension": "minecraft:overworld",
           "origin": [
             200,
             0,
@@ -60,7 +60,7 @@
             "1.21.11"
           ],
           "catalog_hash": null,
-          "world": "overworld",
+          "dimension": "minecraft:overworld",
           "origin": [
             200,
             0,
@@ -81,16 +81,33 @@
             "observed_at": 1786118400100,
             "direction": "send",
             "request_id": 2,
-            "method": "build.setWorld",
+            "method": "build.setDimension",
             "payload": {
               "params": [
-                "nether"
+                "the_nether"
               ]
             }
           },
           {
             "sequence": 4,
             "observed_at": 1786118400101,
+            "direction": "receive",
+            "request_id": 2,
+            "method": "build.setDimension",
+            "payload": {
+              "result": {
+                "dimension": "minecraft:the_nether",
+                "origin": [
+                  200,
+                  0,
+                  200
+                ]
+              }
+            }
+          },
+          {
+            "sequence": 5,
+            "observed_at": 1786118400102,
             "direction": "send",
             "request_id": null,
             "method": "world.setBlock",
@@ -109,8 +126,8 @@
             }
           },
           {
-            "sequence": 5,
-            "observed_at": 1786118400102,
+            "sequence": 6,
+            "observed_at": 1786118400103,
             "direction": "send",
             "request_id": 3,
             "method": "connection.flush",
@@ -119,8 +136,8 @@
             }
           },
           {
-            "sequence": 6,
-            "observed_at": 1786118400103,
+            "sequence": 7,
+            "observed_at": 1786118400104,
             "direction": "receive",
             "request_id": 3,
             "method": "connection.flush",
@@ -129,8 +146,8 @@
             }
           },
           {
-            "sequence": 7,
-            "observed_at": 1786118400104,
+            "sequence": 8,
+            "observed_at": 1786118400105,
             "direction": "send",
             "request_id": 4,
             "method": "world.getHeight",
@@ -143,8 +160,8 @@
             }
           },
           {
-            "sequence": 8,
-            "observed_at": 1786118400105,
+            "sequence": 9,
+            "observed_at": 1786118400106,
             "direction": "receive",
             "request_id": 4,
             "method": "world.getHeight",
@@ -153,8 +170,8 @@
             }
           },
           {
-            "sequence": 9,
-            "observed_at": 1786118400106,
+            "sequence": 10,
+            "observed_at": 1786118400107,
             "direction": "send",
             "request_id": 5,
             "method": "world.spawnParticle",
@@ -173,8 +190,8 @@
             }
           },
           {
-            "sequence": 10,
-            "observed_at": 1786118400107,
+            "sequence": 11,
+            "observed_at": 1786118400108,
             "direction": "receive",
             "request_id": 5,
             "method": "world.spawnParticle",
@@ -183,8 +200,8 @@
             }
           },
           {
-            "sequence": 11,
-            "observed_at": 1786118400108,
+            "sequence": 12,
+            "observed_at": 1786118400109,
             "direction": "send",
             "request_id": 6,
             "method": "world.spawnEntity",
@@ -198,8 +215,8 @@
             }
           },
           {
-            "sequence": 12,
-            "observed_at": 1786118400109,
+            "sequence": 13,
+            "observed_at": 1786118400110,
             "direction": "receive",
             "request_id": 6,
             "method": "world.spawnEntity",
@@ -208,8 +225,8 @@
             }
           },
           {
-            "sequence": 13,
-            "observed_at": 1786118400110,
+            "sequence": 14,
+            "observed_at": 1786118400111,
             "direction": "send",
             "request_id": 7,
             "method": "events.poll",
@@ -220,8 +237,8 @@
             }
           },
           {
-            "sequence": 14,
-            "observed_at": 1786118400111,
+            "sequence": 15,
+            "observed_at": 1786118400112,
             "direction": "receive",
             "request_id": 7,
             "method": "events.poll",
@@ -231,7 +248,7 @@
                   {
                     "sequence": 1,
                     "type": "chat_posted",
-                    "world": "overworld",
+                    "dimension": "minecraft:overworld",
                     "origin": [
                       200,
                       0,

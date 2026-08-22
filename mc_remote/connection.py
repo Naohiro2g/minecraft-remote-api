@@ -105,6 +105,7 @@ class McRpcError(RequestFailedError):
             parts.append(str(message))
         for key in (
             "block_id",
+            "dimension",
             "pos",
             "property",
             "value",

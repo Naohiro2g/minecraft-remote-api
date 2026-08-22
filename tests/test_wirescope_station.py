@@ -21,7 +21,7 @@ HELLO = {
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
     "world_constants": {"y_sea": 62},
-    "world": "overworld",
+    "dimension": "minecraft:overworld",
     "origin": [200, 0, 200],
     "permissions": {"online": True, "offline": False, "buildRange": 100},
 }
@@ -184,13 +184,17 @@ def test_pipeline_retains_only_hello_before_attach_and_coalesces_snapshots():
             "hello",
         ]
 
-        observer.observe_request("build.setWorld", ["nether"], 3)
-        observer.observe_result("build.setWorld", None, 3)
+        observer.observe_request("build.setDimension", ["the_nether"], 3)
+        observer.observe_result(
+            "build.setDimension",
+            {"dimension": "minecraft:the_nether", "origin": [200, 0, 200]},
+            3,
+        )
         latest = wait_for(pipeline.take_snapshot)
         frames = latest[0]["streams"][0]["frames"]
         assert [frame["method"] for frame in frames][-2:] == [
-            "build.setWorld",
-            "build.setWorld",
+            "build.setDimension",
+            "build.setDimension",
         ]
         assert latest[1]["dropped_frames"] == 1
         observer.connection_closed()

@@ -26,6 +26,8 @@ HELLO = {
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
+    "dimension": "minecraft:overworld",
+    "origin": [200, 0, 200],
     "world_constants": {"y_sea": 62},
 }
 ALIASES = itertools.count(1)

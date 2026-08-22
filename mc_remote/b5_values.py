@@ -10,6 +10,7 @@ from typing import TypeAlias
 
 from .block_value import BlockValue, decode_block_value
 from .connection import McRemoteError
+from .dimension import require_dimension_key
 
 
 _HANDLE = re.compile(r"^mceh_[A-Za-z0-9_-]{22,}$")
@@ -29,17 +30,24 @@ class EventContextMismatchError(McRemoteError):
 
     reason = "event_context_mismatch"
 
-    def __init__(self, *, event_world, event_origin, current_world, current_origin):
-        self.event_world = event_world
+    def __init__(
+        self,
+        *,
+        event_dimension,
+        event_origin,
+        current_dimension,
+        current_origin,
+    ):
+        self.event_dimension = event_dimension
         self.event_origin = event_origin
-        self.current_world = current_world
+        self.current_dimension = current_dimension
         self.current_origin = current_origin
         super().__init__(
             "event context does not match the current build context; "
-            f"event world/origin={event_world!r}/{event_origin!r}, "
-            f"current={current_world!r}/{current_origin!r}; explicitly call "
-            "setWorld(event.world) and setBuildOrigin(*event.origin) before "
-            "using event coordinates"
+            f"event dimension/origin={event_dimension!r}/{event_origin!r}, "
+            f"current={current_dimension!r}/{current_origin!r}; explicitly call "
+            "setDimension(event.dimension) and "
+            "setBuildOrigin(*event.origin) before using event coordinates"
         )
 
 
@@ -68,7 +76,7 @@ ProjectileTarget: TypeAlias = BlockTarget | PlayerTarget | EntityTarget
 @dataclass(frozen=True, slots=True)
 class BlockRightClickEvent:
     sequence: int
-    world: str
+    dimension: str
     origin: tuple[int, int, int]
     pos: tuple[int, int, int]
     face: str
@@ -80,7 +88,7 @@ class BlockRightClickEvent:
 @dataclass(frozen=True, slots=True)
 class ChatPostedEvent:
     sequence: int
-    world: str
+    dimension: str
     origin: tuple[int, int, int]
     message: str
     type: str = "chat_posted"
@@ -89,7 +97,7 @@ class ChatPostedEvent:
 @dataclass(frozen=True, slots=True)
 class ProjectileHitEvent:
     sequence: int
-    world: str
+    dimension: str
     origin: tuple[int, int, int]
     projectile: str
     pos: tuple[int | float, int | float, int | float]
@@ -206,13 +214,24 @@ def decode_event(value) -> EventValue:
     event_type = event.get("type")
     common = {
         "sequence": _integer(event.get("sequence"), "event.sequence"),
-        "world": _string(event.get("world"), "event.world"),
+        "dimension": require_dimension_key(
+            event.get("dimension"), "event.dimension"
+        ),
         "origin": _integer_tuple(event.get("origin"), "event.origin"),
     }
     if event_type == "block_right_click":
         _exact(
             event,
-            {"sequence", "type", "world", "origin", "pos", "face", "block", "hand"},
+            {
+                "sequence",
+                "type",
+                "dimension",
+                "origin",
+                "pos",
+                "face",
+                "block",
+                "hand",
+            },
             "block_right_click event",
         )
         return BlockRightClickEvent(
@@ -225,7 +244,7 @@ def decode_event(value) -> EventValue:
     if event_type == "chat_posted":
         _exact(
             event,
-            {"sequence", "type", "world", "origin", "message"},
+            {"sequence", "type", "dimension", "origin", "message"},
             "chat_posted event",
         )
         return ChatPostedEvent(
@@ -235,7 +254,15 @@ def decode_event(value) -> EventValue:
     if event_type == "projectile_hit":
         _exact(
             event,
-            {"sequence", "type", "world", "origin", "projectile", "pos", "target"},
+            {
+                "sequence",
+                "type",
+                "dimension",
+                "origin",
+                "projectile",
+                "pos",
+                "target",
+            },
             "projectile_hit event",
         )
         return ProjectileHitEvent(

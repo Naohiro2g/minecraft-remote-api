@@ -44,7 +44,7 @@ def _print_summary(mc):
         origin_text = f"{origin.x},{origin.y},{origin.z}"
     print(f"protocol={mc.protocol}")
     print(f"mc_version={mc.mc_version}")
-    print(f"world={getattr(mc, '_world', None)}")
+    print(f"dimension={getattr(mc, '_dimension', None)}")
     print(f"origin={origin_text}")
     print(f"player={mc.player}")
     print(f"permissions={mc.permissions}")
@@ -110,8 +110,9 @@ def _build_parser():
     parser.add_argument(
         "--set-pos",
         nargs=4,
-        metavar=("WORLD", "X", "Y", "Z"),
-        help="Optional player.setPos smoke, e.g. --set-pos overworld 0 64 0.",
+        metavar=("DIMENSION", "X", "Y", "Z"),
+        help=("Optional player.setPos smoke, e.g. "
+              "--set-pos minecraft:overworld 0 64 0."),
     )
     return parser
 
@@ -140,8 +141,8 @@ def main(argv=None):
         if args.get_pos:
             print(f"getPos={mc.getPos()}")
         if args.set_pos is not None:
-            world, x, y, z = args.set_pos
-            print(f"setPos={mc.setPos(world, int(x), int(y), int(z))}")
+            dimension, x, y, z = args.set_pos
+            print(f"setPos={mc.setPos(dimension, int(x), int(y), int(z))}")
         return 0
     except McRpcError as e:
         print(f"rpc_error={e.reason or e.message}")

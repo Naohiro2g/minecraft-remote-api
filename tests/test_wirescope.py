@@ -34,7 +34,7 @@ HELLO = {
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
     "world_constants": {"y_sea": 62, "future_secret": "never-project"},
-    "world": "overworld",
+    "dimension": "minecraft:overworld",
     "origin": [200, 0, 200],
     "session": "internal-session",
     "player": "00000000-0000-0000-0000-000000000001",
@@ -92,13 +92,14 @@ def test_python_lifecycle_fixture_conforms():
     assert parsed[0]["streams"][0]["hello"] == parsed[1]["streams"][0]["hello"]
     assert parsed[0]["streams"][0]["frames"] == []
     frames = parsed[1]["streams"][0]["frames"]
-    assert len(frames) == 12
+    assert len(frames) == 13
     observed = [
         (frame["direction"], frame["request_id"], frame["method"])
         for frame in frames
     ]
     assert observed == [
-        ("send", 2, "build.setWorld"),
+        ("send", 2, "build.setDimension"),
+        ("receive", 2, "build.setDimension"),
         ("send", None, "world.setBlock"),
         ("send", 3, "connection.flush"),
         ("receive", 3, "connection.flush"),
@@ -347,7 +348,7 @@ def test_pose_methods_are_observed_with_method_specific_result_shape():
     observer.observe_result(
         "player.getPose",
         {
-            "world": "overworld",
+            "dimension": "minecraft:overworld",
             "pos": [1.25, 64.5, -3.75],
             "yaw": 90.0,
             "pitch": -12.5,
@@ -361,7 +362,7 @@ def test_pose_methods_are_observed_with_method_specific_result_shape():
     observer.observe_result(
         "player.setPose",
         {
-            "world": "the_end",
+            "dimension": "minecraft:the_end",
             "pos": [2.5, 70.25, 4.75],
             "yaw": 5.0,
             "pitch": 45.5,
@@ -378,7 +379,7 @@ def test_pose_methods_are_observed_with_method_specific_result_shape():
         "player.setPose",
     ]
     assert pose_frames[1]["payload"]["result"] == {
-        "world": "overworld",
+        "dimension": "minecraft:overworld",
         "pos": [1.25, 64.5, -3.75],
         "yaw": 90.0,
         "pitch": -12.5,
@@ -395,7 +396,7 @@ def test_pose_observer_drops_non_finite_results_and_projects_failure_reason():
     observer.observe_result(
         "player.getPose",
         {
-            "world": "overworld",
+            "dimension": "minecraft:overworld",
             "pos": [0.0, 64.0, 0.0],
             "yaw": float("nan"),
             "pitch": 0.0,
@@ -417,15 +418,94 @@ def test_hello_is_immutable_across_build_state_frames():
     frames = []
     observer = source(frames)
     activate(observer)
-    observer.observe_request("build.setWorld", ["nether"], 2)
-    observer.observe_result("build.setWorld", None, 2)
+    observer.observe_request("build.setDimension", ["the_nether"], 2)
+    observer.observe_result(
+        "build.setDimension",
+        {"dimension": "minecraft:the_nether", "origin": [200, 0, 200]},
+        2,
+    )
     observer.observe_request("build.setOrigin", [10, 20, 30], 3)
-    observer.observe_result("build.setOrigin", None, 3)
+    observer.observe_result(
+        "build.setOrigin",
+        {"dimension": "minecraft:the_nether", "origin": [10, 20, 30]},
+        3,
+    )
     snapshot = observer.snapshot(frames, emitted_at=1786118400300)
     hello = snapshot["streams"][0]["hello"]
-    assert hello["world"] == "overworld"
+    assert hello["dimension"] == "minecraft:overworld"
     assert hello["origin"] == [200, 0, 200]
     assert "current_build_state" not in snapshot["streams"][0]
+
+
+def test_dimension_refs_are_observed_raw_and_server_outputs_require_keys():
+    frames = []
+    observer = source(frames, aliases=["MIND-STORM-000037"])
+    activate(observer)
+
+    observer.observe_request("build.setDimension", ["the_nether"], 2)
+    observer.observe_request("build.setDimension", ["myworld:world"], 3)
+    assert [frame["payload"]["params"] for frame in frames[-2:]] == [
+        ["the_nether"],
+        ["myworld:world"],
+    ]
+
+    before = len(frames)
+    for invalid in (" MINECRAFT:OVERWORLD", "minecraft:", "a:b:c", True):
+        observer.observe_request("build.setDimension", [invalid], 4)
+    assert len(frames) == before
+
+    observer.observe_result(
+        "build.setDimension",
+        {"dimension": "myworld:world", "origin": [200, 0, 200]},
+        5,
+    )
+    assert frames[-1]["payload"]["result"] == {
+        "dimension": "myworld:world",
+        "origin": [200, 0, 200],
+    }
+
+    before = len(frames)
+    for invalid in (
+        {"dimension": "overworld", "origin": [200, 0, 200]},
+        {"world": "world", "origin": [200, 0, 200]},
+        {"dimension": "minecraft:overworld", "origin": [200.0, 0, 200]},
+    ):
+        observer.observe_result("build.setDimension", invalid, 6)
+    observer.observe_result(
+        "player.getPos",
+        {"dimension": "overworld", "pos": [1.0, 2.0, 3.0]},
+        7,
+    )
+    assert len(frames) == before
+
+
+def test_hello_build_origin_rejects_fractional_coordinates():
+    frames = []
+    observer = source(frames, aliases=["MIND-STORM-000038"])
+    observer.observe_request(
+        "hello",
+        {
+            "protocol": "22.0.0",
+            "build": {
+                "dimension": "overworld",
+                "origin": [200.5, 0, 200],
+            },
+        },
+        1,
+    )
+    observer.observe_result("hello", HELLO, 1)
+    assert observer.active
+    assert len(frames) == 1
+    assert frames[0]["direction"] == "receive"
+
+
+def test_legacy_world_identity_does_not_activate_observer():
+    observer = source([], aliases=["MIND-STORM-000039"])
+    legacy = copy.deepcopy(HELLO)
+    legacy["world"] = legacy.pop("dimension")
+    observer.observe_request("hello", {"protocol": "22.0.0"}, 1)
+    observer.observe_result("hello", legacy, 1)
+    assert not observer.active
 
 
 def test_reconnect_creates_a_new_target_and_alias():
