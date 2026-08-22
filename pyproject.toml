@@ -27,7 +27,7 @@ mcremote = "mc_remote.cli:main"
 Homepage = "https://github.com/Naohiro2g/minecraft-remote-api"
 Repository = "https://github.com/Naohiro2g/minecraft-remote-api"
 Documentation = "https://github.com/Naohiro2g/minecraft-remote-api/blob/main/README.md"
-"WireScope Source" = "https://github.com/Naohiro2g/scratch-editor/tree/602ecdf809f87a7e33e50d7c465b7248429e26dc/mc-remote/live"
+"WireScope Source" = "https://github.com/Naohiro2g/scratch-editor/tree/1a11c46bac5696afd3f494caac56ae682ed00fb0/mc-remote/live"
 
 [build-system]
 requires = ["uv_build>=0.11.7,<0.12.0"]
