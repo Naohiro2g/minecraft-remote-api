@@ -1,5 +1,4 @@
-"""protocol 21.0.0 b3 catalog tests (catalog.get fetch, hash/validation,
-disk cache, mc_constants.py codegen, kwargs sugar, sync orchestration).
+"""Catalog tests carried forward through protocol 22 b5.
 
 Covers the b3 checklist (versioning-design §10.11.1 item 14, DECISIONS
 2026-07-29-04):
@@ -11,13 +10,8 @@ Covers the b3 checklist (versioning-design §10.11.1 item 14, DECISIONS
      that does not match the recomputed digest
   3. disk cache: save/load round-trip under MCREMOTE_CACHE_DIR; a missing or
      corrupt cache file is a miss (None), not an error
-  4. block_ref: namespace defaulting, state kwargs formatting (bool ->
-     lowercase true/false), bare ref when no state is given
-  5. codegen: generate_source produces syntactically valid Python exposing
-     block/entity/particle/world_info; catalog-id collisions across
-     namespaces get disambiguated instead of overwriting each other
-  6. project projection: mc_constants.py plus checksum manifest, verified
-     no-op when unchanged, no .pyi
+  4. codegen: runtime constants plus state builder and catalog-specific .pyi
+  5. project projection: mc_constants.py/.pyi plus checksum manifest
   7. Minecraft.getCatalog / sync_constants: cache misses and force fetches use
      a separate short-lived authenticated stream; explicit sync stays strict
      without closing the build stream
@@ -44,7 +38,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from mc_remote.catalog import (  # noqa: E402
     CatalogError,
-    block_ref,
     cache_dir,
     compute_catalog_hash,
     load_cached_catalog,
@@ -66,6 +59,7 @@ from mc_remote.projection import (  # noqa: E402
     IGNORE_RULES,
     MANIFEST_NAME,
     PROJECTION_SCHEMA_VERSION,
+    STUB_NAME,
     init_project,
 )
 import mc_remote.projection as projection_mod  # noqa: E402
@@ -241,7 +235,7 @@ HELLO_WITH_CATALOG = {
     "world_constants": {"y_sea": 63},
     "session": "sess-1",
     "player": "00000000-0000-0000-0000-000000000001",
-    "world": "overworld",
+    "dimension": "minecraft:overworld",
     "origin": [200, 0, 200],
     "permissions": {"online": True, "offline": False, "buildRange": 1000},
 }
@@ -472,22 +466,7 @@ def test_cache_corrupt_file_returns_none():
         assert load_cached_catalog("deadbeef") is None
 
 
-# 4a. bare name gets the minecraft: namespace; namespaced name is kept as-is
-def test_block_ref_namespace_defaulting():
-    assert block_ref("oak_log") == "minecraft:oak_log"
-    assert block_ref("modid:thing") == "modid:thing"
-
-
-# 4b. state kwargs are formatted onto the ref; bool becomes lowercase true/false
-def test_block_ref_state_kwargs():
-    assert block_ref("oak_log", axis="y") == "minecraft:oak_log[axis=y]"
-    assert block_ref("minecraft:water", level=0) == "minecraft:water[level=0]"
-    assert block_ref("oak_door", open=True, waterlogged=False) == (
-        "minecraft:oak_door[open=true,waterlogged=false]"
-    )
-
-
-# 5a. generated source is syntactically valid and exposes the expected names
+# 4a. generated source is valid and exposes constants plus state builders
 def test_codegen_generates_valid_module():
     catalog = _sample_catalog()
     source = _constants_codegen.generate_source(
@@ -498,13 +477,28 @@ def test_codegen_generates_valid_module():
     exec(source, namespace)  # noqa: S102
     assert namespace["block"].OAK_LOG == "minecraft:oak_log"
     assert namespace["block"].STONE == "minecraft:stone"
+    assert namespace["block_state"].OAK_LOG(axis="z") == {"axis": "z"}
+    assert namespace["block_state"].OAK_LOG() == {}
+    assert namespace["block_state"].STONE() == {}
     assert namespace["entity"].ZOMBIE == "minecraft:zombie"
     assert namespace["particle"].FLAME == "minecraft:flame"
     assert namespace["world_info"].Y_SEA == 63
     assert namespace["CATALOG_HASH"] == catalog["catalogHash"]
 
 
-# 5b. same local name from two namespaces gets disambiguated, not overwritten
+# 4b. generated stub binds each block ID to its key/value-specific state type
+def test_codegen_generates_catalog_specific_stub():
+    catalog = _sample_catalog()
+    stub = _constants_codegen.generate_stub(catalog, world_info={"Y_SEA": 63})
+    compile(stub, "<mc_constants.pyi>", "exec")
+    assert "class _OAK_LOG_State(TypedDict, total=False):" in stub
+    assert "axis: Literal['x', 'y', 'z']" in stub
+    assert "OAK_LOG: BlockId[_OAK_LOG_State]" in stub
+    assert "def OAK_LOG(*, axis: Literal['x', 'y', 'z'] = ...)" in stub
+    assert "class _STONE_State(TypedDict, total=False):" in stub
+
+
+# 4c. same local name from two namespaces gets disambiguated, not overwritten
 def test_codegen_disambiguates_local_name_collision():
     body = _sample_body()
     body["block"]["modid:oak_log"] = {"states": {}, "default_state": {}}
@@ -558,7 +552,7 @@ def test_sync_constants_cache_miss_fetches_and_writes():
             assert "Y_SEA = 63" in content
 
 
-# 6c. manifest is the commit marker and verifies the generated .py
+# 5c. manifest is the commit marker and verifies both generated artifacts
 def test_projection_manifest_has_required_key_and_checksum():
     catalog = _sample_catalog()
     mc = Minecraft(FakeConn({}))
@@ -570,6 +564,9 @@ def test_projection_manifest_has_required_key_and_checksum():
         manifest_path = os.path.join(d, MANIFEST_NAME)
         with open(path, "rb") as fh:
             artifact_hash = hashlib.sha256(fh.read()).hexdigest()
+        stub_path = os.path.join(d, STUB_NAME)
+        with open(stub_path, "rb") as fh:
+            stub_hash = hashlib.sha256(fh.read()).hexdigest()
         with open(manifest_path, "r", encoding="utf-8") as fh:
             manifest = json.load(fh)
         assert manifest["catalogHash"] == catalog["catalogHash"]
@@ -577,9 +574,9 @@ def test_projection_manifest_has_required_key_and_checksum():
         assert manifest["projectionSchemaVersion"] == PROJECTION_SCHEMA_VERSION
         assert len(manifest["projectionKey"]) == 64
         assert manifest["artifacts"] == {
-            ARTIFACT_NAME: {"sha256": artifact_hash}
+            ARTIFACT_NAME: {"sha256": artifact_hash},
+            STUB_NAME: {"sha256": stub_hash},
         }
-        assert not os.path.exists(os.path.join(d, "mc_constants.pyi"))
 
 
 # 6d. a verified projection is not rewritten
@@ -604,13 +601,17 @@ def test_projection_publish_failure_preserves_previous_valid_pair():
     old_source = _constants_codegen.generate_source(
         catalog, "1.21.11", catalog["catalogHash"]
     )
+    old_stub = _constants_codegen.generate_stub(catalog)
     with tmp_chdir() as d:
         artifact = projection_mod.publish_projection(
-            old_source, catalog["catalogHash"], target_dir=d
+            old_source, old_stub, catalog["catalogHash"], target_dir=d
         )
         manifest = os.path.join(d, MANIFEST_NAME)
+        stub_path = os.path.join(d, STUB_NAME)
         with open(artifact, "rb") as fh:
             old_artifact_bytes = fh.read()
+        with open(stub_path, "rb") as fh:
+            old_stub_bytes = fh.read()
         with open(manifest, "rb") as fh:
             old_manifest_bytes = fh.read()
 
@@ -626,6 +627,7 @@ def test_projection_publish_failure_preserves_previous_valid_pair():
             try:
                 projection_mod.publish_projection(
                     old_source + "\n# next generation\n",
+                    old_stub + "\n# next generation\n",
                     "f" * 64,
                     target_dir=d,
                 )
@@ -638,8 +640,52 @@ def test_projection_publish_failure_preserves_previous_valid_pair():
 
         with open(artifact, "rb") as fh:
             assert fh.read() == old_artifact_bytes
+        with open(stub_path, "rb") as fh:
+            assert fh.read() == old_stub_bytes
         with open(manifest, "rb") as fh:
             assert fh.read() == old_manifest_bytes
+
+
+def test_projection_artifact_failure_restores_already_replaced_source():
+    catalog = _sample_catalog()
+    source, stub = _constants_codegen.generate_projection(
+        catalog, "1.21.11", catalog["catalogHash"]
+    )
+    with tmp_chdir() as d:
+        artifact = projection_mod.publish_projection(
+            source, stub, catalog["catalogHash"], target_dir=d
+        )
+        stub_path = os.path.join(d, STUB_NAME)
+        manifest_path = os.path.join(d, MANIFEST_NAME)
+        before = {
+            path: Path(path).read_bytes()
+            for path in (artifact, stub_path, manifest_path)
+        }
+        original_replace = projection_mod.os.replace
+
+        def fail_stub_replace(staged, target):
+            if target == stub_path:
+                raise OSError("simulated stub publication failure")
+            return original_replace(staged, target)
+
+        projection_mod.os.replace = fail_stub_replace
+        try:
+            try:
+                projection_mod.publish_projection(
+                    source + "\n# changed\n",
+                    stub + "\n# changed\n",
+                    "e" * 64,
+                    target_dir=d,
+                )
+            except CatalogProjectionError as exc:
+                assert exc.stage == "publish"
+            else:
+                raise AssertionError("expected CatalogProjectionError")
+        finally:
+            projection_mod.os.replace = original_replace
+
+        for path, expected in before.items():
+            assert Path(path).read_bytes() == expected
 
 
 # 7a. cache hit: no auxiliary stream is opened
@@ -681,7 +727,7 @@ def test_sync_constants_force_refetches():
 def test_sync_constants_rejects_invalid_catalog():
     expected = _sample_catalog()
     bad = dict(expected, catalogHash="0" * 64)
-    main = FakeConn({"world.setBlock": "built"})
+    main = FakeConn({"world.setBlock": None})
     auxiliary = FakeConn(
         {
             "hello": dict(HELLO_WITH_CATALOG, catalogHash=expected["catalogHash"]),
@@ -701,7 +747,7 @@ def test_sync_constants_rejects_invalid_catalog():
         else:
             raise AssertionError("expected CatalogProjectionError")
         assert not main.closed
-        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") is None
         assert load_cached_catalog(expected["catalogHash"]) is None
 
 
@@ -743,7 +789,7 @@ def test_create_can_skip_catalog_sync():
 def test_create_catalog_failure_warns_and_returns_connected_client():
     catalog = _sample_catalog()
     hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
-    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    main = FakeConn({"hello": hello, "world.setBlock": None})
     auxiliary = FakeConn(
         {
             "hello": hello,
@@ -764,7 +810,7 @@ def test_create_catalog_failure_warns_and_returns_connected_client():
         assert "building can continue" in message
         assert "may be stale" in message
         assert "mcrs_must_not_appear" not in message
-        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") is None
         assert not main.closed
         assert not os.path.exists(os.path.join(d, ARTIFACT_NAME))
 
@@ -777,7 +823,7 @@ def test_create_other_projection_stages_warn_and_keep_build_stream():
     # Validation: declared hello hash matches, but body content does not.
     invalid = _sample_catalog()
     invalid["block"]["minecraft:extra"] = {"states": {}, "default_state": {}}
-    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    main = FakeConn({"hello": hello, "world.setBlock": None})
     auxiliary = FakeConn({"hello": hello, "catalog.get": invalid})
     with tmp_config(), tmp_cache(), tmp_chdir():
         save_token("localhost:25575", "mcrs_tok")
@@ -786,10 +832,10 @@ def test_create_other_projection_stages_warn_and_keep_build_stream():
             with api_env(), patched_connection(main, auxiliary):
                 mc = Minecraft.create()
         assert "stage=validate" in str(caught[0].message)
-        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") is None
 
     # Cache publication: the catalog is valid, but the global save fails.
-    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    main = FakeConn({"hello": hello, "world.setBlock": None})
     auxiliary = FakeConn({"hello": hello, "catalog.get": catalog})
     original_save = minecraft_mod._catalog.save_cached_catalog
 
@@ -809,11 +855,11 @@ def test_create_other_projection_stages_warn_and_keep_build_stream():
         message = str(caught[0].message)
         assert "stage=cache" in message
         assert "mcrs_cache_secret" not in message
-        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") is None
 
     # Generation: a validated cache hit avoids opening any auxiliary stream.
-    main = FakeConn({"hello": hello, "world.setBlock": "built"})
-    original_generate = minecraft_mod._constants_codegen.generate_source
+    main = FakeConn({"hello": hello, "world.setBlock": None})
+    original_generate = minecraft_mod._constants_codegen.generate_projection
 
     def fail_generate(*args, **kwargs):
         raise RuntimeError("secret=mcrs_generate_secret")
@@ -821,25 +867,25 @@ def test_create_other_projection_stages_warn_and_keep_build_stream():
     with tmp_config(), tmp_cache(), tmp_chdir():
         save_token("localhost:25575", "mcrs_tok")
         save_cached_catalog(catalog["catalogHash"], catalog)
-        minecraft_mod._constants_codegen.generate_source = fail_generate
+        minecraft_mod._constants_codegen.generate_projection = fail_generate
         try:
             with warnings.catch_warnings(record=True) as caught:
                 warnings.simplefilter("always")
                 with api_env(), patched_connection(main):
                     mc = Minecraft.create()
         finally:
-            minecraft_mod._constants_codegen.generate_source = original_generate
+            minecraft_mod._constants_codegen.generate_projection = original_generate
         message = str(caught[0].message)
         assert "stage=generate" in message
         assert "mcrs_generate_secret" not in message
-        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") is None
 
 
 # 8e. even an unexpected publication failure remains inside the warning boundary
 def test_create_publish_failure_warns_and_keeps_build_stream():
     catalog = _sample_catalog()
     hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
-    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    main = FakeConn({"hello": hello, "world.setBlock": None})
     original = projection_mod.publish_projection
 
     def fail_publish(*args, **kwargs):
@@ -858,14 +904,14 @@ def test_create_publish_failure_warns_and_keeps_build_stream():
             projection_mod.publish_projection = original
         assert len(caught) == 1
         assert "stage=publish" in str(caught[0].message)
-        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") is None
         assert not main.closed
 
 
 # 8f. a null catalogHash performs no projection work and emits no warning
 def test_create_null_catalog_hash_is_clean_noop():
     hello = dict(HELLO_WITH_CATALOG, catalogHash=None)
-    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    main = FakeConn({"hello": hello, "world.setBlock": None})
     with tmp_config(), tmp_cache(), tmp_chdir() as d:
         save_token("localhost:25575", "mcrs_tok")
         with warnings.catch_warnings(record=True) as caught:
@@ -873,7 +919,7 @@ def test_create_null_catalog_hash_is_clean_noop():
             with api_env(), patched_connection(main):
                 mc = Minecraft.create()
         assert caught == []
-        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") is None
         assert not os.path.exists(os.path.join(d, ARTIFACT_NAME))
 
 
@@ -895,7 +941,7 @@ def test_cached_catalog_does_not_project_before_hello():
 def test_missing_ignore_blocks_generation_but_not_building():
     catalog = _sample_catalog()
     hello = dict(HELLO_WITH_CATALOG, catalogHash=catalog["catalogHash"])
-    main = FakeConn({"hello": hello, "world.setBlock": "built"})
+    main = FakeConn({"hello": hello, "world.setBlock": None})
     with tmp_config(), tmp_cache(), tmp_chdir() as d:
         subprocess.run(["git", "init", "-q", d], check=True)
         save_token("localhost:25575", "mcrs_tok")
@@ -905,7 +951,7 @@ def test_missing_ignore_blocks_generation_but_not_building():
                 mc = Minecraft.create()
         assert len(caught) == 1
         assert "stage=ignore" in str(caught[0].message)
-        assert mc.setBlock(1, 2, 3, "minecraft:stone") == "built"
+        assert mc.setBlock(1, 2, 3, "minecraft:stone") is None
         assert not os.path.exists(os.path.join(d, ARTIFACT_NAME))
         assert not os.path.exists(os.path.join(d, MANIFEST_NAME))
 
@@ -920,7 +966,8 @@ def test_project_init_supplies_ignore_rules_idempotently():
         with open(path, "r", encoding="utf-8") as fh:
             content = fh.read()
         assert content.count("/param_mc_remote.py") == 1
-        assert content.count("/mc_constants.py") == 1
+        assert content.splitlines().count("/mc_constants.py") == 1
+        assert content.splitlines().count("/mc_constants.pyi") == 1
         assert content.count("/mc_constants.manifest.json") == 1
         assert content.count("/.mc_constants.*") == 1
         assert not os.path.exists(os.path.join(d, ARTIFACT_NAME))
@@ -953,6 +1000,7 @@ def test_initialized_git_project_stays_clean_and_clone_has_no_projection():
         clone = tempfile.mkdtemp(prefix="mcremote_clone_parent_") + "/clone"
         subprocess.run(["git", "clone", "-q", d, clone], check=True)
         assert not os.path.exists(os.path.join(clone, ARTIFACT_NAME))
+        assert not os.path.exists(os.path.join(clone, STUB_NAME))
         assert not os.path.exists(os.path.join(clone, MANIFEST_NAME))
 
 
@@ -975,6 +1023,7 @@ def test_starter_contract():
     }
     assert actual == expected
     assert ARTIFACT_NAME not in actual
+    assert STUB_NAME not in actual
     assert MANIFEST_NAME not in actual
 
     template = (starter / "param_mc_remote.template.py").read_text(encoding="utf-8")
@@ -995,8 +1044,9 @@ def test_starter_contract():
     assert 'mc.setBlock(5, 62 + 5, 5, "sea_lantern")' in hello
 
     after = (starter / "with_completion.py").read_text(encoding="utf-8")
-    assert "from mc_constants import block, world_info" in after
+    assert "from mc_constants import block, block_state, world_info" in after
     assert "mc.setBlock(6, world_info.Y_SEA + 5, 5, block.GOLD_BLOCK)" in after
+    assert 'state=block_state.OAK_LOG(axis="z")' in after
 
 
 if __name__ == "__main__":

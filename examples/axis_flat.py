@@ -73,9 +73,9 @@ def construction_fields(mc, x=0, z=0):
 
 
 if __name__ == "__main__":
-    # Connect to Minecraft and set the build world/origin for this session
+    # Connect to Minecraft and set the build dimension/origin for this session
     mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
-    mc.setWorld("overworld")
+    mc.setDimension("overworld")
     mc.setBuildOrigin(po.x, po.y, po.z)
 
     mc.postToChat("axis_flat.py")

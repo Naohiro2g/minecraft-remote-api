@@ -1,0 +1,31 @@
+{
+  "knowledge_commit": "f9d5dc7780ab2673b8872dc7481d230e10ca95d9",
+  "decision_id": "2026-08-22-02",
+  "helper": "Minecraft.assertEventContext",
+  "error": "EventContextMismatchError",
+  "reason": "event_context_mismatch",
+  "event": {
+    "sequence": 1,
+    "type": "chat_posted",
+    "dimension": "myworld:world",
+    "origin": [200, 0, 200],
+    "message": "hello"
+  },
+  "cases": [
+    {
+      "current_dimension": "myworld:world",
+      "current_origin": [200, 0, 200],
+      "outcome": "match"
+    },
+    {
+      "current_dimension": "minecraft:the_nether",
+      "current_origin": [200, 0, 200],
+      "outcome": "event_context_mismatch"
+    },
+    {
+      "current_dimension": "myworld:world",
+      "current_origin": [10, 20, 30],
+      "outcome": "event_context_mismatch"
+    }
+  ]
+}

@@ -3,5 +3,6 @@
 
 # Live catalog projection (generated after authenticated hello)
 /mc_constants.py
+/mc_constants.pyi
 /mc_constants.manifest.json
 /.mc_constants.*

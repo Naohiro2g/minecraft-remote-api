@@ -3,21 +3,29 @@
 This module deliberately does not launch WireScope, retain frame history, or
 choose a browser/relay transport.  It only projects the main connection through
 a generation-side allowlist and validates snapshots against the shared schema.
+Protocol 22 b5 method support is tracked separately as compatibility set v1.1;
+it does not change the top-level snapshot schema version.
 """
 
 from __future__ import annotations
 
 import json
 import math
+import re
 import secrets
 import threading
 import time
 import weakref
 from collections.abc import Callable, Iterable, Mapping
 
+from .connection import McRemoteError
+from .b5_values import decode_event_batch
+from .dimension import decode_build_context, is_dimension_key, is_dimension_ref
+
 
 OBSERVER_SCHEMA = "mcremote.observer"
 OBSERVER_SCHEMA_VERSION = 1
+OBSERVER_COMPATIBILITY_SET_REVISION = "v1.1"
 MAIN_STREAM_ID = "main"
 
 _DISPLAY_ALIAS_WORDS = (
@@ -44,16 +52,26 @@ _DISPLAY_ALIAS_SUFFIX_DIGITS = 6
 OBSERVED_METHODS = frozenset(
     {
         "hello",
-        "build.setWorld",
+        "build.setDimension",
         "build.setOrigin",
         "chat.post",
         "world.setBlock",
         "world.setBlocks",
         "world.getBlock",
+        "world.getBlocks",
+        "world.getHeight",
+        "world.spawnParticle",
+        "world.spawnEntity",
+        "events.poll",
+        "connection.flush",
         "player.getPos",
         "player.setPos",
+        "player.getPose",
+        "player.setPose",
     }
 )
+_QUALIFIED_BLOCK_ID = re.compile(r"^[a-z0-9_.-]+:[a-z0-9/._-]+$")
+_SHORT_BLOCK_ID = re.compile(r"^[a-z0-9/._-]+$")
 
 
 class ObserverValidationError(ValueError):
@@ -98,6 +116,44 @@ def _finite_number(value, context):
     return value
 
 
+def _integer(value, context, *, non_negative=False):
+    value = _finite_number(value, context)
+    if int(value) != value or (non_negative and value < 0):
+        qualifier = "non-negative " if non_negative else ""
+        raise ObserverValidationError(f"{context} must be a {qualifier}integer")
+    return int(value)
+
+
+def _canonical_id(value, context):
+    value = _required_string(value, context)
+    if _QUALIFIED_BLOCK_ID.fullmatch(value) is None:
+        raise ObserverValidationError(f"{context} must be a canonical namespace ID")
+    return value
+
+
+def _dimension_key(value, context):
+    if not is_dimension_key(value):
+        raise ObserverValidationError(
+            f"{context} must be a fully-qualified DimensionKey"
+        )
+    return value
+
+
+def _dimension_ref(value, context):
+    if not is_dimension_ref(value):
+        raise ObserverValidationError(f"{context} must be a DimensionRef")
+    return value
+
+
+def _parse_event_batch(value):
+    try:
+        normalized = json.loads(json.dumps(value, allow_nan=False))
+        decode_event_batch(normalized, after_sequence=0)
+    except (McRemoteError, TypeError, ValueError) as exc:
+        raise ObserverValidationError(f"invalid events.poll result: {exc}") from exc
+    return normalized
+
+
 def _json_scalar(value, context):
     if value is None or isinstance(value, (str, bool)):
         return value
@@ -118,6 +174,56 @@ def _number_tuple(value, context):
         _finite_number(value[1], f"{context}[1]"),
         _finite_number(value[2], f"{context}[2]"),
     ]
+
+
+def _integer_tuple(value, context):
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        raise ObserverValidationError(f"{context} must be a three-integer tuple")
+    parsed = []
+    for index, item in enumerate(value):
+        if isinstance(item, bool) or not isinstance(item, int):
+            raise ObserverValidationError(f"{context}[{index}] must be an integer")
+        parsed.append(item)
+    return parsed
+
+
+def _parse_block_value(value, context, *, require_namespace):
+    block = _object(value, context)
+    _exact_fields(block, {"block_id", "state"}, context)
+    if set(block) != {"block_id", "state"}:
+        raise ObserverValidationError(
+            f"{context} must contain exactly block_id and state"
+        )
+    block_id = _required_string(block["block_id"], f"{context}.block_id")
+    valid_id = (
+        _QUALIFIED_BLOCK_ID.fullmatch(block_id)
+        if require_namespace
+        else (
+            _QUALIFIED_BLOCK_ID.fullmatch(block_id)
+            or _SHORT_BLOCK_ID.fullmatch(block_id)
+        )
+    )
+    if valid_id is None:
+        raise ObserverValidationError(
+            f"{context}.block_id has an invalid block ID shape"
+        )
+    state = _object(block["state"], f"{context}.state")
+    property_names = list(state)
+    if any(not isinstance(name, str) or not name for name in property_names):
+        raise ObserverValidationError(
+            f"{context}.state property names must be non-empty strings"
+        )
+    parsed_state = {}
+    for property_name in sorted(property_names):
+        item = state[property_name]
+        if item is None:
+            raise ObserverValidationError(
+                f"{context}.state.{property_name} must be a JSON scalar"
+            )
+        parsed_state[property_name] = _json_scalar(
+            item, f"{context}.state.{property_name}"
+        )
+    return {"block_id": block_id, "state": parsed_state}
 
 
 def _parse_permissions(value):
@@ -143,6 +249,14 @@ def _parse_permissions(value):
     return parsed
 
 
+def _parse_build_context(value, context="frame.payload.result"):
+    try:
+        dimension, origin = decode_build_context(value, context)
+    except (McRemoteError, TypeError, ValueError) as exc:
+        raise ObserverValidationError(f"invalid build context: {exc}") from exc
+    return {"dimension": dimension, "origin": list(origin)}
+
+
 def _parse_hello(value):
     hello = _object(value, "hello")
     _exact_fields(
@@ -152,7 +266,7 @@ def _parse_hello(value):
             "mc_version",
             "supported_mc_versions",
             "catalog_hash",
-            "world",
+            "dimension",
             "origin",
             "world_constants",
             "permissions",
@@ -178,11 +292,11 @@ def _parse_hello(value):
             hello.get("supported_mc_versions"), "hello.supported_mc_versions"
         ),
         "catalog_hash": catalog_hash,
+        "dimension": _dimension_key(
+            hello.get("dimension"), "hello.dimension"
+        ),
+        "origin": _integer_tuple(hello.get("origin"), "hello.origin"),
     }
-    if "world" in hello:
-        parsed["world"] = _required_string(hello["world"], "hello.world")
-    if "origin" in hello:
-        parsed["origin"] = _number_tuple(hello["origin"], "hello.origin")
     parsed["world_constants"] = {"y_sea": y_sea}
     if "permissions" in hello:
         parsed["permissions"] = _parse_permissions(hello["permissions"])
@@ -193,17 +307,38 @@ def _parse_error_data(value):
     data = _object(value, "frame.payload.error.data")
     _exact_fields(
         data,
-        {"reason", "ref", "allowed", "bounds", "violating"},
+        {
+            "reason",
+            "block_id",
+            "property",
+            "value",
+            "allowed",
+            "bounds",
+            "violating",
+            "dimension",
+        },
         "frame.payload.error.data",
     )
     parsed = {}
-    for key in ("reason", "ref"):
+    for key in ("reason", "block_id", "property"):
         if key in data:
             if not isinstance(data[key], str):
                 raise ObserverValidationError(
                     f"frame.payload.error.data.{key} must be a string"
                 )
             parsed[key] = data[key]
+    if "dimension" in data:
+        parsed["dimension"] = _dimension_ref(
+            data["dimension"], "frame.payload.error.data.dimension"
+        )
+    if "value" in data:
+        if data["value"] is None:
+            raise ObserverValidationError(
+                "frame.payload.error.data.value must be a JSON scalar"
+            )
+        parsed["value"] = _json_scalar(
+            data["value"], "frame.payload.error.data.value"
+        )
     if "allowed" in data:
         allowed = data["allowed"]
         if not isinstance(allowed, list):
@@ -282,18 +417,181 @@ def _parse_params(method, value):
             parsed["client"] = parsed_client
         if "build" in params:
             build = _object(params["build"], "frame.payload.params.build")
-            _exact_fields(build, {"world", "origin"}, "frame.payload.params.build")
+            _exact_fields(
+                build, {"dimension", "origin"}, "frame.payload.params.build"
+            )
             parsed_build = {}
-            if isinstance(build.get("world"), str):
-                parsed_build["world"] = build["world"]
+            if "dimension" in build:
+                parsed_build["dimension"] = _dimension_ref(
+                    build["dimension"], "frame.payload.params.build.dimension"
+                )
             if "origin" in build:
-                parsed_build["origin"] = _number_tuple(
+                parsed_build["origin"] = _integer_tuple(
                     build["origin"], "frame.payload.params.build.origin"
                 )
             parsed["build"] = parsed_build
         return parsed
     if not isinstance(value, list):
         raise ObserverValidationError("frame.payload.params must be an array")
+    block_index = None
+    if method == "world.setBlock":
+        if len(value) != 4:
+            raise ObserverValidationError(
+                "world.setBlock params must contain x, y, z, and BlockSpec"
+            )
+        block_index = 3
+    elif method == "world.setBlocks":
+        if len(value) != 7:
+            raise ObserverValidationError(
+                "world.setBlocks params must contain two coordinates and BlockSpec"
+            )
+        block_index = 6
+    elif method == "world.getBlock" and len(value) != 3:
+        raise ObserverValidationError(
+            "world.getBlock params must contain x, y, and z"
+        )
+    elif method == "world.getBlocks" and len(value) != 6:
+        raise ObserverValidationError(
+            "world.getBlocks params must contain two coordinates"
+        )
+    elif method == "world.getHeight" and len(value) not in {2, 3}:
+        raise ObserverValidationError(
+            "world.getHeight params must contain x, z, and optional max_y"
+        )
+    elif method == "world.spawnParticle" and len(value) not in {9, 10}:
+        raise ObserverValidationError(
+            "world.spawnParticle params must contain 9 or 10 values"
+        )
+    elif method == "world.spawnEntity" and len(value) != 4:
+        raise ObserverValidationError(
+            "world.spawnEntity params must contain x, y, z, and entity"
+        )
+    elif method == "events.poll" and len(value) not in {1, 2}:
+        raise ObserverValidationError(
+            "events.poll params must contain after_sequence and optional options"
+        )
+    elif method == "connection.flush" and value != []:
+        raise ObserverValidationError("connection.flush params must be an empty array")
+    if block_index is not None:
+        parsed = [
+            _integer(item, f"frame.payload.params[{index}]")
+            for index, item in enumerate(value[:block_index])
+        ]
+        parsed.append(
+            _parse_block_value(
+                value[block_index],
+                f"frame.payload.params[{block_index}]",
+                require_namespace=False,
+            )
+        )
+        return parsed
+    if method in {"world.getBlock", "world.getBlocks", "world.getHeight"}:
+        return [
+            _integer(item, f"frame.payload.params[{index}]")
+            for index, item in enumerate(value)
+        ]
+    if method == "build.setOrigin":
+        if len(value) != 3:
+            raise ObserverValidationError(
+                "build.setOrigin params must contain x, y, and z"
+            )
+        return [
+            _integer(item, f"frame.payload.params[{index}]")
+            for index, item in enumerate(value)
+        ]
+    if method == "build.setDimension":
+        if len(value) != 1:
+            raise ObserverValidationError(
+                "build.setDimension params must contain one DimensionRef"
+            )
+        return [_dimension_ref(value[0], "frame.payload.params[0]")]
+    if method in {"player.getPos", "player.getPose"}:
+        if value != []:
+            raise ObserverValidationError(f"{method} params must be an empty array")
+        return []
+    if method == "player.setPos":
+        if len(value) != 4:
+            raise ObserverValidationError(
+                "player.setPos params must contain dimension, x, y, and z"
+            )
+        return [
+            _dimension_ref(value[0], "frame.payload.params[0]"),
+            *[
+                _finite_number(item, f"frame.payload.params[{index}]")
+                for index, item in enumerate(value[1:], start=1)
+            ],
+        ]
+    if method == "player.setPose":
+        if len(value) != 6:
+            raise ObserverValidationError(
+                "player.setPose params must contain dimension, x, y, z, yaw, and pitch"
+            )
+        return [
+            _dimension_ref(value[0], "frame.payload.params[0]"),
+            *[
+                _finite_number(item, f"frame.payload.params[{index}]")
+                for index, item in enumerate(value[1:], start=1)
+            ],
+        ]
+    if method == "events.poll":
+        parsed = [
+            _integer(
+                value[0], "frame.payload.params[0]", non_negative=True
+            )
+        ]
+        if len(value) == 2:
+            options = _object(value[1], "frame.payload.params[1]")
+            _exact_fields(
+                options, {"max_events"}, "frame.payload.params[1]"
+            )
+            if set(options) != {"max_events"}:
+                raise ObserverValidationError(
+                    "events.poll options must contain exactly max_events"
+                )
+            max_events = _integer(
+                options["max_events"],
+                "frame.payload.params[1].max_events",
+                non_negative=True,
+            )
+            if max_events == 0:
+                raise ObserverValidationError(
+                    "events.poll max_events must be positive"
+                )
+            parsed.append({"max_events": max_events})
+        return parsed
+    if method == "world.spawnEntity":
+        return [
+            *[
+                _finite_number(item, f"frame.payload.params[{index}]")
+                for index, item in enumerate(value[:3])
+            ],
+            _canonical_id(value[3], "frame.payload.params[3]"),
+        ]
+    if method == "world.spawnParticle":
+        parsed = [
+            _finite_number(item, f"frame.payload.params[{index}]")
+            for index, item in enumerate(value[:6])
+        ]
+        if any(item < 0 for item in parsed[3:6]):
+            raise ObserverValidationError("particle offsets must be non-negative")
+        parsed.extend(
+            [
+                _canonical_id(value[6], "frame.payload.params[6]"),
+                _finite_number(value[7], "frame.payload.params[7]"),
+                _integer(
+                    value[8], "frame.payload.params[8]", non_negative=True
+                ),
+            ]
+        )
+        if parsed[7] < 0:
+            raise ObserverValidationError("particle speed must be non-negative")
+        if len(value) == 10:
+            if not isinstance(value[9], bool):
+                raise ObserverValidationError(
+                    "frame.payload.params[9] must be a boolean"
+                )
+            parsed.append(value[9])
+        return parsed
     return [
         _json_scalar(item, f"frame.payload.params[{index}]")
         for index, item in enumerate(value)
@@ -305,17 +603,67 @@ def _parse_result(method, value):
         return _parse_hello(value)
     if method in {"player.getPos", "player.setPos"}:
         position = _object(value, "frame.payload.result")
-        _exact_fields(position, {"world", "pos"}, "frame.payload.result")
+        _exact_fields(position, {"dimension", "pos"}, "frame.payload.result")
         return {
-            "world": _required_string(
-                position.get("world"), "frame.payload.result.world"
+            "dimension": _dimension_key(
+                position.get("dimension"), "frame.payload.result.dimension"
             ),
             "pos": _number_tuple(position.get("pos"), "frame.payload.result.pos"),
         }
+    if method in {"player.getPose", "player.setPose"}:
+        pose = _object(value, "frame.payload.result")
+        _exact_fields(
+            pose,
+            {"dimension", "pos", "yaw", "pitch"},
+            "frame.payload.result",
+        )
+        return {
+            "dimension": _dimension_key(
+                pose.get("dimension"), "frame.payload.result.dimension"
+            ),
+            "pos": _number_tuple(pose.get("pos"), "frame.payload.result.pos"),
+            "yaw": _finite_number(pose.get("yaw"), "frame.payload.result.yaw"),
+            "pitch": _finite_number(pose.get("pitch"), "frame.payload.result.pitch"),
+        }
     if method == "world.getBlock":
-        if not isinstance(value, str):
-            raise ObserverValidationError("frame.payload.result must be a string")
+        return _parse_block_value(
+            value, "frame.payload.result", require_namespace=True
+        )
+    if method == "world.getBlocks":
+        if not isinstance(value, list):
+            raise ObserverValidationError(
+                "world.getBlocks success result must be an array"
+            )
+        return [
+            _parse_block_value(
+                item,
+                f"frame.payload.result[{index}]",
+                require_namespace=True,
+            )
+            for index, item in enumerate(value)
+        ]
+    if method == "events.poll":
+        return _parse_event_batch(value)
+    if method in {"build.setDimension", "build.setOrigin"}:
+        return _parse_build_context(value)
+    if method == "world.getHeight":
+        return _integer(value, "frame.payload.result")
+    if method == "world.spawnParticle":
+        return _integer(value, "frame.payload.result", non_negative=True)
+    if method == "world.spawnEntity":
+        if not isinstance(value, str) or re.fullmatch(
+            r"mceh_[A-Za-z0-9_-]{22,}", value
+        ) is None:
+            raise ObserverValidationError(
+                "world.spawnEntity success result must be an entity handle"
+            )
         return value
+    if method in {"world.setBlock", "world.setBlocks", "connection.flush"}:
+        if value is not None:
+            raise ObserverValidationError(
+                f"{method} success result must be null"
+            )
+        return None
     return _json_scalar(value, "frame.payload.result")
 
 
@@ -396,7 +744,7 @@ def validate_snapshot(value):
             f"unsupported observer schema: {snapshot.get('schema')}"
         )
     version = snapshot.get("schema_version")
-    if isinstance(version, bool) or version != OBSERVER_SCHEMA_VERSION:
+    if type(version) is not int or version != OBSERVER_SCHEMA_VERSION:
         raise ObserverValidationError(f"unsupported observer schema version: {version}")
     target = _object(snapshot.get("target"), "target")
     _exact_fields(target, {"id", "display_alias", "source_kind"}, "target")
@@ -455,6 +803,14 @@ def _allowed_tuple(value):
     return items if all(item is not None for item in items) else None
 
 
+def _allowed_integer_tuple(value):
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return None
+    if any(isinstance(item, bool) or not isinstance(item, int) for item in value):
+        return None
+    return list(value)
+
+
 def _allowed_scalar(value):
     if value is None or isinstance(value, (str, bool)):
         return value
@@ -463,6 +819,8 @@ def _allowed_scalar(value):
 
 def _project_hello(value):
     if not isinstance(value, Mapping):
+        return None
+    if "world" in value:
         return None
     protocol = _allowed_string(value.get("protocol"))
     mc_version = _allowed_string(value.get("mc_version"))
@@ -488,12 +846,12 @@ def _project_hello(value):
         "catalog_hash": catalog_hash,
         "world_constants": {"y_sea": y_sea},
     }
-    world = _allowed_string(value.get("world"))
-    origin = _allowed_tuple(value.get("origin"))
-    if world:
-        projected["world"] = world
-    if origin:
-        projected["origin"] = origin
+    dimension = value.get("dimension")
+    origin = _allowed_integer_tuple(value.get("origin"))
+    if not is_dimension_key(dimension) or origin is None:
+        return None
+    projected["dimension"] = dimension
+    projected["origin"] = origin
     permissions = value.get("permissions")
     if isinstance(permissions, Mapping):
         allowed_permissions = {}
@@ -526,12 +884,18 @@ def _project_hello_params(value):
             projected["client"] = projected_client
     build = value.get("build")
     if isinstance(build, Mapping):
+        if "world" in build:
+            return None
         projected_build = {}
-        world = _allowed_string(build.get("world"))
-        origin = _allowed_tuple(build.get("origin"))
-        if world:
-            projected_build["world"] = world
-        if origin:
+        dimension = build.get("dimension")
+        origin = _allowed_integer_tuple(build.get("origin"))
+        if "dimension" in build:
+            if not is_dimension_ref(dimension):
+                return None
+            projected_build["dimension"] = dimension
+        if "origin" in build:
+            if origin is None:
+                return None
             projected_build["origin"] = origin
         if projected_build:
             projected["build"] = projected_build
@@ -548,12 +912,60 @@ def _project_array(value):
     return projected
 
 
+def _project_block_value(value, *, require_namespace):
+    try:
+        return _parse_block_value(
+            value, "projected block value", require_namespace=require_namespace
+        )
+    except ObserverValidationError:
+        return None
+
+
+def _project_block_values(value):
+    if not isinstance(value, list):
+        return None
+    projected = [
+        _project_block_value(item, require_namespace=True) for item in value
+    ]
+    return projected if all(item is not None for item in projected) else None
+
+
+def _project_params(method, value):
+    try:
+        return _parse_params(method, value)
+    except ObserverValidationError:
+        return None
+
+
 def _project_position(value):
     if not isinstance(value, Mapping):
         return None
-    world = _allowed_string(value.get("world"))
+    if "world" in value:
+        return None
+    dimension = value.get("dimension")
     pos = _allowed_tuple(value.get("pos"))
-    return {"world": world, "pos": pos} if world and pos else None
+    if not is_dimension_key(dimension) or pos is None:
+        return None
+    return {"dimension": dimension, "pos": pos}
+
+
+def _project_pose(value):
+    if not isinstance(value, Mapping):
+        return None
+    if "world" in value:
+        return None
+    dimension = value.get("dimension")
+    pos = _allowed_tuple(value.get("pos"))
+    yaw = _allowed_number(value.get("yaw"))
+    pitch = _allowed_number(value.get("pitch"))
+    if (
+        not is_dimension_key(dimension)
+        or pos is None
+        or yaw is None
+        or pitch is None
+    ):
+        return None
+    return {"dimension": dimension, "pos": pos, "yaw": yaw, "pitch": pitch}
 
 
 def _project_error(value):
@@ -571,9 +983,15 @@ def _project_error(value):
     projected = {"code": code, "message": message}
     if isinstance(data, Mapping):
         projected_data = {}
-        for key in ("reason", "ref"):
+        for key in ("reason", "block_id", "property"):
             if isinstance(data.get(key), str):
                 projected_data[key] = data[key]
+        if is_dimension_ref(data.get("dimension")):
+            projected_data["dimension"] = data["dimension"]
+        if data.get("value") is not None:
+            value = _allowed_scalar(data["value"])
+            if value is not None:
+                projected_data["value"] = value
         allowed = data.get("allowed")
         if isinstance(allowed, list):
             projected_allowed = [_allowed_scalar(item) for item in allowed]
@@ -699,7 +1117,7 @@ class PythonObserverSource:
         if method == "hello":
             allowed = _project_hello_params(params)
         else:
-            allowed = _project_array(params)
+            allowed = _project_params(method, params)
         if allowed is None:
             return
         frame = self._next_frame("send", request_id, method, {"params": allowed})
@@ -714,8 +1132,34 @@ class PythonObserverSource:
             allowed = _project_hello(result)
         elif method in {"player.getPos", "player.setPos"}:
             allowed = _project_position(result)
+        elif method in {"player.getPose", "player.setPose"}:
+            allowed = _project_pose(result)
         elif method == "world.getBlock":
-            allowed = result if isinstance(result, str) else None
+            allowed = _project_block_value(result, require_namespace=True)
+        elif method == "world.getBlocks":
+            allowed = _project_block_values(result)
+        elif method == "events.poll":
+            try:
+                allowed = _parse_event_batch(result)
+            except ObserverValidationError:
+                allowed = None
+        elif method in {"build.setDimension", "build.setOrigin"}:
+            try:
+                allowed = _parse_build_context(result)
+            except ObserverValidationError:
+                allowed = None
+        elif method in {
+            "world.getHeight",
+            "world.spawnParticle",
+            "world.spawnEntity",
+        }:
+            try:
+                allowed = _parse_result(method, result)
+            except ObserverValidationError:
+                allowed = None
+        elif method in {"world.setBlock", "world.setBlocks", "connection.flush"}:
+            allowed = None
+            valid_null = result is None
         else:
             allowed = _allowed_scalar(result)
             valid_null = result is None

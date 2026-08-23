@@ -1,0 +1,14 @@
+{
+  "knowledge_commit": "c9cf761453d67d120ec54a1b246e8f5e80a6160c",
+  "decision_id": "2026-08-21-02",
+  "observer_schema_version": 1,
+  "compatibility_set_revision": "v1.1",
+  "compact_jsonrpc_response_max_bytes": 61440,
+  "observer_session_frame_max_bytes": 65536,
+  "message_pattern": {
+    "unit_code_points": [34, 92, 10],
+    "minimum_repetitions": 10000
+  },
+  "projected_frames": ["events.poll request", "events.poll response"],
+  "status": "b5-boundary-fixture"
+}

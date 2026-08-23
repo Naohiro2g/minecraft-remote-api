@@ -16,12 +16,12 @@ import mc_remote.wirescope as wirescope_mod
 FIXTURE = Path(__file__).parent / "fixtures" / "python-wirescope-local.json"
 
 HELLO = {
-    "protocol": "21.0.0",
+    "protocol": "22.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
     "world_constants": {"y_sea": 62},
-    "world": "overworld",
+    "dimension": "minecraft:overworld",
     "origin": [200, 0, 200],
     "permissions": {"online": True, "offline": False, "buildRange": 100},
 }
@@ -168,12 +168,14 @@ def test_pipeline_retains_only_hello_before_attach_and_coalesces_snapshots():
         alias_factory=lambda: "MIND-STORM-000027",
     )
     try:
-        observer.observe_request("hello", {"protocol": "21.0.0"}, 1)
+        observer.observe_request("hello", {"protocol": "22.0.0"}, 1)
         observer.observe_result("hello", HELLO, 1)
         wait_for(lambda: pipeline.attach_code)
         assert rendered == ["0000-0001"]
 
-        observer.observe_request("world.setBlock", [1, 2, 3, "stone"], 2)
+        observer.observe_request(
+            "world.setBlock", [1, 2, 3, {"block_id": "stone", "state": {}}], 2
+        )
         observer.observe_result("world.setBlock", None, 2)
         assert pipeline.attach("0000-0001") == "redeemed"
         first = wait_for(pipeline.take_snapshot)
@@ -182,13 +184,17 @@ def test_pipeline_retains_only_hello_before_attach_and_coalesces_snapshots():
             "hello",
         ]
 
-        observer.observe_request("build.setWorld", ["nether"], 3)
-        observer.observe_result("build.setWorld", None, 3)
+        observer.observe_request("build.setDimension", ["the_nether"], 3)
+        observer.observe_result(
+            "build.setDimension",
+            {"dimension": "minecraft:the_nether", "origin": [200, 0, 200]},
+            3,
+        )
         latest = wait_for(pipeline.take_snapshot)
         frames = latest[0]["streams"][0]["frames"]
         assert [frame["method"] for frame in frames][-2:] == [
-            "build.setWorld",
-            "build.setWorld",
+            "build.setDimension",
+            "build.setDimension",
         ]
         assert latest[1]["dropped_frames"] == 1
         observer.connection_closed()

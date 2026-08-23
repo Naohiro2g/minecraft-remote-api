@@ -4,7 +4,7 @@
 
 ## Python Client/API package for Minecraft Remote
 
-Write Python code to build automatically in the latest Minecraft world. This repository is dedicated to API development. For the current b3 learning path, start with the tracked [`starter/`](starter/) directory.
+Write Python code to build automatically in the latest Minecraft world. This repository is dedicated to API development. For the current beta learning path, start with the tracked [`starter/`](starter/) directory.
 
 Regarding the Minecraft Remote project, please refer to the section below, or visit the [project homepage at mc-remote.com](https://mc-remote.com).
 
@@ -12,7 +12,7 @@ Regarding the Minecraft Remote project, please refer to the section below, or vi
 
 ## マイクラリモコンのためのPythonクライアント/APIパッケージ
 
-Pythonコードを使って最新のマインクラフトの世界で自動建築が可能になります。このリポジトリはAPI開発用です。現行b3の学習導線は、Git管理された [`starter/`](starter/) ディレクトリから始めます。
+Pythonコードを使って最新のマインクラフトの世界で自動建築が可能になります。このリポジトリはAPI開発用です。現行betaの学習導線は、Git管理された [`starter/`](starter/) ディレクトリから始めます。
 
 Minecraft Remoteプロジェクトについては、以下のセクションをご覧いただくか、[mc-remote.comのプロジェクトホームページ](https://mc-remote.com)をご覧ください。
 
@@ -24,7 +24,7 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）:
   - stable（PyPI）: `2000.0.0` — protocol 20.0.0
-  - beta（GitHub pre-release タグのみ・PyPI 非公開）: `2100.0.0b3` — protocol 21.0.0 b3（下記 Migration Guide 参照）
+  - beta実装（未release承認）: `2200.0.0b5` — protocol 22.0.0 b5
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: Python codeは`MIT`、同梱WireScope appは`AGPL-3.0-only`
@@ -40,7 +40,7 @@ detached ZIP／manifest pairとして同梱します。このcomponentは
 配布物に含めます。Python client codeは引き続きMITです。
 
 - WireScope corresponding source:
-  <https://github.com/Naohiro2g/scratch-editor/tree/3bdcfef6268dee65c6967e27155d2daa17378cd5/mc-remote/live>
+  <https://github.com/Naohiro2g/scratch-editor/tree/1a11c46bac5696afd3f494caac56ae682ed00fb0/mc-remote/live>
 
 --
 
@@ -148,11 +148,181 @@ Manual helper scripts live in `scripts/` and are run from the repo root with `uv
 
 ***
 
-## Migration Guide: `setPlayer` → `setWorld` / `setBuildOrigin` (Draft) / 移行ガイド（ドラフト）
+## What's new in b5: structured block values / b5の新機能: 構造化block value
 
-> ⚠️ **Draft / ドラフト.** Targets protocol **21.0.0** (`2100.0.0b3`, beta). This is a **breaking change**: `setPlayer` is removed and a matching `McRemote` plugin build is required. `2100.0.0b3` is published as a **GitHub pre-release tag only (not on PyPI)**.
+Protocol 22 replaces the combined block-state string with separate `block_id`
+and `state` values. Vanilla IDs may omit `minecraft:` on set; state mappings may
+be partial. The plugin fills omitted properties from Minecraft defaults.
+`getBlock()` returns one fully qualified, full-state immutable `BlockValue`;
+`getBlocks()` returns an immutable tuple of those values.
+
+protocol 22では、block IDとstateを一体化した文字列を、`block_id`と`state`へ
+分離します。set入力のvanilla IDは`minecraft:`を省略でき、state mappingは部分指定
+できます。省略propertyはpluginがMinecraft既定値で補います。`getBlock()`は完全修飾IDと
+full stateを持つimmutableな`BlockValue`を一つ返し、`getBlocks()`はそのimmutableな
+tupleを返します。
+
+```python
+mc.setBlock(1, 2, 3, "oak_log", state={"axis": "z"})
+
+value = mc.getBlock(1, 2, 3)
+print(value.block_id)
+print(value.state["axis"])
+
+values = mc.getBlocks(0, 0, 0, 2, 2, 2)
+print(values[0].block_id)
+```
+
+Protocol 22 identifies every build, player, and event space with a Minecraft
+DimensionKey. `setDimension()` accepts a fully qualified `namespace:path`, or a
+path with the `minecraft:` namespace omitted. Server results are always fully
+qualified. The client updates its connection-scoped build context only from an
+authenticated hello or a successful build setter result; it never caches the
+setter input as the current dimension.
+
+protocol 22では、build／player／eventの空間identityをMinecraft DimensionKeyへ
+統一します。`setDimension()`は完全修飾`namespace:path`、または`minecraft:`だけを
+省略したpathを受理します。server出力は常に完全修飾形です。clientは認証済みhelloか
+成功したbuild setter resultからだけconnection単位のbuild contextを更新し、setterの
+入力値を現在dimensionとして直接保存しません。
+
+```python
+context = mc.setDimension("overworld")
+assert context["dimension"] == "minecraft:overworld"
+
+custom = mc.setDimension("myworld:world")
+assert custom["dimension"] == "myworld:world"
+
+context = mc.setBuildOrigin(200, 0, 200)
+print(context["dimension"], context["origin"])
+```
+
+`world`, `normal`, `nether`, and `end` are not aliases. No `setWorld()` wrapper
+or `world`/`dimension` union is provided in protocol 22. The `world.*` method
+namespace remains unchanged because it names operations on the Minecraft
+world, not the dimension identity field.
+
+`world`／`normal`／`nether`／`end`はaliasではありません。protocol 22には
+`setWorld()` wrapperも`world`／`dimension` unionもありません。`world.*` method
+namespaceはMinecraft worldへの操作を表すため、そのまま維持します。
+
+`setBlock()` and `setBlocks()` are commands and always return `None`. Choose
+how the same setters run with a connection-scoped build mode: `DEBUG` waits for
+the server response, `TRACE` additionally pauses the calling thread after each
+successful setter, and `FAST` sends id-less notifications. The library default
+is `DEBUG`; the default TRACE delay is 0.25 seconds. TRACE accepts 0 through
+2.0 seconds inclusive and rejects values outside that range instead of
+clamping them.
+
+`setBlock()`と`setBlocks()`はcommandで、常に`None`を返します。同じsetterの
+実行方法はconnection単位のbuild modeで切り替えます。`DEBUG`はserver responseを
+待ち、`TRACE`は成功後に呼出元threadだけを待機させ、`FAST`はidなしnotificationを
+送ります。library既定は`DEBUG`、TRACEの既定delayは0.25秒です。TRACE delayは
+0〜2.0秒を両端込みで受理し、範囲外をclampせず拒否します。
+
+```python
+from mc_remote.minecraft import BuildMode, Minecraft
+
+mc = Minecraft.create(
+    address="localhost",
+    port=25575,
+    build_mode=BuildMode.TRACE,
+    trace_delay=0.25,
+)
+
+mc.setBuildMode(BuildMode.FAST)  # earlier commands are flushed first
+mc.setBlock(0, 0, 0, "stone")
+mc.flush()                       # explicit connection.flush barrier
+mc.close()                       # pending FAST commands are auto-flushed
+```
+
+`flush()` proves that preceding commands on this connection reached a terminal
+server outcome; it does not recover individual notification errors or wait for
+Minecraft client rendering. Mode changes and normal close also use this
+barrier. FAST uses a bounded FIFO and applies backpressure instead of dropping
+commands. A request timeout leaves completion unknown: the client does not
+retry the operation, rejects a pending mode change, and reclaims the connection.
+
+`flush()`は同じconnection上の先行commandがserver側の終端へ到達したことを保証します。
+notification個別のerror復元やMinecraft client側の描画完了までは保証しません。mode切替と
+正常closeもこのbarrierを使います。FASTは有限FIFOを使い、commandを捨てずに
+backpressureを適用します。request timeout時は完了不明であり、自動retryせず、保留中の
+mode変更を成立させずにconnectionを回収します。
+
+The rest of the b5 world/event slice is projected without changing positional
+precision. Block coordinates (including `getHeight`) must be integral and a
+fractional value is rejected rather than floored. Player, particle, entity,
+and projectile positions remain continuous values.
+
+b5のworld／event sliceも座標精度を変えずに投影します。block座標（`getHeight`を含む）
+はinteger必須で、小数はfloorせず拒否します。player／particle／entity／projectile位置は
+連続値のままです。
+
+```python
+height = mc.getHeight(0, 0, 100)
+accepted = mc.spawnParticle(
+    0.25, height + 1.5, 0.75,
+    0.1, 0.2, 0.1,
+    "minecraft:flame", 0.0, 8,
+)
+handle = mc.spawnEntity(2.25, height + 1, 2.75, "minecraft:pig")
+events = mc.pollEvents()  # server selects its current default
+small_batch = mc.pollEvents(max_events=16)  # client-requested upper bound
+for event in events.events:
+    mc.assertEventContext(event)
+print(events.events, events.loss_totals)
+```
+
+`pollEvents()` owns one cursor per connection and advances it only after a
+complete valid response. Its immutable `EventBatch` exposes overflow,
+capacity, and explicit-discard totals. Entity handles are opaque strings scoped
+to the connection epoch; the client does not parse them as UUIDs or retry a
+lost `spawnEntity` response.
+
+`pollEvents()`はconnectionごとにcursorを一つ持ち、完全で妥当なresponseを受理した後だけ
+進めます。immutableな`EventBatch`からoverflow／capacity／明示破棄の累積値を確認できます。
+entity handleはconnection epoch限定のopaque stringであり、UUIDとして解析せず、responseを
+失った`spawnEntity`を自動再送しません。
+
+Events keep the fully qualified dimension and origin captured when they occurred. Call
+`assertEventContext(event)` immediately before using an event position in a
+`world.*` method. A mismatch raises `EventContextMismatchError` and never
+changes the build dimension/origin implicitly.
+
+eventは発生時の完全修飾dimension／originを保持します。event位置を`world.*`へ渡す直前に
+`assertEventContext(event)`を呼びます。不一致時は`EventContextMismatchError`となり、
+build dimension／originを暗黙変更しません。
+
+The live catalog projection now publishes `mc_constants.py`,
+`mc_constants.pyi`, and their manifest as one disposable set. Generated block
+constants carry per-block `TypedDict`/`Literal` types for editor completion.
+The generated `block_state` builder is the explicit completion path when an
+editor does not offer keys reliably inside an inline mapping.
+
+live catalog projectionは`mc_constants.py`、`mc_constants.pyi`、manifestを一組の
+一時生成物として公開します。block定数にはblockごとの`TypedDict`／`Literal`型が
+付きます。inline mapping内でエディタがkey候補を安定表示しない場合は、生成された
+`block_state` builderを明示的な補完経路として使えます。
+
+```python
+from mc_constants import block, block_state
+
+mc.setBlock(1, 2, 3, block.OAK_LOG, state={"axis": "z"})
+mc.setBlock(4, 2, 3, block.OAK_LOG, state=block_state.OAK_LOG(axis="z"))
+```
+
+There is no protocol 21 union input, auto-detection, or permanent `block_ref`
+compatibility helper. / protocol 21とのunion入力、自動判定、恒久的な`block_ref`
+互換helperは設けません。
+
+***
+
+## Historical b4 migration: `setPlayer` → `setWorld` / `setBuildOrigin`
+
+> **Historical protocol 21/b4 note.** This section records the earlier
+> `setPlayer` migration; it is not the active b5 implementation plan.
 >
-> protocol **21.0.0**（`2100.0.0b3`・ベータ）向け。`setPlayer` を削除する**非互換変更**で、対応する `McRemote` プラグインが必要です。`2100.0.0b3` は **GitHub の pre-release タグのみで配布（PyPI には出しません）**。
+> **protocol 21/b4の履歴。** この節は過去の`setPlayer`移行記録であり、b5のactive計画ではありません。
 
 ### What changed / 変更点
 
@@ -160,7 +330,7 @@ Build state (world + origin) is now **separate from player identity** and **scop
 
 建築状態（ワールド＋原点）が**プレイヤーの識別情報から分離**され、**接続（ストリーム）ごと**に保持されるようになりました。`setPlayer(name, x, y, z)` の1メソッドが、2つのメソッドに置き換わります。
 
-| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b3`) |
+| Old (protocol ≤ 20.0.0 / `2000.0.0`) | New (protocol 21.0.0 / `2100.0.0b4`) |
 | --- | --- |
 | `mc.setPlayer(PLAYER_NAME, x, y, z)` | `mc.setWorld("overworld")` then `mc.setBuildOrigin(x, y, z)` |
 
@@ -173,6 +343,8 @@ Build state (world + origin) is now **separate from player identity** and **scop
 - b2 では `hello` に token 認証が加わりました。`Minecraft.create(...)` 実行後、表示された `/mcremote pair NNN-NNN` を Minecraft 側で実行します。保存 token は `token_key` または `address:port` で管理されます。互換用の `sandbox` 引数はローカル token-store alias のみで、`hello.params` には送信されません。
 - `getPos()` / `setPos(world, x, y, z)` operate on the paired player. Positions are relative to this stream's build origin, and `setPos` takes an explicit target world.
 - `getPos()` / `setPos(world, x, y, z)` はペアリング済みプレイヤーを対象にします。座標はこの stream の build origin 相対で、`setPos` は移動先 world を明示します。
+- `getPose()` / `setPose(world, x, y, z, yaw, pitch)` add orientation while keeping the same paired-player and stream-origin model. `setPose` preserves fractional values and returns the server-normalized pose.
+- `getPose()` / `setPose(world, x, y, z, yaw, pitch)` は同じpaired player／stream originモデルに向きを加えます。`setPose`は小数値を保持し、serverで正規化されたposeを返します。
 
 ### Error handling / エラー処理
 
@@ -209,22 +381,48 @@ mc.setBuildOrigin(ORIGIN.x, ORIGIN.y, ORIGIN.z)
 
 ### Installing the beta / ベータの導入
 
-`2100.0.0b3` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag.
+`2100.0.0b4` is **not** on PyPI, so a plain `pip install` / `uv add` keeps the current stable line. Testers install the exact beta from its GitHub tag.
 
-`2100.0.0b3` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します。
+`2100.0.0b4` は PyPI に出さないため、素の `pip install` / `uv add` では従来の安定版のままです。テスターは GitHub タグから対象ベータを明示指定で導入します。
 
 ```bash
 # exact-pin from the GitHub tag / GitHub タグを明示指定
-uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2100.0.0b3"
+uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2100.0.0b4"
+```
+
+***
+
+## What's new in b4: paired-player pose / b4 の新機能: paired player のpose
+
+`2100.0.0b4` adds `getPose()` and `setPose(world, x, y, z, yaw, pitch)`. The returned shape is `{"world": ..., "pos": [x, y, z], "yaw": ..., "pitch": ...}`. Position remains relative to the stream origin; `setPose` applies position and orientation in one server-side teleport. Yaw accepts any finite value and is returned normalized by Minecraft. Pitch accepts `-90..90`.
+
+`2100.0.0b4` では `getPose()` と `setPose(world, x, y, z, yaw, pitch)` を追加します。戻り値は `{"world": ..., "pos": [x, y, z], "yaw": ..., "pitch": ...}` です。位置は従来どおりstream origin相対で、`setPose`は位置と向きをserver側の1回のteleportで一体反映します。yawは任意の有限値を受理してMinecraftの通常表現へ正規化し、pitchは`-90..90`を受理します。
+
+WireScope observes the one main connection created by `Minecraft.create()`.
+The observer schema retains `streams[]` and separates target and stream IDs for
+forward compatibility, but b4 does not create or attach substreams.
+
+WireScopeが観察するのは`Minecraft.create()`で成立したmain connection 1件です。
+observer schemaは前方互換のため`streams[]`とtarget／stream IDの分離を維持しますが、
+b4ではsubstreamを生成・attachしません。
+
+```python
+pose = mc.getPose()
+mc.setPose(
+    pose["world"],
+    *pose["pos"],
+    pose["yaw"] + 90,
+    pose["pitch"],
+)
 ```
 
 ***
 
 ## What's new in b3: the live block/entity/particle catalog / b3 の新機能: 生きたカタログ
 
-`2100.0.0b3` adds `catalog.get` (wire §7.2.1). After an authenticated `hello`, `Minecraft.create()` acquires the connected server's live block/entity/particle registry, verifies it against the advertised and recomputed `catalogHash`, and stores the validated raw catalog in the user cache. It then publishes two disposable completion artifacts in the current working directory: `mc_constants.py` and `mc_constants.manifest.json`.
+`2100.0.0b3` added `catalog.get` (wire §7.2.1). After an authenticated `hello`, `Minecraft.create()` acquires the connected server's live block/entity/particle registry, verifies it against the advertised and recomputed `catalogHash`, and stores the validated raw catalog in the user cache. In b5 it publishes three disposable completion artifacts in the current working directory: `mc_constants.py`, `mc_constants.pyi`, and `mc_constants.manifest.json`.
 
-`2100.0.0b3` で `catalog.get`（wire §7.2.1）が加わりました。認証済み `hello` の後、`Minecraft.create()` が接続先サーバーの生きたブロック／エンティティ／パーティクル registry を取得し、hello が示した `catalogHash` と再計算した hash の両方で検証して、ユーザーcacheへ保存します。その後、現在の作業ディレクトリへ補完用の一時生成物 `mc_constants.py` と `mc_constants.manifest.json` を公開します。
+`2100.0.0b3` で `catalog.get`（wire §7.2.1）が加わりました。認証済み `hello` の後、`Minecraft.create()` が接続先サーバーの生きたブロック／エンティティ／パーティクル registry を取得し、hello が示した `catalogHash` と再計算した hash の両方で検証して、ユーザーcacheへ保存します。b5では現在の作業ディレクトリへ補完用の一時生成物 `mc_constants.py`、`mc_constants.pyi`、`mc_constants.manifest.json` を公開します。
 
 Outside the tracked starter, initialize the ignore rules once for each Git-managed project. This command only updates `.gitignore` for `param_mc_remote.py` and the projection files; it does not create the template, connect, or generate a projection. / tracked starter以外のGit管理projectでは、projectごとにignore規則を一度用意します。このコマンドは `param_mc_remote.py` とprojection生成物のために `.gitignore` を更新するだけで、template作成・接続・projection生成は行いません。
 
@@ -255,7 +453,7 @@ mc.setBlock(6, world_info.Y_SEA + 5, 5, block.GOLD_BLOCK)
 
 - A cache miss is fetched on a separate short-lived authenticated stream. Catalog or projection failure produces an actionable warning, but `Minecraft.create()` still returns the connected build client. Fix the reported stage and retry with `mc.sync_constants(force=True)`. / cache missの取得には、建築用とは別の短命な認証済みstreamを使います。catalogまたはprojectionが失敗してもactionable warningとなり、`Minecraft.create()` は接続済み建築clientを返します。表示された段階を直し、`mc.sync_constants(force=True)` で再試行できます。
 - Pass `sync_catalog=False` to `Minecraft.create(...)` to skip catalog cache/projection work. / catalogのcache／projection処理を省く場合は `Minecraft.create(..., sync_catalog=False)` を指定します。
-- `mc_remote.catalog.block_ref(name, **state)` builds a `block_state_ref` string client-side, e.g. `block_ref("oak_log", axis="y")` → `"minecraft:oak_log[axis=y]"`; the server tolerates a missing namespace and partial state, so this is convenience only, not a wire requirement. / `mc_remote.catalog.block_ref(name, **state)` は client 側で `block_state_ref` 文字列を組み立てる便利関数です（サーバーは namespace 省略・state 部分指定を許容するため、これは書きやすさのためだけの補助です）。
+- Use `state={...}` directly, or generated `block_state.<BLOCK>(...)` when explicit key/value completion is useful. Both paths send the same structured mapping. / `state={...}`を直接使うか、key／value補完を明示したい場合は生成された`block_state.<BLOCK>(...)`を使います。どちらも同じ構造化mappingを送信します。
 - The projection is neither bundled nor committed. Even when the raw catalog is already cached, a fresh clone receives no completion files until its own authenticated `hello` succeeds. In a Git project whose projection files are not ignored, generation is refused and `mcremote init` is suggested. / projectionは同梱もcommitもしません。生catalogがcache済みでも、fresh cloneではその環境自身の認証済み `hello` が成功するまで補完ファイルは現れません。Git管理下で生成物がignoreされていない場合は生成せず、`mcremote init` を案内します。
 
 ***

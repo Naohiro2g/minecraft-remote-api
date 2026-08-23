@@ -20,11 +20,14 @@ import mc_remote.wirescope as wirescope
 
 
 SOURCE_COMMIT = "192d1e3ccd213fb5012b92655e51b779270e15be"
+BUNDLED_APP_SOURCE_COMMIT = "1a11c46bac5696afd3f494caac56ae682ed00fb0"
 HELLO = {
-    "protocol": "21.0.0",
+    "protocol": "22.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
+    "dimension": "minecraft:overworld",
+    "origin": [200, 0, 200],
     "world_constants": {"y_sea": 62},
 }
 ALIASES = itertools.count(1)
@@ -132,7 +135,7 @@ def activate(runtime):
         target_id_factory=lambda: "target-python-test",
         alias_factory=lambda: alias,
     )
-    source.observe_request("hello", {"protocol": "21.0.0"}, 1)
+    source.observe_request("hello", {"protocol": "22.0.0"}, 1)
     source.observe_result("hello", HELLO, 1)
     wait_for(lambda: runtime.pipeline.station_ready)
     return source
@@ -188,6 +191,14 @@ def test_bundled_delivery_pair_matches_build_input_and_component_files():
     assert manifest.stat().st_size == app_module.BUNDLED_MANIFEST_BYTES
     assert sha256(archive.read_bytes()) == app_module.BUNDLED_ARCHIVE_SHA256
     assert sha256(manifest.read_bytes()) == app_module.BUNDLED_MANIFEST_SHA256
+    manifest_document = json.loads(manifest.read_text(encoding="utf-8"))
+    assert manifest_document["source"]["commit"] == BUNDLED_APP_SOURCE_COMMIT
+    assert manifest_document["protocols"] == {
+        "observer_schema": {"name": "mcremote.observer", "version": 1},
+        "observer_session": 1,
+        "scratch_handoff": 1,
+        "station_attach": 1,
+    }
     with zipfile.ZipFile(archive) as bundled:
         assert bundled.read("LICENSE") == (
             Path("LICENSES/AGPL-3.0-only.txt").read_bytes()
@@ -195,6 +206,20 @@ def test_bundled_delivery_pair_matches_build_input_and_component_files():
         assert bundled.read("NOTICE") == (
             Path("LICENSES/WireScope-NOTICE.txt").read_bytes()
         )
+        app_scripts = [
+            name
+            for name in bundled.namelist()
+            if name.startswith("assets/") and name.endswith(".js")
+        ]
+        assert len(app_scripts) == 1
+        app_script = bundled.read(app_scripts[0])
+        assert b"player.getPose" in app_script
+        assert b"player.setPose" in app_script
+        assert b"events.poll" in app_script
+        assert b"world.getHeight" in app_script
+        assert b"world.spawnParticle" in app_script
+        assert b"world.spawnEntity" in app_script
+        assert b"connection.flush" in app_script
 
 
 def test_bootstrap_and_assets_require_exact_authority_and_leak_no_secret():

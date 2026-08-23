@@ -131,7 +131,7 @@ HELLO_OK = {
     "world_constants": {"y_sea": 63},
     "session": "sess-1",
     "player": "00000000-0000-0000-0000-000000000001",
-    "world": "overworld",
+    "dimension": "minecraft:overworld",
     "origin": [200, 0, 200],
     "permissions": {"online": True, "offline": False, "buildRange": 1000},
 }
@@ -470,22 +470,24 @@ def test_create_prefers_mcremote_env_over_legacy_jrp_env():
         ], fake.calls
 
 
-# 11a. player.getPos returns the paired player's world and origin-relative pos
+# 11a. player.getPos returns the paired player's dimension and origin-relative pos
 def test_getpos_wire_shape():
-    result = {"world": "overworld", "pos": [5, 64, -3]}
+    result = {"dimension": "minecraft:overworld", "pos": [5, 64, -3]}
     fake = FakeConn({"player.getPos": result})
     mc = Minecraft(fake)
     assert mc.getPos() == result
     assert fake.calls == [("player.getPos", [])], fake.calls
 
 
-# 11b. player.setPos uses explicit world + origin-relative integer coords
+# 11b. player.setPos preserves DimensionRef + continuous relative coordinates
 def test_setpos_wire_shape():
-    result = {"world": "the_end", "pos": [1, 2, 3]}
+    result = {"dimension": "myworld:world", "pos": [1, 2, 3]}
     fake = FakeConn({"player.setPos": result})
     mc = Minecraft(fake)
-    assert mc.setPos("the_end", 1.9, 2.1, 3.0) == result
-    assert fake.calls == [("player.setPos", ["the_end", 1, 2, 3])], fake.calls
+    assert mc.setPos("myworld:world", 1.9, 2.1, 3.0) == result
+    assert fake.calls == [
+        ("player.setPos", ["myworld:world", 1.9, 2.1, 3.0])
+    ], fake.calls
 
 
 # 11c. authorization errors from player helpers propagate as permission_denied

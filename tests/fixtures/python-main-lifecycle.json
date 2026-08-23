@@ -14,14 +14,26 @@
         "kind": "main",
         "status": "connected",
         "hello": {
-          "protocol": "21.0.0",
+          "protocol": "22.0.0",
           "mc_version": "1.21.11",
-          "supported_mc_versions": ["1.21.11"],
+          "supported_mc_versions": [
+            "1.21.11"
+          ],
           "catalog_hash": null,
-          "world": "overworld",
-          "origin": [200, 0, 200],
-          "world_constants": {"y_sea": 62},
-          "permissions": {"online": true, "offline": false, "build_range": 100}
+          "dimension": "minecraft:overworld",
+          "origin": [
+            200,
+            0,
+            200
+          ],
+          "world_constants": {
+            "y_sea": 62
+          },
+          "permissions": {
+            "online": true,
+            "offline": false,
+            "build_range": 100
+          }
         },
         "frames": []
       }
@@ -42,14 +54,26 @@
         "kind": "main",
         "status": "connected",
         "hello": {
-          "protocol": "21.0.0",
+          "protocol": "22.0.0",
           "mc_version": "1.21.11",
-          "supported_mc_versions": ["1.21.11"],
+          "supported_mc_versions": [
+            "1.21.11"
+          ],
           "catalog_hash": null,
-          "world": "overworld",
-          "origin": [200, 0, 200],
-          "world_constants": {"y_sea": 62},
-          "permissions": {"online": true, "offline": false, "build_range": 100}
+          "dimension": "minecraft:overworld",
+          "origin": [
+            200,
+            0,
+            200
+          ],
+          "world_constants": {
+            "y_sea": 62
+          },
+          "permissions": {
+            "online": true,
+            "offline": false,
+            "build_range": 100
+          }
         },
         "frames": [
           {
@@ -57,8 +81,190 @@
             "observed_at": 1786118400100,
             "direction": "send",
             "request_id": 2,
-            "method": "build.setWorld",
-            "payload": {"params": ["nether"]}
+            "method": "build.setDimension",
+            "payload": {
+              "params": [
+                "the_nether"
+              ]
+            }
+          },
+          {
+            "sequence": 4,
+            "observed_at": 1786118400101,
+            "direction": "receive",
+            "request_id": 2,
+            "method": "build.setDimension",
+            "payload": {
+              "result": {
+                "dimension": "minecraft:the_nether",
+                "origin": [
+                  200,
+                  0,
+                  200
+                ]
+              }
+            }
+          },
+          {
+            "sequence": 5,
+            "observed_at": 1786118400102,
+            "direction": "send",
+            "request_id": null,
+            "method": "world.setBlock",
+            "payload": {
+              "params": [
+                0,
+                1,
+                2,
+                {
+                  "block_id": "minecraft:oak_log",
+                  "state": {
+                    "axis": "z"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "sequence": 6,
+            "observed_at": 1786118400103,
+            "direction": "send",
+            "request_id": 3,
+            "method": "connection.flush",
+            "payload": {
+              "params": []
+            }
+          },
+          {
+            "sequence": 7,
+            "observed_at": 1786118400104,
+            "direction": "receive",
+            "request_id": 3,
+            "method": "connection.flush",
+            "payload": {
+              "result": null
+            }
+          },
+          {
+            "sequence": 8,
+            "observed_at": 1786118400105,
+            "direction": "send",
+            "request_id": 4,
+            "method": "world.getHeight",
+            "payload": {
+              "params": [
+                0,
+                2,
+                90
+              ]
+            }
+          },
+          {
+            "sequence": 9,
+            "observed_at": 1786118400106,
+            "direction": "receive",
+            "request_id": 4,
+            "method": "world.getHeight",
+            "payload": {
+              "result": 71
+            }
+          },
+          {
+            "sequence": 10,
+            "observed_at": 1786118400107,
+            "direction": "send",
+            "request_id": 5,
+            "method": "world.spawnParticle",
+            "payload": {
+              "params": [
+                0.25,
+                70.5,
+                2.75,
+                0.1,
+                0.2,
+                0.3,
+                "minecraft:flame",
+                0.0,
+                8
+              ]
+            }
+          },
+          {
+            "sequence": 11,
+            "observed_at": 1786118400108,
+            "direction": "receive",
+            "request_id": 5,
+            "method": "world.spawnParticle",
+            "payload": {
+              "result": 8
+            }
+          },
+          {
+            "sequence": 12,
+            "observed_at": 1786118400109,
+            "direction": "send",
+            "request_id": 6,
+            "method": "world.spawnEntity",
+            "payload": {
+              "params": [
+                0.25,
+                71.0,
+                2.75,
+                "minecraft:pig"
+              ]
+            }
+          },
+          {
+            "sequence": 13,
+            "observed_at": 1786118400110,
+            "direction": "receive",
+            "request_id": 6,
+            "method": "world.spawnEntity",
+            "payload": {
+              "result": "mceh_AAAAAAAAAAAAAAAAAAAAAA"
+            }
+          },
+          {
+            "sequence": 14,
+            "observed_at": 1786118400111,
+            "direction": "send",
+            "request_id": 7,
+            "method": "events.poll",
+            "payload": {
+              "params": [
+                0
+              ]
+            }
+          },
+          {
+            "sequence": 15,
+            "observed_at": 1786118400112,
+            "direction": "receive",
+            "request_id": 7,
+            "method": "events.poll",
+            "payload": {
+              "result": {
+                "events": [
+                  {
+                    "sequence": 1,
+                    "type": "chat_posted",
+                    "dimension": "minecraft:overworld",
+                    "origin": [
+                      200,
+                      0,
+                      200
+                    ],
+                    "message": "hello"
+                  }
+                ],
+                "through_sequence": 1,
+                "latest_sequence": 1,
+                "filtered_out": 0,
+                "overflow_dropped_total": 0,
+                "capacity_dropped_total": 0,
+                "explicitly_discarded_total": 0
+              }
+            }
           }
         ]
       }

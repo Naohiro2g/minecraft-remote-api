@@ -38,10 +38,10 @@ def test_station_fixture_has_fixed_scratch_and_knowledge_provenance():
         "commit": "192d1e3ccd213fb5012b92655e51b779270e15be",
         "path": "mc-remote/live/test/fixtures/station-attach-v1.json",
         "sha256": (
-            "b50ce8e0cb8a6bb06f75d9bdad59b830"
-            "06c92683bd73ced84a18223dde21fa81"
+            "b50ce8e0cb8a6bb06f75d9bdad59b83"
+            "006c92683bd73ced84a18223dde21fa81"
         ),
-        "knowledge_commit": "367e1cf5ee936cf9ffef53fa9a3a910501fb927f",
+        "knowledge_commit": "c9cf761453d67d120ec54a1b246e8f5e80a6160c",
         "decision_id": "2026-08-12-01",
     }
     assert hashlib.sha256(CONTRACT_FIXTURE.read_bytes()).hexdigest() == source[
@@ -117,6 +117,14 @@ def test_ready_and_not_ready_bootstrap_shapes_round_trip_strictly():
         ),
         (
             lambda value: value["observer_schema"].update({"version": True}),
+            "observer schema is unsupported",
+        ),
+        (
+            lambda value: value["observer_schema"].update({"version": 1.1}),
+            "observer schema is unsupported",
+        ),
+        (
+            lambda value: value["observer_schema"].update({"version": 1.0}),
             "observer schema is unsupported",
         ),
     ],

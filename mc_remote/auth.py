@@ -173,7 +173,7 @@ def pair(conn, *, token_type="session", client=None, interval=1.5, stream=None):
     an error). ``pair_expired`` / ``pair_not_found`` surface as
     :class:`McRpcError`; exceeding ``expires_in`` is treated as ``pair_expired``.
 
-    Only the token is returned -- ``player`` / ``permissions`` / ``world`` /
+    Only the token is returned -- ``player`` / ``permissions`` / ``dimension`` /
     ``origin`` come from the subsequent ``hello`` result, the single source
     (§6.2)."""
     if stream is None:

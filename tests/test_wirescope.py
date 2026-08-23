@@ -29,12 +29,12 @@ ALIAS_SOURCE = (
 )
 
 HELLO = {
-    "protocol": "21.0.0",
+    "protocol": "22.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
     "world_constants": {"y_sea": 62, "future_secret": "never-project"},
-    "world": "overworld",
+    "dimension": "minecraft:overworld",
     "origin": [200, 0, 200],
     "session": "internal-session",
     "player": "00000000-0000-0000-0000-000000000001",
@@ -72,7 +72,7 @@ def activate(observer, request_id=1):
     observer.observe_request(
         "hello",
         {
-            "protocol": "21.0.0",
+            "protocol": "22.0.0",
             "auth": {"token": "mcrs_secret"},
             "device_label": "classroom laptop",
         },
@@ -85,10 +85,59 @@ def test_python_lifecycle_fixture_conforms():
     snapshots = json.loads(FIXTURE.read_text(encoding="utf-8"))
     parsed = [validate_snapshot(snapshot) for snapshot in snapshots]
     assert parsed == snapshots
+    assert observer_mod.OBSERVER_SCHEMA_VERSION == 1
+    assert observer_mod.OBSERVER_COMPATIBILITY_SET_REVISION == "v1.1"
+    assert {snapshot["schema_version"] for snapshot in parsed} == {1}
     assert parsed[0]["target"] == parsed[1]["target"]
     assert parsed[0]["streams"][0]["hello"] == parsed[1]["streams"][0]["hello"]
     assert parsed[0]["streams"][0]["frames"] == []
-    assert len(parsed[1]["streams"][0]["frames"]) == 1
+    frames = parsed[1]["streams"][0]["frames"]
+    assert len(frames) == 13
+    observed = [
+        (frame["direction"], frame["request_id"], frame["method"])
+        for frame in frames
+    ]
+    assert observed == [
+        ("send", 2, "build.setDimension"),
+        ("receive", 2, "build.setDimension"),
+        ("send", None, "world.setBlock"),
+        ("send", 3, "connection.flush"),
+        ("receive", 3, "connection.flush"),
+        ("send", 4, "world.getHeight"),
+        ("receive", 4, "world.getHeight"),
+        ("send", 5, "world.spawnParticle"),
+        ("receive", 5, "world.spawnParticle"),
+        ("send", 6, "world.spawnEntity"),
+        ("receive", 6, "world.spawnEntity"),
+        ("send", 7, "events.poll"),
+        ("receive", 7, "events.poll"),
+    ]
+
+
+def test_schema_v1_rejects_non_integer_and_compatibility_wire_versions():
+    observer = source()
+    activate(observer)
+    snapshot = observer.snapshot([], emitted_at=1786118400050)
+    for invalid_version in (True, 1.0, 1.1):
+        snapshot["schema_version"] = invalid_version
+        try:
+            validate_snapshot(snapshot)
+        except ObserverValidationError as exc:
+            assert "unsupported observer schema version" in str(exc)
+        else:
+            raise AssertionError(
+                f"invalid schema version was accepted: {invalid_version!r}"
+            )
+
+
+def test_b5_python_source_emits_exactly_one_main_stream():
+    observer = source()
+    activate(observer)
+
+    snapshot = observer.snapshot([], emitted_at=1786118400050)
+
+    assert [stream["id"] for stream in snapshot["streams"]] == ["main"]
+    assert [stream["kind"] for stream in snapshot["streams"]] == ["main"]
 
 
 def test_default_display_alias_generator_conforms_to_scratch_fixture(monkeypatch):
@@ -207,7 +256,9 @@ def test_error_allowlist_includes_schema_fields_only():
         "outside build range",
         {
             "reason": "build_denied",
-            "ref": "minecraft:stone",
+            "block_id": "minecraft:stone",
+            "property": "axis",
+            "value": "w",
             "allowed": ["overworld", 100, True],
             "bounds": [0, 0, 0, 99, 255, 99],
             "violating": [100, 64, 100],
@@ -219,7 +270,9 @@ def test_error_allowlist_includes_schema_fields_only():
     error_data = snapshot["streams"][0]["frames"][-1]["payload"]["error"]["data"]
     assert error_data == {
         "reason": "build_denied",
-        "ref": "minecraft:stone",
+        "block_id": "minecraft:stone",
+        "property": "axis",
+        "value": "w",
         "allowed": ["overworld", 100, True],
         "bounds": [0, 0, 0, 99, 255, 99],
         "violating": [100, 64, 100],
@@ -227,19 +280,232 @@ def test_error_allowlist_includes_schema_fields_only():
     assert "must-not-project" not in serialize_snapshot(snapshot)
 
 
+def test_protocol22_block_values_remain_structured_and_observable():
+    frames = []
+    observer = source(frames)
+    activate(observer)
+    observer.observe_request(
+        "world.setBlock",
+        [1, 2, 3, {"block_id": "stone", "state": {}}],
+        2,
+    )
+    observer.observe_request(
+        "world.setBlocks",
+        [0, 0, 0, 2, 2, 2, {"block_id": "oak_log", "state": {"axis": "z"}}],
+        3,
+    )
+    observer.observe_result(
+        "world.getBlock",
+        {
+            "block_id": "minecraft:oak_stairs",
+            "state": {"waterlogged": False, "facing": "north"},
+        },
+        4,
+    )
+    payloads = [frame["payload"] for frame in frames[-3:]]
+    assert payloads == [
+        {"params": [1, 2, 3, {"block_id": "stone", "state": {}}]},
+        {
+            "params": [
+                0,
+                0,
+                0,
+                2,
+                2,
+                2,
+                {"block_id": "oak_log", "state": {"axis": "z"}},
+            ]
+        },
+        {
+            "result": {
+                "block_id": "minecraft:oak_stairs",
+                "state": {"facing": "north", "waterlogged": False},
+            }
+        },
+    ]
+
+    before = len(frames)
+    observer.observe_request("world.setBlock", [1, 2, 3, "minecraft:stone"], 5)
+    observer.observe_result("world.getBlock", "minecraft:stone", 6)
+    observer.observe_request(
+        "world.setBlock",
+        [True, 2, 3, {"block_id": "stone", "state": {}}],
+        7,
+    )
+    observer.observe_request(
+        "world.setBlock",
+        [1, 2, 3, {"block_id": "stone", "state": None}],
+        8,
+    )
+    assert len(frames) == before
+
+
+def test_pose_methods_are_observed_with_method_specific_result_shape():
+    frames = []
+    observer = source(frames)
+    activate(observer)
+    observer.observe_request("player.getPose", [], 2)
+    observer.observe_result(
+        "player.getPose",
+        {
+            "dimension": "minecraft:overworld",
+            "pos": [1.25, 64.5, -3.75],
+            "yaw": 90.0,
+            "pitch": -12.5,
+            "player_uuid": "must-not-project",
+        },
+        2,
+    )
+    observer.observe_request(
+        "player.setPose", ["the_end", 2.5, 70.25, 4.75, 725.0, 45.5], 3
+    )
+    observer.observe_result(
+        "player.setPose",
+        {
+            "dimension": "minecraft:the_end",
+            "pos": [2.5, 70.25, 4.75],
+            "yaw": 5.0,
+            "pitch": 45.5,
+        },
+        3,
+    )
+
+    snapshot = observer.snapshot(frames, emitted_at=1786118400250)
+    pose_frames = snapshot["streams"][0]["frames"][-4:]
+    assert [frame["method"] for frame in pose_frames] == [
+        "player.getPose",
+        "player.getPose",
+        "player.setPose",
+        "player.setPose",
+    ]
+    assert pose_frames[1]["payload"]["result"] == {
+        "dimension": "minecraft:overworld",
+        "pos": [1.25, 64.5, -3.75],
+        "yaw": 90.0,
+        "pitch": -12.5,
+    }
+    assert pose_frames[3]["payload"]["result"]["yaw"] == 5.0
+    assert "must-not-project" not in serialize_snapshot(snapshot)
+
+
+def test_pose_observer_drops_non_finite_results_and_projects_failure_reason():
+    frames = []
+    observer = source(frames)
+    activate(observer)
+    before = len(frames)
+    observer.observe_result(
+        "player.getPose",
+        {
+            "dimension": "minecraft:overworld",
+            "pos": [0.0, 64.0, 0.0],
+            "yaw": float("nan"),
+            "pitch": 0.0,
+        },
+        2,
+    )
+    assert len(frames) == before
+
+    observer.observe_error(
+        "player.setPose",
+        McRpcError(-32000, "teleport failed", {"reason": "teleport_failed"}),
+        3,
+    )
+    error = frames[-1]["payload"]["error"]
+    assert error["data"] == {"reason": "teleport_failed"}
+
+
 def test_hello_is_immutable_across_build_state_frames():
     frames = []
     observer = source(frames)
     activate(observer)
-    observer.observe_request("build.setWorld", ["nether"], 2)
-    observer.observe_result("build.setWorld", None, 2)
+    observer.observe_request("build.setDimension", ["the_nether"], 2)
+    observer.observe_result(
+        "build.setDimension",
+        {"dimension": "minecraft:the_nether", "origin": [200, 0, 200]},
+        2,
+    )
     observer.observe_request("build.setOrigin", [10, 20, 30], 3)
-    observer.observe_result("build.setOrigin", None, 3)
+    observer.observe_result(
+        "build.setOrigin",
+        {"dimension": "minecraft:the_nether", "origin": [10, 20, 30]},
+        3,
+    )
     snapshot = observer.snapshot(frames, emitted_at=1786118400300)
     hello = snapshot["streams"][0]["hello"]
-    assert hello["world"] == "overworld"
+    assert hello["dimension"] == "minecraft:overworld"
     assert hello["origin"] == [200, 0, 200]
     assert "current_build_state" not in snapshot["streams"][0]
+
+
+def test_dimension_refs_are_observed_raw_and_server_outputs_require_keys():
+    frames = []
+    observer = source(frames, aliases=["MIND-STORM-000037"])
+    activate(observer)
+
+    observer.observe_request("build.setDimension", ["the_nether"], 2)
+    observer.observe_request("build.setDimension", ["myworld:world"], 3)
+    assert [frame["payload"]["params"] for frame in frames[-2:]] == [
+        ["the_nether"],
+        ["myworld:world"],
+    ]
+
+    before = len(frames)
+    for invalid in (" MINECRAFT:OVERWORLD", "minecraft:", "a:b:c", True):
+        observer.observe_request("build.setDimension", [invalid], 4)
+    assert len(frames) == before
+
+    observer.observe_result(
+        "build.setDimension",
+        {"dimension": "myworld:world", "origin": [200, 0, 200]},
+        5,
+    )
+    assert frames[-1]["payload"]["result"] == {
+        "dimension": "myworld:world",
+        "origin": [200, 0, 200],
+    }
+
+    before = len(frames)
+    for invalid in (
+        {"dimension": "overworld", "origin": [200, 0, 200]},
+        {"world": "world", "origin": [200, 0, 200]},
+        {"dimension": "minecraft:overworld", "origin": [200.0, 0, 200]},
+    ):
+        observer.observe_result("build.setDimension", invalid, 6)
+    observer.observe_result(
+        "player.getPos",
+        {"dimension": "overworld", "pos": [1.0, 2.0, 3.0]},
+        7,
+    )
+    assert len(frames) == before
+
+
+def test_hello_build_origin_rejects_fractional_coordinates():
+    frames = []
+    observer = source(frames, aliases=["MIND-STORM-000038"])
+    observer.observe_request(
+        "hello",
+        {
+            "protocol": "22.0.0",
+            "build": {
+                "dimension": "overworld",
+                "origin": [200.5, 0, 200],
+            },
+        },
+        1,
+    )
+    observer.observe_result("hello", HELLO, 1)
+    assert observer.active
+    assert len(frames) == 1
+    assert frames[0]["direction"] == "receive"
+
+
+def test_legacy_world_identity_does_not_activate_observer():
+    observer = source([], aliases=["MIND-STORM-000039"])
+    legacy = copy.deepcopy(HELLO)
+    legacy["world"] = legacy.pop("dimension")
+    observer.observe_request("hello", {"protocol": "22.0.0"}, 1)
+    observer.observe_result("hello", legacy, 1)
+    assert not observer.active
 
 
 def test_reconnect_creates_a_new_target_and_alias():
@@ -345,9 +611,12 @@ def test_connection_hook_uses_wire_request_ids_and_cannot_break_rpc():
     conn.is_connected = lambda: True
 
     assert conn.rpc(
-        "hello", {"protocol": "21.0.0", "auth": {"token": "mcrs_secret"}}
+        "hello", {"protocol": "22.0.0", "auth": {"token": "mcrs_secret"}}
     ) == HELLO
-    assert conn.rpc("world.setBlock", [1, 2, 3, "minecraft:stone"]) is None
+    assert conn.rpc(
+        "world.setBlock",
+        [1, 2, 3, {"block_id": "minecraft:stone", "state": {}}],
+    ) is None
     assert [frame["request_id"] for frame in frames] == [1, 1, 2, 2]
     assert "mcrs_secret" not in serialize_snapshot(observer.snapshot(frames))
 
@@ -355,9 +624,19 @@ def test_connection_hook_uses_wire_request_ids_and_cannot_break_rpc():
         lambda _frame: (_ for _ in ()).throw(RuntimeError("boom"))
     )
     conn.reader = io.StringIO(
-        json.dumps({"jsonrpc": "2.0", "id": 3, "result": "minecraft:stone"}) + "\n"
+        json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "result": {"block_id": "minecraft:stone", "state": {}},
+            }
+        )
+        + "\n"
     )
-    assert conn.rpc("world.getBlock", [1, 2, 3]) == "minecraft:stone"
+    assert conn.rpc("world.getBlock", [1, 2, 3]) == {
+        "block_id": "minecraft:stone",
+        "state": {},
+    }
     conn.close()
     assert not observer.active
 

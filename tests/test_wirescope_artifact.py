@@ -176,6 +176,12 @@ def test_exact_scratch_manifest_and_all_archive_assets_are_verified():
             "protocols.observer_session is unsupported",
         ),
         (
+            lambda manifest: manifest["protocols"]["observer_schema"].update(
+                {"version": 1.1}
+            ),
+            "protocols.observer_schema.version is unsupported",
+        ),
+        (
             lambda manifest: manifest["source"].update(
                 {"corresponding_source_url": "https://example.invalid/source"}
             ),
