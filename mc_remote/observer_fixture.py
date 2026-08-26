@@ -11,7 +11,7 @@ from .observer import PythonObserverSource
 FIXTURE_TIME = 1786118400000
 
 FIXTURE_HELLO = {
-    "protocol": "22.0.0",
+    "protocol": "23.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
@@ -43,7 +43,7 @@ def build_fixture():
         target_id_factory=lambda: "target-python-01",
         alias_factory=lambda: "MIND-STORM-000027",
     )
-    source.observe_request("hello", {"protocol": "22.0.0"}, 1)
+    source.observe_request("hello", {"protocol": "23.0.0"}, 1)
     source.observe_result("hello", FIXTURE_HELLO, 1)
 
     initial = source.snapshot((), emitted_at=FIXTURE_TIME)
@@ -74,7 +74,7 @@ def build_fixture():
         "world.spawnEntity", [0.25, 71.0, 2.75, "minecraft:pig"], 6
     )
     source.observe_result(
-        "world.spawnEntity", "mceh_AAAAAAAAAAAAAAAAAAAAAA", 6
+        "world.spawnEntity", "mcr_eh_AAAAAAAAAAAAAAAAAAAAAA", 6
     )
     source.observe_request("events.poll", [0], 7)
     source.observe_result(

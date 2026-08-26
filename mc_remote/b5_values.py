@@ -1,4 +1,8 @@
-"""Immutable protocol 22 b5 event and entity-handle projections."""
+"""Immutable protocol 23 b6 event and entity-handle projections.
+
+Carries the protocol 22 b5 entity-handle and events.poll mechanics forward
+unchanged; only the block-right-click event was replaced (DECISIONS
+2026-08-26-06)."""
 
 from __future__ import annotations
 
@@ -13,7 +17,7 @@ from .connection import McRemoteError
 from .dimension import require_dimension_key
 
 
-_HANDLE = re.compile(r"^mceh_[A-Za-z0-9_-]{22,}$")
+_HANDLE = re.compile(r"^mcr_eh_[A-Za-z0-9_-]{22,}$")
 
 
 class EntityHandle(str):
@@ -74,7 +78,7 @@ ProjectileTarget: TypeAlias = BlockTarget | PlayerTarget | EntityTarget
 
 
 @dataclass(frozen=True, slots=True)
-class BlockRightClickEvent:
+class PickaxePokeEvent:
     sequence: int
     dimension: str
     origin: tuple[int, int, int]
@@ -82,7 +86,8 @@ class BlockRightClickEvent:
     face: str
     block: BlockValue
     hand: str
-    type: str = "block_right_click"
+    item: str
+    type: str = "pickaxe_poke"
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,7 +110,7 @@ class ProjectileHitEvent:
     type: str = "projectile_hit"
 
 
-EventValue: TypeAlias = BlockRightClickEvent | ChatPostedEvent | ProjectileHitEvent
+EventValue: TypeAlias = PickaxePokeEvent | ChatPostedEvent | ProjectileHitEvent
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +183,15 @@ def _string(value, where):
     return value
 
 
+_NAMESPACED_KEY = re.compile(r"^[a-z0-9_.-]+:[a-z0-9/._-]+$")
+
+
+def _namespaced_key(value, where):
+    if not isinstance(value, str) or _NAMESPACED_KEY.fullmatch(value) is None:
+        raise McRemoteError(f"{where} must be a fully-qualified namespace:path key")
+    return value
+
+
 def _target(value):
     target = _object(value, "projectile target")
     kind = target.get("kind")
@@ -219,7 +233,7 @@ def decode_event(value) -> EventValue:
         ),
         "origin": _integer_tuple(event.get("origin"), "event.origin"),
     }
-    if event_type == "block_right_click":
+    if event_type == "pickaxe_poke":
         _exact(
             event,
             {
@@ -231,15 +245,17 @@ def decode_event(value) -> EventValue:
                 "face",
                 "block",
                 "hand",
+                "item",
             },
-            "block_right_click event",
+            "pickaxe_poke event",
         )
-        return BlockRightClickEvent(
+        return PickaxePokeEvent(
             **common,
             pos=_integer_tuple(event["pos"], "event.pos"),
             face=_string(event["face"], "event.face"),
             block=decode_block_value(event["block"]),
             hand=_string(event["hand"], "event.hand"),
+            item=_namespaced_key(event["item"], "event.item"),
         )
     if event_type == "chat_posted":
         _exact(
@@ -308,7 +324,6 @@ def decode_event_batch(value, *, after_sequence) -> EventBatch:
 
 
 __all__ = [
-    "BlockRightClickEvent",
     "BlockTarget",
     "ChatPostedEvent",
     "EntityHandle",
@@ -316,6 +331,7 @@ __all__ = [
     "EventBatch",
     "EventContextMismatchError",
     "EventValue",
+    "PickaxePokeEvent",
     "PlayerTarget",
     "ProjectileHitEvent",
     "ProjectileTarget",
