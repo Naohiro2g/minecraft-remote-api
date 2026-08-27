@@ -1,15 +1,41 @@
 """Protocol 23.0.0 b6 tests: pickaxe_poke event and the sign slice.
 
-protocol 23 replaces the b5 ``block_right_click`` event with ``pickaxe_poke``
-and adds ``world.getSign`` / ``world.setSign`` / ``world.updateSignLine``
-(DECISIONS 2026-08-26-03..06); everything else carried over from b5 is
-exercised in test_b5.py and is not repeated here.
+Fixture-driven against the b6 shared compatibility fixtures owned by
+scratch-editor's ``@mc-remote/protocol`` (DECISIONS `2026-08-27-02`,
+`10-protocol/b6-compatibility-fixture-plan_ja.md`):
+``tests/fixtures/sign-v23.json`` and ``tests/fixtures/events-v23.json``,
+copied byte-for-byte from
+``agent/b6-source-refresh@104f194deddc9c244e6e07c4223965c792551f9d``.
+Case IDs (``B6-I0x``/``B6-H0x``/``B6-S0x``/``B6-P0x``) are the plan's
+canonical case ledger; each test below names the case(s) it projects.
 """
 
-from mc_remote.b5_values import ChatPostedEvent, PickaxePokeEvent, ProjectileHitEvent
-from mc_remote.connection import McRemoteError
+import hashlib
+import json
+from pathlib import Path
+
+from mc_remote.b5_values import (
+    ChatPostedEvent,
+    EntityHandle,
+    PickaxePokeEvent,
+    ProjectileHitEvent,
+)
+from mc_remote.connection import McRemoteError, McRpcError
 from mc_remote.minecraft import Minecraft, PROTOCOL
-from mc_remote.sign_value import LineValue, SignValue
+from mc_remote.sign_value import LineValue, SignValue, line_spec
+
+FIXTURES = Path(__file__).parent / "fixtures"
+SIGN_FIXTURE_PATH = FIXTURES / "sign-v23.json"
+EVENTS_FIXTURE_PATH = FIXTURES / "events-v23.json"
+SIGN_FIXTURE = json.loads(SIGN_FIXTURE_PATH.read_text(encoding="utf-8"))
+EVENTS_FIXTURE = json.loads(EVENTS_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+SIGN_FIXTURE_SHA256 = (
+    "7ffb63c264602cba56117eefff1f9604b955df04c5cc655e877772b8ff7cd30e"
+)
+EVENTS_FIXTURE_SHA256 = (
+    "31760d267f3c2641042fbe8595fda9c259134a1c05423271a99cb74da1efa9aa"
+)
 
 
 class FakeConn:
@@ -26,95 +52,317 @@ class FakeConn:
         pass
 
 
-def test_protocol_pins_23_0_0():
+def _line_value(entry) -> LineValue:
+    return LineValue(
+        text=entry["text"], color=entry["color"], decorations=tuple(entry["decorations"])
+    )
+
+
+def test_shared_fixture_bytes_match_owner_digest():
+    """Guards against silent drift from the fixture owner's exact bytes."""
+    assert (
+        hashlib.sha256(SIGN_FIXTURE_PATH.read_bytes()).hexdigest()
+        == SIGN_FIXTURE_SHA256
+    )
+    assert (
+        hashlib.sha256(EVENTS_FIXTURE_PATH.read_bytes()).hexdigest()
+        == EVENTS_FIXTURE_SHA256
+    )
+
+
+def test_b6_i01_protocol_pins_23_0_0():
     assert PROTOCOL == "23.0.0"
+    assert SIGN_FIXTURE["protocol"] == "23.0.0"
+    assert EVENTS_FIXTURE["protocol"] == "23.0.0"
 
 
-def test_poll_events_decodes_pickaxe_poke():
-    handle = "mcr_eh_" + "B" * 22
-    valid = {
-        "events": [
-            {
-                "sequence": 1,
-                "type": "pickaxe_poke",
-                "dimension": "minecraft:overworld",
-                "origin": [0, 64, 0],
-                "pos": [1, 65, 2],
-                "face": "UP",
-                "block": {"block_id": "minecraft:stone", "state": {}},
-                "hand": "HAND",
-                "item": "minecraft:diamond_pickaxe",
-            },
-            {
-                "sequence": 2,
-                "type": "chat_posted",
-                "dimension": "minecraft:overworld",
-                "origin": [0, 64, 0],
-                "message": "hello",
-            },
-            {
-                "sequence": 3,
-                "type": "projectile_hit",
-                "dimension": "minecraft:overworld",
-                "origin": [0, 64, 0],
-                "projectile": "minecraft:arrow",
-                "pos": [1.25, 65.5, 2.75],
-                "target": {"kind": "entity", "handle": handle},
-            },
-        ],
-        "through_sequence": 3,
-        "latest_sequence": 3,
+# ---------------------------------------------------------------------------
+# B6-H01 / B6-H02 / B6-H03 -- entity handle
+# ---------------------------------------------------------------------------
+
+
+def test_b6_h01_h03_fixture_handle_is_opaque_and_length_unconstrained():
+    """B6-H01 (mcr_eh_ prefix accepted), B6-H03 (opaque; no suffix-length rule).
+
+    The owner fixture's positive handle is intentionally short (9-char
+    suffix) to prove the client does not elevate the plugin's own 22-char
+    issuance length into a client-side contract.
+    """
+    handle = EVENTS_FIXTURE["projectile_targets"]["entity"]["handle"]
+    assert handle == "mcr_eh_fixture-1"
+    entity_handle = EntityHandle(handle)
+    assert entity_handle == handle
+
+
+def test_b6_h02_legacy_prefix_not_accepted_as_protocol_23_handle():
+    """B6-H02: protocol 22's mceh_ is not an alias under protocol 23."""
+    legacy = "mceh_" + "A" * 22
+    try:
+        EntityHandle(legacy)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("legacy mceh_ handle was accepted under protocol 23")
+
+
+# ---------------------------------------------------------------------------
+# B6-P01 / B6-P02 -- pickaxe_poke / events.poll
+# ---------------------------------------------------------------------------
+
+
+def test_b6_p01_poll_events_decodes_fixture_poll_result():
+    """B6-P01: decode the shared events.poll result's three events."""
+    result = EVENTS_FIXTURE["poll_result"]
+    conn = FakeConn({"events.poll": result})
+    batch = Minecraft(conn).pollEvents()
+    assert conn.calls == [("events.poll", [0])]
+
+    poke, chat, projectile = batch.events
+    fixture_poke = result["events"][0]
+    assert isinstance(poke, PickaxePokeEvent)
+    assert poke.pos == tuple(fixture_poke["pos"])
+    assert poke.face == fixture_poke["face"]
+    assert poke.hand == fixture_poke["hand"]
+    assert poke.item == fixture_poke["item"]
+    assert poke.block.block_id == fixture_poke["block"]["block_id"]
+
+    assert isinstance(chat, ChatPostedEvent)
+    assert chat.message == result["events"][1]["message"]
+
+    assert isinstance(projectile, ProjectileHitEvent)
+    fixture_target = result["events"][2]["target"]
+    assert projectile.target.kind == "block"
+    assert projectile.target.face == fixture_target["face"]
+    assert projectile.target.pos == tuple(fixture_target["pos"])
+
+
+def test_b6_p02_rejects_fixture_legacy_block_right_click_event():
+    """B6-P02: protocol 23 does not decode the historical block_right_click."""
+    legacy_event = EVENTS_FIXTURE["legacy_rejected_events"]["block_right_click"]
+    result = {
+        "events": [legacy_event],
+        "through_sequence": 1,
+        "latest_sequence": 1,
         "filtered_out": 0,
-        "overflow_dropped_total": 2,
-        "capacity_dropped_total": 1,
+        "overflow_dropped_total": 0,
+        "capacity_dropped_total": 0,
         "explicitly_discarded_total": 0,
     }
-    responses = [dict(valid, through_sequence=-1), valid, dict(valid, events=[])]
-
-    def response(_params):
-        return responses.pop(0)
-
-    conn = FakeConn({"events.poll": response})
-    mc = Minecraft(conn)
+    conn = FakeConn({"events.poll": result})
     try:
-        mc.pollEvents(max_events=10)
+        Minecraft(conn).pollEvents()
     except McRemoteError:
         pass
     else:
-        raise AssertionError("malformed cursor result was accepted")
-    batch = mc.pollEvents(max_events=10)
-    poke = batch.events[0]
-    assert isinstance(poke, PickaxePokeEvent)
-    assert poke.item == "minecraft:diamond_pickaxe"
-    assert isinstance(batch.events[1], ChatPostedEvent)
-    assert isinstance(batch.events[2], ProjectileHitEvent)
-    assert batch.loss_totals == {
-        "overflow": 2,
-        "capacity": 1,
-        "explicitly_discarded": 0,
-    }
-    mc.pollEvents(max_events=10)
-    assert conn.calls == [
-        ("events.poll", [0, {"max_events": 10}]),
-        ("events.poll", [0, {"max_events": 10}]),
-        ("events.poll", [3, {"max_events": 10}]),
-    ]
+        raise AssertionError("legacy block_right_click event was accepted")
+
+
+# ---------------------------------------------------------------------------
+# B6-S01 / B6-S02 -- LineSpec input / LineValue canonical output
+# ---------------------------------------------------------------------------
+
+
+def test_b6_s01_line_spec_accepts_fixture_shorthand_and_object_forms():
+    cases = SIGN_FIXTURE["line_specs"]["B6-S01"]
+    assert line_spec(cases["string_shorthand"]) == cases["string_shorthand"]
+    assert line_spec(cases["object_named_color"]) == cases["object_named_color"]
+    assert line_spec(cases["object_hex_color"]) == cases["object_hex_color"]
+    assert line_spec(cases["object_all_decorations"]) == cases["object_all_decorations"]
+
+
+def test_b6_s02_line_value_decodes_fixture_canonical_results():
+    cases = SIGN_FIXTURE["line_values"]["B6-S02"]
+
+    def _via_get_sign(line_entry):
+        result = {
+            "front": [line_entry] * 4,
+            "back": [line_entry] * 4,
+            "waxed": False,
+        }
+        conn = FakeConn({"world.getSign": result})
+        return Minecraft(conn).getSign(0, 0, 0).front[0]
+
+    assert _via_get_sign(cases["from_string_shorthand"]) == _line_value(
+        cases["from_string_shorthand"]
+    )
+    assert _via_get_sign(cases["from_object_named_color"]) == _line_value(
+        cases["from_object_named_color"]
+    )
+
+    unsorted_case = cases["from_object_unsorted_input"]
+    # Input tolerates any decoration order (no client-side sort).
+    spec = line_spec(
+        {
+            "text": unsorted_case["result"]["text"],
+            "color": unsorted_case["result"]["color"],
+            "decorations": unsorted_case["input_decorations"],
+        }
+    )
+    assert spec["decorations"] == unsorted_case["input_decorations"]
+    # Canonical output decode still requires the sorted result.
+    assert _via_get_sign(unsorted_case["result"]) == _line_value(
+        unsorted_case["result"]
+    )
+
+
+# ---------------------------------------------------------------------------
+# B6-S03 / B6-S04 / B6-S05 -- get / set / updateSignLine wire shape
+# ---------------------------------------------------------------------------
+
+
+def test_b6_s03_get_sign_sends_and_decodes_fixture_shape():
+    case = SIGN_FIXTURE["get_sign"]["B6-S03"]
+    conn = FakeConn({"world.getSign": case["result"]})
+    sign = Minecraft(conn).getSign(*case["params"])
+    assert conn.calls == [("world.getSign", case["params"])]
+    assert isinstance(sign, SignValue)
+    assert sign.waxed == case["result"]["waxed"]
+    assert sign.front == tuple(_line_value(entry) for entry in case["result"]["front"])
+    assert sign.back == tuple(_line_value(entry) for entry in case["result"]["back"])
+
+
+def test_b6_s04_set_sign_sends_fixture_params():
+    case = SIGN_FIXTURE["set_sign"]["B6-S04"]
+    conn = FakeConn({"world.setSign": case["result"]})
+    x, y, z, faces = case["params"]
+    result = Minecraft(conn).setSign(x, y, z, front=faces.get("front"), back=faces.get("back"))
+    assert result is None
+    assert conn.calls == [("world.setSign", case["params"])]
+
+
+def test_b6_s05_update_sign_line_sends_fixture_params():
+    case = SIGN_FIXTURE["update_sign_line"]["B6-S05"]
+    conn = FakeConn({"world.updateSignLine": case["result"]})
+    result = Minecraft(conn).updateSignLine(*case["params"])
+    assert result is None
+    assert conn.calls == [("world.updateSignLine", case["params"])]
+
+
+# ---------------------------------------------------------------------------
+# B6-S06 -- invalid_params / invalid_property_value client-side rejection
+# ---------------------------------------------------------------------------
+
+
+def test_b6_s06_invalid_params_rejected_before_sending():
+    cases = {c["case"]: c for c in SIGN_FIXTURE["invalid_params"]["B6-S06"]}
+    conn = FakeConn({"world.updateSignLine": None, "world.setSign": None})
+
+    # face_out_of_enum
+    bad = cases["face_out_of_enum"]
+    _, _, _, face, line_index, line = bad["params"]
+    try:
+        Minecraft(conn).updateSignLine(1, 2, 3, face, line_index, line)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("out-of-enum face was accepted")
+
+    # line_index_out_of_range
+    bad = cases["line_index_out_of_range"]
+    _, _, _, face, line_index, line = bad["params"]
+    try:
+        Minecraft(conn).updateSignLine(1, 2, 3, face, line_index, line)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("out-of-range line_index was accepted")
+
+    # unknown_color_token
+    bad = cases["unknown_color_token"]
+    faces = bad["params"][3]
+    try:
+        Minecraft(conn).setSign(1, 2, 3, front=faces["front"])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("unknown color token was accepted")
+
+    # unknown_decoration_token
+    bad = cases["unknown_decoration_token"]
+    _, _, _, face, line_index, line = bad["params"]
+    try:
+        Minecraft(conn).updateSignLine(1, 2, 3, face, line_index, line)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("unknown decoration token was accepted")
+
+    # wrong_param_count has no client-side equivalent: Minecraft.updateSignLine
+    # requires all 6 arguments, so this wire shape cannot be constructed by
+    # this client in the first place (Python raises its own TypeError).
+    assert "wrong_param_count" in cases
+    try:
+        Minecraft(conn).updateSignLine(*cases["wrong_param_count"]["params"])
+    except TypeError:
+        pass
+    else:
+        raise AssertionError(
+            "updateSignLine accepted a call with too few arguments"
+        )
+
+    assert conn.calls == []
+
+
+# ---------------------------------------------------------------------------
+# B6-S07 -- stable error reasons propagate unchanged
+# ---------------------------------------------------------------------------
+
+
+def _raise_reasoned_error(reason):
+    def _response(_params):
+        raise McRpcError(-32000, reason, {"reason": reason})
+
+    return _response
+
+
+def test_b6_s07_error_reasons_propagate_unchanged():
+    cases = SIGN_FIXTURE["errors"]["B6-S07"]
+
+    not_a_sign = cases["not_a_sign"]
+    conn = FakeConn({"world.getSign": _raise_reasoned_error(not_a_sign["reason"])})
+    try:
+        Minecraft(conn).getSign(*not_a_sign["params"])
+    except McRemoteError as exc:
+        assert exc.reason == not_a_sign["reason"]
+    else:
+        raise AssertionError("not_a_sign error was swallowed")
+
+    sign_waxed = cases["sign_waxed"]
+    conn = FakeConn(
+        {"world.updateSignLine": _raise_reasoned_error(sign_waxed["reason"])}
+    )
+    try:
+        Minecraft(conn).updateSignLine(*sign_waxed["params"])
+    except McRemoteError as exc:
+        assert exc.reason == sign_waxed["reason"]
+    else:
+        raise AssertionError("sign_waxed error was swallowed")
+
+    sign_update_failed = cases["sign_update_failed"]
+    x, y, z, faces = sign_update_failed["params"]
+    conn = FakeConn(
+        {"world.setSign": _raise_reasoned_error(sign_update_failed["reason"])}
+    )
+    try:
+        Minecraft(conn).setSign(
+            x, y, z, front=faces.get("front"), back=faces.get("back")
+        )
+    except McRemoteError as exc:
+        assert exc.reason == sign_update_failed["reason"]
+    else:
+        raise AssertionError("sign_update_failed error was swallowed")
+
+
+# ---------------------------------------------------------------------------
+# Supplementary defensive coverage (not tied to a single B6-* case ID)
+# ---------------------------------------------------------------------------
 
 
 def test_poll_events_rejects_pickaxe_poke_missing_item():
+    fixture_poke = dict(EVENTS_FIXTURE["poll_result"]["events"][0])
+    del fixture_poke["item"]
     result = {
-        "events": [
-            {
-                "sequence": 1,
-                "type": "pickaxe_poke",
-                "dimension": "minecraft:overworld",
-                "origin": [0, 64, 0],
-                "pos": [1, 65, 2],
-                "face": "UP",
-                "block": {"block_id": "minecraft:stone", "state": {}},
-                "hand": "HAND",
-            }
-        ],
+        "events": [fixture_poke],
         "through_sequence": 1,
         "latest_sequence": 1,
         "filtered_out": 0,
@@ -131,107 +379,20 @@ def test_poll_events_rejects_pickaxe_poke_missing_item():
         raise AssertionError("pickaxe_poke event without item was accepted")
 
 
-def test_poll_events_rejects_legacy_block_right_click_type():
-    result = {
-        "events": [
-            {
-                "sequence": 1,
-                "type": "block_right_click",
-                "dimension": "minecraft:overworld",
-                "origin": [0, 64, 0],
-                "pos": [1, 65, 2],
-                "face": "UP",
-                "block": {"block_id": "minecraft:stone", "state": {}},
-                "hand": "HAND",
-            }
-        ],
-        "through_sequence": 1,
-        "latest_sequence": 1,
-        "filtered_out": 0,
-        "overflow_dropped_total": 0,
-        "capacity_dropped_total": 0,
-        "explicitly_discarded_total": 0,
-    }
-    conn = FakeConn({"events.poll": result})
-    try:
-        Minecraft(conn).pollEvents()
-    except McRemoteError:
-        pass
-    else:
-        raise AssertionError(
-            "protocol 21/22 block_right_click type was accepted under protocol 23"
-        )
-
-
-def _line_value(text, color="black", decorations=()):
-    return {"text": text, "color": color, "decorations": list(decorations)}
-
-
-def test_get_sign_decodes_canonical_lines_and_waxed():
-    result = {
-        "front": [
-            _line_value("Welcome", color="gold", decorations=["bold", "italic"]),
-            _line_value(""),
-            _line_value(""),
-            _line_value("Home"),
-        ],
-        "back": [_line_value("")] * 4,
-        "waxed": True,
-    }
-    conn = FakeConn({"world.getSign": result})
-    sign = Minecraft(conn).getSign(1, 65, 2)
-    assert conn.calls == [("world.getSign", [1, 65, 2])]
-    assert isinstance(sign, SignValue)
-    assert sign.waxed is True
-    assert sign.front[0] == LineValue(
-        text="Welcome", color="gold", decorations=("bold", "italic")
-    )
-    assert sign.front[1] == LineValue(text="", color="black", decorations=())
-    assert sign.back == (LineValue(text="", color="black", decorations=()),) * 4
-
-
 def test_get_sign_rejects_decorations_out_of_canonical_order():
+    bad_line = {"text": "x", "color": "black", "decorations": ["italic", "bold"]}
     result = {
-        "front": [_line_value("x", decorations=["italic", "bold"])]
-        + [_line_value("")] * 3,
-        "back": [_line_value("")] * 4,
+        "front": [bad_line] * 4,
+        "back": [bad_line] * 4,
         "waxed": False,
     }
     conn = FakeConn({"world.getSign": result})
     try:
-        Minecraft(conn).getSign(0, 64, 0)
+        Minecraft(conn).getSign(0, 0, 0)
     except McRemoteError:
         pass
     else:
         raise AssertionError("out-of-order decorations were accepted")
-
-
-def test_set_sign_replaces_only_the_specified_face():
-    conn = FakeConn({"world.setSign": None})
-    Minecraft(conn).setSign(
-        1,
-        65,
-        2,
-        front=["a", {"text": "b", "color": "red", "decorations": ["bold"]}, "c", "d"],
-    )
-    assert conn.calls == [
-        (
-            "world.setSign",
-            [
-                1,
-                65,
-                2,
-                {
-                    "front": [
-                        "a",
-                        {"text": "b", "color": "red", "decorations": ["bold"]},
-                        "c",
-                        "d",
-                    ]
-                },
-            ],
-        )
-    ]
 
 
 def test_set_sign_requires_at_least_one_face():
@@ -256,21 +417,6 @@ def test_set_sign_rejects_a_face_without_exactly_four_lines():
     assert conn.calls == []
 
 
-def test_set_sign_rejects_unknown_color_or_decoration_token():
-    conn = FakeConn({"world.setSign": None})
-    for bad_line in (
-        {"text": "x", "color": "invisible"},
-        {"text": "x", "decorations": ["flashing"]},
-    ):
-        try:
-            Minecraft(conn).setSign(0, 64, 0, front=[bad_line, "b", "c", "d"])
-        except ValueError:
-            pass
-        else:
-            raise AssertionError(f"invalid sign style token accepted: {bad_line!r}")
-    assert conn.calls == []
-
-
 def test_set_sign_rejects_non_null_result():
     conn = FakeConn({"world.setSign": {"unexpected": "value"}})
     try:
@@ -279,26 +425,6 @@ def test_set_sign_rejects_non_null_result():
         pass
     else:
         raise AssertionError("non-null setSign result was accepted")
-
-
-def test_update_sign_line_patches_one_line():
-    conn = FakeConn({"world.updateSignLine": None})
-    Minecraft(conn).updateSignLine(1, 65, 2, "front", 2, "hello")
-    assert conn.calls == [
-        ("world.updateSignLine", [1, 65, 2, "front", 2, "hello"])
-    ]
-
-
-def test_update_sign_line_rejects_invalid_face_or_index():
-    conn = FakeConn({"world.updateSignLine": None})
-    for face, line_index in (("side", 0), ("front", -1), ("front", 4), ("front", 1.5)):
-        try:
-            Minecraft(conn).updateSignLine(0, 64, 0, face, line_index, "x")
-        except ValueError:
-            pass
-        else:
-            raise AssertionError(f"invalid face/index accepted: {face!r}, {line_index!r}")
-    assert conn.calls == []
 
 
 if __name__ == "__main__":

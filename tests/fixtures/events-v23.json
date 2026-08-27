@@ -1,0 +1,80 @@
+{
+  "schema": "mcremote.events.v23",
+  "protocol": "23.0.0",
+  "method": "events.poll",
+  "limits": {
+    "max_compact_jsonrpc_response_bytes": 61440,
+    "max_observer_frame_bytes": 65536
+  },
+  "poll_requests": {
+    "default": [0],
+    "bounded": [0, { "max_events": 3 }],
+    "rejected": [
+      [0, 8],
+      [0, {}],
+      [0, { "limit": 8 }],
+      [0, { "max_events": 0 }],
+      [0, { "max_events": -1 }],
+      [0, { "max_events": 1.5 }],
+      [0, { "max_events": 8, "filter": {} }]
+    ]
+  },
+  "poll_result": {
+    "events": [
+      {
+        "sequence": 1,
+        "type": "pickaxe_poke",
+        "dimension": "minecraft:overworld",
+        "origin": [200, 0, 200],
+        "pos": [1, 2, 3],
+        "face": "up",
+        "block": { "block_id": "minecraft:stone", "state": {} },
+        "hand": "main",
+        "item": "minecraft:diamond_pickaxe"
+      },
+      {
+        "sequence": 2,
+        "type": "chat_posted",
+        "dimension": "minecraft:overworld",
+        "origin": [200, 0, 200],
+        "message": "hello"
+      },
+      {
+        "sequence": 3,
+        "type": "projectile_hit",
+        "dimension": "minecraft:overworld",
+        "origin": [200, 0, 200],
+        "projectile": "minecraft:arrow",
+        "pos": [1.235, 0, -1.235],
+        "target": {
+          "kind": "block",
+          "block": { "block_id": "minecraft:oak_log", "state": { "axis": "z" } },
+          "pos": [4, 5, 6],
+          "face": "north"
+        }
+      }
+    ],
+    "through_sequence": 3,
+    "latest_sequence": 3,
+    "filtered_out": 0,
+    "overflow_dropped_total": 0,
+    "capacity_dropped_total": 0,
+    "explicitly_discarded_total": 0
+  },
+  "projectile_targets": {
+    "player": { "kind": "player" },
+    "entity": { "kind": "entity", "handle": "mcr_eh_fixture-1" }
+  },
+  "legacy_rejected_events": {
+    "block_right_click": {
+      "sequence": 1,
+      "type": "block_right_click",
+      "dimension": "minecraft:overworld",
+      "origin": [200, 0, 200],
+      "pos": [1, 2, 3],
+      "face": "up",
+      "block": { "block_id": "minecraft:stone", "state": {} },
+      "hand": "main"
+    }
+  }
+}

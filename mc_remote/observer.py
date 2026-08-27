@@ -652,7 +652,7 @@ def _parse_result(method, value):
         return _integer(value, "frame.payload.result", non_negative=True)
     if method == "world.spawnEntity":
         if not isinstance(value, str) or re.fullmatch(
-            r"mcr_eh_[A-Za-z0-9_-]{22,}", value
+            r"mcr_eh_[A-Za-z0-9_-]+", value
         ) is None:
             raise ObserverValidationError(
                 "world.spawnEntity success result must be an entity handle"

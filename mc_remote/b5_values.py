@@ -17,7 +17,7 @@ from .connection import McRemoteError
 from .dimension import require_dimension_key
 
 
-_HANDLE = re.compile(r"^mcr_eh_[A-Za-z0-9_-]{22,}$")
+_HANDLE = re.compile(r"^mcr_eh_[A-Za-z0-9_-]+$")
 
 
 class EntityHandle(str):

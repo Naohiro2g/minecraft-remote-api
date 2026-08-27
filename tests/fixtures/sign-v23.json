@@ -1,0 +1,176 @@
+{
+  "schema": "mcremote.sign.v23",
+  "protocol": "23.0.0",
+  "methods": {
+    "get": "world.getSign",
+    "set": "world.setSign",
+    "update_line": "world.updateSignLine"
+  },
+  "colors": {
+    "named": [
+      "black",
+      "dark_blue",
+      "dark_green",
+      "dark_aqua",
+      "dark_red",
+      "dark_purple",
+      "gold",
+      "gray",
+      "dark_gray",
+      "blue",
+      "green",
+      "aqua",
+      "red",
+      "light_purple",
+      "yellow",
+      "white"
+    ],
+    "hex_example": "#1A2B3C",
+    "default": "black"
+  },
+  "decorations": {
+    "allowed": ["bold", "italic", "underlined", "strikethrough", "obfuscated"],
+    "canonical_order": ["bold", "italic", "obfuscated", "strikethrough", "underlined"]
+  },
+  "line_specs": {
+    "B6-S01": {
+      "string_shorthand": "Hello",
+      "object_named_color": { "text": "Hello", "color": "gold", "decorations": ["bold"] },
+      "object_hex_color": { "text": "Hi", "color": "#1A2B3C", "decorations": ["italic", "bold"] },
+      "object_all_decorations": {
+        "text": "All",
+        "color": "white",
+        "decorations": ["bold", "italic", "obfuscated", "strikethrough", "underlined"]
+      }
+    }
+  },
+  "line_values": {
+    "B6-S02": {
+      "from_string_shorthand": { "text": "Hello", "color": "black", "decorations": [] },
+      "from_object_named_color": { "text": "Hello", "color": "gold", "decorations": ["bold"] },
+      "from_object_unsorted_input": {
+        "input_decorations": ["underlined", "bold", "obfuscated"],
+        "result": { "text": "Sorted", "color": "white", "decorations": ["bold", "obfuscated", "underlined"] }
+      }
+    }
+  },
+  "get_sign": {
+    "B6-S03": {
+      "params": [1, 2, 3],
+      "result": {
+        "front": [
+          { "text": "Front 1", "color": "black", "decorations": [] },
+          { "text": "Front 2", "color": "gold", "decorations": ["bold"] },
+          { "text": "", "color": "black", "decorations": [] },
+          { "text": "", "color": "black", "decorations": [] }
+        ],
+        "back": [
+          { "text": "Back 1", "color": "dark_blue", "decorations": ["italic"] },
+          { "text": "", "color": "black", "decorations": [] },
+          { "text": "", "color": "black", "decorations": [] },
+          { "text": "", "color": "black", "decorations": [] }
+        ],
+        "waxed": true
+      }
+    }
+  },
+  "set_sign": {
+    "B6-S04": {
+      "params": [
+        1,
+        2,
+        3,
+        {
+          "front": ["Front 1", { "text": "Front 2", "color": "gold", "decorations": ["bold"] }, "", ""],
+          "back": ["Back 1", "", "", ""]
+        }
+      ],
+      "result": null
+    }
+  },
+  "update_sign_line": {
+    "B6-S05": {
+      "params": [1, 2, 3, "front", 0, "Updated line"],
+      "result": null
+    }
+  },
+  "invalid_params": {
+    "B6-S06": [
+      {
+        "case": "wrong_param_count",
+        "method": "world.updateSignLine",
+        "params": [1, 2, 3],
+        "reason": "invalid_params"
+      },
+      {
+        "case": "face_out_of_enum",
+        "method": "world.updateSignLine",
+        "params": [1, 2, 3, "top", 0, "text"],
+        "reason": "invalid_params",
+        "data": { "path": "params[3]" }
+      },
+      {
+        "case": "line_index_out_of_range",
+        "method": "world.updateSignLine",
+        "params": [1, 2, 3, "front", 4, "text"],
+        "reason": "invalid_params",
+        "data": { "path": "params[4]" }
+      },
+      {
+        "case": "unknown_color_token",
+        "method": "world.setSign",
+        "params": [1, 2, 3, { "front": [{ "text": "x", "color": "chartreuse" }, "", "", ""] }],
+        "reason": "invalid_property_value",
+        "data": {
+          "property": "color",
+          "value": "chartreuse",
+          "allowed": [
+            "black",
+            "dark_blue",
+            "dark_green",
+            "dark_aqua",
+            "dark_red",
+            "dark_purple",
+            "gold",
+            "gray",
+            "dark_gray",
+            "blue",
+            "green",
+            "aqua",
+            "red",
+            "light_purple",
+            "yellow",
+            "white",
+            "#RRGGBB"
+          ]
+        }
+      },
+      {
+        "case": "unknown_decoration_token",
+        "method": "world.updateSignLine",
+        "params": [1, 2, 3, "front", 0, { "text": "x", "decorations": ["flashing"] }],
+        "reason": "invalid_property_value",
+        "data": {
+          "property": "decorations",
+          "value": "flashing",
+          "allowed": ["bold", "italic", "underlined", "strikethrough", "obfuscated"]
+        }
+      }
+    ]
+  },
+  "errors": {
+    "B6-S07": {
+      "not_a_sign": { "method": "world.getSign", "params": [1, 2, 3], "reason": "not_a_sign" },
+      "sign_waxed": {
+        "method": "world.updateSignLine",
+        "params": [1, 2, 3, "front", 0, "text"],
+        "reason": "sign_waxed"
+      },
+      "sign_update_failed": {
+        "method": "world.setSign",
+        "params": [1, 2, 3, { "front": ["a", "b", "c", "d"] }],
+        "reason": "sign_update_failed"
+      }
+    }
+  }
+}
