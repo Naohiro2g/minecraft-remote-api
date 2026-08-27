@@ -4,7 +4,7 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "minecraft-remote-api"
-version = "2200.0.0b5"
+version = "2300.0.0b6"
 source = { editable = "." }
 dependencies = [
     { name = "pygame-ce" },

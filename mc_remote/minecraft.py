@@ -42,8 +42,14 @@ from .dimension import (
     require_dimension_key,
     require_dimension_ref,
 )
+from .sign_value import (
+    LineValue,
+    SignValue,
+    decode_sign_value,
+    line_spec,
+    sign_face,
+)
 from .b5_values import (
-    BlockRightClickEvent,
     BlockTarget,
     ChatPostedEvent,
     EntityHandle,
@@ -51,6 +57,7 @@ from .b5_values import (
     EventBatch,
     EventContextMismatchError,
     EventValue,
+    PickaxePokeEvent,
     PlayerTarget,
     ProjectileHitEvent,
     ProjectileTarget,
@@ -104,7 +111,6 @@ __all__ = [
     "DEFAULT_TRACE_DELAY",
     "MAX_TRACE_DELAY",
     "BlockValue",
-    "BlockRightClickEvent",
     "BlockTarget",
     "ChatPostedEvent",
     "EntityHandle",
@@ -112,9 +118,12 @@ __all__ = [
     "EventBatch",
     "EventContextMismatchError",
     "EventValue",
+    "LineValue",
+    "PickaxePokeEvent",
     "PlayerTarget",
     "ProjectileHitEvent",
     "ProjectileTarget",
+    "SignValue",
     "CatalogProjectionError",
     "CatalogProjectionWarning",
     "WireScopeWarning",
@@ -124,7 +133,7 @@ __all__ = [
 
 # Wire protocol version this client speaks (sent in the hello handshake and
 # checked by the server). Distinct from the PyPI/distribution version.
-PROTOCOL = "22.0.0"
+PROTOCOL = "23.0.0"
 
 CatalogProjectionError = _projection.CatalogProjectionError
 CatalogProjectionWarning = _projection.CatalogProjectionWarning
@@ -183,9 +192,9 @@ def _env_first(*names):
 
 
 class Minecraft:
-    """Client for a running Minecraft server speaking protocol 22.x.
+    """Client for a running Minecraft server speaking protocol 23.x.
 
-    protocol 22.0.0 b5 surface: ``hello`` handshake (carrying an optional
+    protocol 23.0.0 b6 surface: ``hello`` handshake (carrying an optional
     ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
     structured block values, ``postToChat`` (wire ``chat.post``), paired-player
     position and pose helpers (``getPos`` / ``setPos`` / ``getPose`` /
@@ -374,6 +383,49 @@ class Minecraft:
             raise McRemoteError("world.getHeight result must be an integer")
         return result
 
+    def getSign(self, x, y, z) -> SignValue:
+        """Read a sign's canonical front/back text and waxed state.
+
+        Works even on a waxed sign (read is never blocked by waxing)."""
+        coords = _integer_values("world.getSign coordinates", x, y, z)
+        return decode_sign_value(self.conn.rpc("world.getSign", coords))
+
+    def setSign(self, x, y, z, *, front=None, back=None) -> None:
+        """Replace the given sign face(s) with a strict 4-line value.
+
+        Each specified face is a 4-element sequence of ``LineSpec`` (a bare
+        string, or a ``{text, color?, decorations?}`` mapping) and fully
+        replaces that face's 4 lines; an omitted face is left untouched. At
+        least one of ``front``/``back`` is required. Raises on a waxed sign
+        (``sign_waxed``) and never leaves a partial write."""
+        coords = _integer_values("world.setSign coordinates", x, y, z)
+        params = coords + [sign_face(front=front, back=back)]
+        result = self.conn.rpc("world.setSign", params)
+        if result is not None:
+            raise McRemoteError("world.setSign success result must be null")
+        return None
+
+    def updateSignLine(self, x, y, z, face, line_index, line) -> None:
+        """Patch exactly one sign line, leaving the other 3 lines and the
+        other face untouched. ``face`` is ``"front"`` or ``"back"``;
+        ``line_index`` is 0-based (``0..3``); ``line`` is one ``LineSpec``.
+        Raises on a waxed sign (``sign_waxed``) and never leaves a partial
+        write."""
+        if face not in ("front", "back"):
+            raise ValueError("face must be 'front' or 'back'")
+        if (
+            isinstance(line_index, bool)
+            or not isinstance(line_index, int)
+            or not 0 <= line_index <= 3
+        ):
+            raise ValueError("line_index must be an integer between 0 and 3")
+        coords = _integer_values("world.updateSignLine coordinates", x, y, z)
+        params = coords + [face, line_index, line_spec(line)]
+        result = self.conn.rpc("world.updateSignLine", params)
+        if result is not None:
+            raise McRemoteError("world.updateSignLine success result must be null")
+        return None
+
     @overload
     def spawnParticle(
         self,
@@ -493,9 +545,9 @@ class Minecraft:
 
         if not isinstance(
             event,
-            (BlockRightClickEvent, ChatPostedEvent, ProjectileHitEvent),
+            (PickaxePokeEvent, ChatPostedEvent, ProjectileHitEvent),
         ):
-            raise TypeError("event must be a protocol 22 event value")
+            raise TypeError("event must be a protocol 23 event value")
         with self._context_lock:
             current_dimension = self._dimension
             current_origin = (

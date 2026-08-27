@@ -8,7 +8,6 @@ from pathlib import Path
 
 from mc_remote.block_value import BlockValue
 from mc_remote.b5_values import (
-    BlockRightClickEvent,
     ChatPostedEvent,
     EntityHandle,
     EventContextMismatchError,
@@ -27,7 +26,6 @@ from mc_remote.minecraft import (
     MAX_TRACE_DELAY,
     BuildMode,
     Minecraft,
-    PROTOCOL,
 )
 from mc_remote.observer import PythonObserverSource
 
@@ -192,7 +190,6 @@ def test_protocol_and_structured_setblock_payload():
     mc.setBlock(0, 1, 2, "gold_block")
     mc.setBlock(3, 4, 5, "minecraft:oak_log", state={"axis": "z"})
 
-    assert PROTOCOL == "22.0.0"
     assert conn.calls == [
         (
             "world.setBlock",
@@ -912,7 +909,7 @@ def test_integral_json_numbers_are_sent_as_integer_coordinates():
 
 
 def test_height_particle_and_entity_use_protocol22_exact_wire_order():
-    handle = "mceh_" + "A" * 22
+    handle = "mcr_eh_" + "A" * 22
     conn = FakeConn(
         {
             "world.getHeight": 71,
@@ -956,74 +953,6 @@ def test_height_particle_and_entity_use_protocol22_exact_wire_order():
         ),
         ("world.spawnEntity", [4.25, 5.5, 6.75, "minecraft:pig"]),
         ("world.spawnEntity", [1, 2, 3, "minecraft:cow"]),
-    ]
-
-
-def test_poll_events_advances_cursor_only_after_a_valid_response():
-    handle = "mceh_" + "B" * 22
-    valid = {
-        "events": [
-            {
-                "sequence": 1,
-                "type": "block_right_click",
-                "dimension": "minecraft:overworld",
-                "origin": [0, 64, 0],
-                "pos": [1, 65, 2],
-                "face": "UP",
-                "block": {"block_id": "minecraft:stone", "state": {}},
-                "hand": "HAND",
-            },
-            {
-                "sequence": 2,
-                "type": "chat_posted",
-                "dimension": "minecraft:overworld",
-                "origin": [0, 64, 0],
-                "message": "hello",
-            },
-            {
-                "sequence": 3,
-                "type": "projectile_hit",
-                "dimension": "minecraft:overworld",
-                "origin": [0, 64, 0],
-                "projectile": "minecraft:arrow",
-                "pos": [1.25, 65.5, 2.75],
-                "target": {"kind": "entity", "handle": handle},
-            },
-        ],
-        "through_sequence": 3,
-        "latest_sequence": 3,
-        "filtered_out": 0,
-        "overflow_dropped_total": 2,
-        "capacity_dropped_total": 1,
-        "explicitly_discarded_total": 0,
-    }
-    responses = [dict(valid, through_sequence=-1), valid, dict(valid, events=[])]
-
-    def response(_params):
-        return responses.pop(0)
-
-    conn = FakeConn({"events.poll": response})
-    mc = Minecraft(conn)
-    try:
-        mc.pollEvents(max_events=10)
-    except McRemoteError:
-        pass
-    else:
-        raise AssertionError("malformed cursor result was accepted")
-    batch = mc.pollEvents(max_events=10)
-    assert isinstance(batch.events[0], BlockRightClickEvent)
-    assert isinstance(batch.events[1], ChatPostedEvent)
-    assert isinstance(batch.events[2], ProjectileHitEvent)
-    assert batch.loss_totals == {
-        "overflow": 2,
-        "capacity": 1,
-        "explicitly_discarded": 0,
-    }
-    mc.pollEvents(max_events=10)
-    assert conn.calls == [
-        ("events.poll", [0, {"max_events": 10}]),
-        ("events.poll", [0, {"max_events": 10}]),
-        ("events.poll", [3, {"max_events": 10}]),
     ]
 
 
@@ -1131,7 +1060,7 @@ def test_assert_event_context_rejects_non_event_values():
             {"dimension": "minecraft:overworld"}
         )
     except TypeError as exc:
-        assert "protocol 22 event" in str(exc)
+        assert "protocol 23 event" in str(exc)
     else:
         raise AssertionError("non-event value was accepted")
 

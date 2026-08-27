@@ -14,7 +14,7 @@
         "kind": "main",
         "status": "connected",
         "hello": {
-          "protocol": "22.0.0",
+          "protocol": "23.0.0",
           "mc_version": "1.21.11",
           "supported_mc_versions": [
             "1.21.11"
@@ -54,7 +54,7 @@
         "kind": "main",
         "status": "connected",
         "hello": {
-          "protocol": "22.0.0",
+          "protocol": "23.0.0",
           "mc_version": "1.21.11",
           "supported_mc_versions": [
             "1.21.11"
@@ -221,7 +221,7 @@
             "request_id": 6,
             "method": "world.spawnEntity",
             "payload": {
-              "result": "mceh_AAAAAAAAAAAAAAAAAAAAAA"
+              "result": "mcr_eh_AAAAAAAAAAAAAAAAAAAAAA"
             }
           },
           {
