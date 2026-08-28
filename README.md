@@ -24,7 +24,7 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）:
   - stable（PyPI）: `2000.0.0` — protocol 20.0.0
-  - beta実装（未release承認）: `2200.0.0b5` — protocol 22.0.0 b5
+  - beta実装（[GitHub prerelease](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2300.0.0b6) `v2300.0.0b6`）: `2300.0.0b6` — protocol 23.0.0 b6（PyPI／TestPyPIは非公開のまま）
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: Python codeは`MIT`、同梱WireScope appは`AGPL-3.0-only`
