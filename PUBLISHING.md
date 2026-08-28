@@ -132,6 +132,28 @@ FAST notificationに`id`が無いこと、mode transition fence、queue backpres
 plugin、Scratch、common WireScope artifactとのexact fixtureおよびreal-browser／live evidenceは
 別gateとして記録する。
 
+### b6 / protocol 23 GitHub pre-release 確認（released）
+
+`2300.0.0b6`はprotocol 23最初のexact compatibility set（sign三操作`getSign`／`setSign`／
+`updateSignLine`、`pickaxe_poke`、`mcr_eh_` entity handle、protocol 23 cleanup）。GitHub
+prereleaseとして公開済み、PyPI／TestPyPIは非公開のまま。
+
+- release: [`v2300.0.0b6`](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2300.0.0b6)
+- tag target: `a30a37b15658da655fe1e3535a73fb0e80c06f56`（`main`と一致）
+- prerelease=true、draft=false、Latest非対象
+- GitHub binary assets: なし
+- wheel: `minecraft_remote_api-2300.0.0b6-py3-none-any.whl`、173,301 bytes、
+  SHA-256 `0887807f0d00f71fcb543caf16c3963b70580bf073b6a7576d7f274399a1877b`
+- sdist: `minecraft_remote_api-2300.0.0b6.tar.gz`、178,483 bytes、
+  SHA-256 `0507a10cbd6b31c2dd84ebff0034c5f72625ff1142d30f1c0d41e14d0ce2da3b`
+- 独立クリーンチェックアウト2件からの再buildでwheel／sdist両方のSHA-256がbyte-for-byte一致
+  （reproducibility確認済み）。全test 242/242 PASS
+- exact compatible McRemote: `v1.21.11-2300.0.0b6@4e8f1ff1bd48bfa28c465f2dc24060fbb419317f`
+- exact compatible Scratch／Bridge／WireScope: `v2300.0.0b6@df9264ec355dd722a848df46e96d4b0fc9340ca2`
+- knowledge close: `mc-remote-knowledge@c3a14878660ce8dc9d02ec9861340e64b2050dea`
+  （`00-hub/release-gate-notes_ja.md`「2026-08-27 b6横断release gate（CLOSED）」、
+  `10-protocol/b6-artifact-candidate-record_ja.md`）
+
 ---
 
 ## 4. TestPyPI で確認
