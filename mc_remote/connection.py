@@ -119,7 +119,7 @@ class McRpcError(RequestFailedError):
 
 
 class Connection:
-    """JSON-RPC 2.0 connection to a Minecraft server (protocol 22.x).
+    """JSON-RPC 2.0 connection to a Minecraft server (protocol 23.x).
 
     One instance == one stream == one build state. The wire is line-delimited
     JSON-RPC: one JSON object per line in each direction. Requests and

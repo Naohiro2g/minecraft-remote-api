@@ -21,6 +21,7 @@ from collections.abc import Callable, Iterable, Mapping
 from .connection import McRemoteError
 from .b5_values import decode_event_batch
 from .dimension import decode_build_context, is_dimension_key, is_dimension_ref
+from .direction_value import DIRECTION_NORM_TOLERANCE
 
 
 OBSERVER_SCHEMA = "mcremote.observer"
@@ -68,6 +69,11 @@ OBSERVED_METHODS = frozenset(
         "player.setPos",
         "player.getPose",
         "player.setPose",
+        "player.getDirection",
+        "player.setDirection",
+        "entity.getDirection",
+        "entity.setDirection",
+        "world.strikeLightning",
     }
 )
 _QUALIFIED_BLOCK_ID = re.compile(r"^[a-z0-9_.-]+:[a-z0-9/._-]+$")
@@ -174,6 +180,15 @@ def _number_tuple(value, context):
         _finite_number(value[1], f"{context}[1]"),
         _finite_number(value[2], f"{context}[2]"),
     ]
+
+
+def _direction_value(value, context):
+    parsed = _number_tuple(value, context)
+    if abs(math.hypot(*parsed) - 1.0) > DIRECTION_NORM_TOLERANCE:
+        raise ObserverValidationError(
+            f"{context} must have a norm within {DIRECTION_NORM_TOLERANCE} of 1"
+        )
+    return parsed
 
 
 def _integer_tuple(value, context):
@@ -472,6 +487,37 @@ def _parse_params(method, value):
         )
     elif method == "connection.flush" and value != []:
         raise ObserverValidationError("connection.flush params must be an empty array")
+    elif method == "player.getDirection" and value != []:
+        raise ObserverValidationError(
+            "player.getDirection params must be an empty array"
+        )
+    elif method in {"player.setDirection", "world.strikeLightning"}:
+        if len(value) != 3:
+            raise ObserverValidationError(
+                f"{method} params must contain x, y, and z"
+            )
+        return [
+            _finite_number(item, f"frame.payload.params[{index}]")
+            for index, item in enumerate(value)
+        ]
+    elif method == "entity.getDirection":
+        if len(value) != 1 or not isinstance(value[0], str):
+            raise ObserverValidationError(
+                "entity.getDirection params must contain one string handle"
+            )
+        return [value[0]]
+    elif method == "entity.setDirection":
+        if len(value) != 4 or not isinstance(value[0], str):
+            raise ObserverValidationError(
+                "entity.setDirection params must contain handle, x, y, and z"
+            )
+        return [
+            value[0],
+            *[
+                _finite_number(item, f"frame.payload.params[{index}]")
+                for index, item in enumerate(value[1:], start=1)
+            ],
+        ]
     if block_index is not None:
         parsed = [
             _integer(item, f"frame.payload.params[{index}]")
@@ -625,6 +671,13 @@ def _parse_result(method, value):
             "yaw": _finite_number(pose.get("yaw"), "frame.payload.result.yaw"),
             "pitch": _finite_number(pose.get("pitch"), "frame.payload.result.pitch"),
         }
+    if method in {
+        "player.getDirection",
+        "player.setDirection",
+        "entity.getDirection",
+        "entity.setDirection",
+    }:
+        return _direction_value(value, "frame.payload.result")
     if method == "world.getBlock":
         return _parse_block_value(
             value, "frame.payload.result", require_namespace=True
@@ -658,7 +711,12 @@ def _parse_result(method, value):
                 "world.spawnEntity success result must be an entity handle"
             )
         return value
-    if method in {"world.setBlock", "world.setBlocks", "connection.flush"}:
+    if method in {
+        "world.setBlock",
+        "world.setBlocks",
+        "world.strikeLightning",
+        "connection.flush",
+    }:
         if value is not None:
             raise ObserverValidationError(
                 f"{method} success result must be null"
@@ -1134,6 +1192,16 @@ class PythonObserverSource:
             allowed = _project_position(result)
         elif method in {"player.getPose", "player.setPose"}:
             allowed = _project_pose(result)
+        elif method in {
+            "player.getDirection",
+            "player.setDirection",
+            "entity.getDirection",
+            "entity.setDirection",
+        }:
+            try:
+                allowed = _parse_result(method, result)
+            except ObserverValidationError:
+                allowed = None
         elif method == "world.getBlock":
             allowed = _project_block_value(result, require_namespace=True)
         elif method == "world.getBlocks":
@@ -1157,7 +1225,12 @@ class PythonObserverSource:
                 allowed = _parse_result(method, result)
             except ObserverValidationError:
                 allowed = None
-        elif method in {"world.setBlock", "world.setBlocks", "connection.flush"}:
+        elif method in {
+            "world.setBlock",
+            "world.setBlocks",
+            "world.strikeLightning",
+            "connection.flush",
+        }:
             allowed = None
             valid_null = result is None
         else:

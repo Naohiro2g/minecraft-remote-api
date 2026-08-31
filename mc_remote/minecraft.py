@@ -42,6 +42,7 @@ from .dimension import (
     require_dimension_key,
     require_dimension_ref,
 )
+from .direction_value import DirectionValue, decode_direction_value
 from .sign_value import (
     LineValue,
     SignValue,
@@ -124,6 +125,7 @@ __all__ = [
     "ProjectileHitEvent",
     "ProjectileTarget",
     "SignValue",
+    "DirectionValue",
     "CatalogProjectionError",
     "CatalogProjectionWarning",
     "WireScopeWarning",
@@ -133,7 +135,7 @@ __all__ = [
 
 # Wire protocol version this client speaks (sent in the hello handshake and
 # checked by the server). Distinct from the PyPI/distribution version.
-PROTOCOL = "23.0.0"
+PROTOCOL = "23.1.0"
 
 CatalogProjectionError = _projection.CatalogProjectionError
 CatalogProjectionWarning = _projection.CatalogProjectionWarning
@@ -194,7 +196,7 @@ def _env_first(*names):
 class Minecraft:
     """Client for a running Minecraft server speaking protocol 23.x.
 
-    protocol 23.0.0 b6 surface: ``hello`` handshake (carrying an optional
+    protocol 23.1.0 b7 surface: ``hello`` handshake (carrying an optional
     ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
     structured block values, ``postToChat`` (wire ``chat.post``), paired-player
     position and pose helpers (``getPos`` / ``setPos`` / ``getPose`` /
@@ -382,6 +384,66 @@ class Minecraft:
         if isinstance(result, bool) or not isinstance(result, int):
             raise McRemoteError("world.getHeight result must be an integer")
         return result
+
+    def getDirection(self) -> DirectionValue:
+        """Return the paired player's canonical current direction.
+
+        The server owns normalization and six-decimal ``HALF_UP`` output.
+        This wrapper only validates the returned wire array and projects it to
+        an immutable tuple.
+        """
+
+        return decode_direction_value(
+            self.conn.rpc("player.getDirection", []),
+            "player.getDirection result",
+        )
+
+    def setDirection(self, x, y, z) -> DirectionValue:
+        """Set only the paired player's rotation from a finite direction.
+
+        Input precision and magnitude are sent unchanged. The plugin performs
+        scale-safe normalization and returns a canonical post-read direction.
+        """
+
+        params = _finite_values("player.setDirection", x, y, z)
+        return decode_direction_value(
+            self.conn.rpc("player.setDirection", params),
+            "player.setDirection result",
+        )
+
+    def getEntityDirection(self, handle: str) -> DirectionValue:
+        """Return the direction of an epoch-scoped opaque entity handle."""
+
+        if not isinstance(handle, str):
+            raise TypeError("entity handle must be a string")
+        return decode_direction_value(
+            self.conn.rpc("entity.getDirection", [handle]),
+            "entity.getDirection result",
+        )
+
+    def setEntityDirection(self, handle: str, x, y, z) -> DirectionValue:
+        """Set only an opaque handle target's rotation and return post-read."""
+
+        if not isinstance(handle, str):
+            raise TypeError("entity handle must be a string")
+        params = [handle, *_finite_values("entity.setDirection", x, y, z)]
+        return decode_direction_value(
+            self.conn.rpc("entity.setDirection", params),
+            "entity.setDirection result",
+        )
+
+    def strikeLightning(self, x, y, z) -> None:
+        """Request one damage-capable full lightning strike.
+
+        Coordinates are finite values relative to the current stream origin.
+        The operation is non-idempotent and is never retried by this wrapper.
+        """
+
+        params = _finite_values("world.strikeLightning", x, y, z)
+        result = self.conn.rpc("world.strikeLightning", params)
+        if result is not None:
+            raise McRemoteError("world.strikeLightning success result must be null")
+        return None
 
     def getSign(self, x, y, z) -> SignValue:
         """Read a sign's canonical front/back text and waxed state.

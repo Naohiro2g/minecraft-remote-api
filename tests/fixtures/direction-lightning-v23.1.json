@@ -1,0 +1,428 @@
+{
+  "schema": "mcremote.direction-lightning.v23.1",
+  "protocol": "23.1.0",
+  "knowledge_contract": {
+    "commit": "4ce7acd8644d3d895701dc6e103d87d99c6b21d2",
+    "path": "10-protocol/wire-format-design_ja.md",
+    "section": "5.8.2"
+  },
+  "methods": {
+    "player_get_direction": "player.getDirection",
+    "player_set_direction": "player.setDirection",
+    "entity_get_direction": "entity.getDirection",
+    "entity_set_direction": "entity.setDirection",
+    "strike_lightning": "world.strikeLightning"
+  },
+  "rejected_methods": ["world.strikeLightningEffect"],
+  "reasons": [
+    "invalid_params",
+    "auth_required",
+    "zero_direction",
+    "player_offline",
+    "permission_denied",
+    "entity_not_found",
+    "entity_unavailable",
+    "entity_dimension_changed",
+    "internal_error",
+    "build_denied",
+    "backpressure",
+    "work_limit_exceeded",
+    "unknown_particle",
+    "particle_data_required"
+  ],
+  "direction": {
+    "output": {
+      "decimal_places": 6,
+      "rounding": "HALF_UP",
+      "negative_zero": 0,
+      "norm_tolerance": 0.0000015
+    },
+    "valid_vectors": [
+      { "id": "B7-D01", "name": "positive_x", "input": [1, 0, 0], "result": [1, 0, 0] },
+      { "id": "B7-D02", "name": "negative_x", "input": [-1, 0, 0], "result": [-1, 0, 0] },
+      { "id": "B7-D03", "name": "positive_y", "input": [0, 1, 0], "result": [0, 1, 0] },
+      { "id": "B7-D04", "name": "negative_y", "input": [0, -1, 0], "result": [0, -1, 0] },
+      { "id": "B7-D05", "name": "positive_z", "input": [0, 0, 1], "result": [0, 0, 1] },
+      { "id": "B7-D06", "name": "negative_z", "input": [0, 0, -1], "result": [0, 0, -1] },
+      {
+        "id": "B7-D07",
+        "name": "positive_diagonal",
+        "input": [1, 1, 1],
+        "result": [0.57735, 0.57735, 0.57735]
+      },
+      {
+        "id": "B7-D08",
+        "name": "mixed_diagonal",
+        "input": [-1, 2, -3],
+        "result": [-0.267261, 0.534522, -0.801784]
+      },
+      {
+        "id": "B7-D09",
+        "name": "magnitude_equivalence_base",
+        "equivalence_group": "one_two_three",
+        "input": [1, 2, 3],
+        "result": [0.267261, 0.534522, 0.801784]
+      },
+      {
+        "id": "B7-D10",
+        "name": "magnitude_equivalence_scaled",
+        "equivalence_group": "one_two_three",
+        "input": [10, 20, 30],
+        "result": [0.267261, 0.534522, 0.801784]
+      },
+      {
+        "id": "B7-D11",
+        "name": "subnormal",
+        "input": [5e-324, 0, 0],
+        "result": [1, 0, 0]
+      },
+      {
+        "id": "B7-D12",
+        "name": "double_max_value",
+        "input": [1.7976931348623157e308, 1.7976931348623157e308, 0],
+        "result": [0.707107, 0.707107, 0]
+      },
+      {
+        "id": "B7-D13",
+        "name": "signed_zero_component",
+        "input_json": "[-0,1,0]",
+        "result": [0, 1, 0]
+      },
+      {
+        "id": "B7-D14",
+        "name": "half_up_boundary",
+        "post_read": [0.1234565, 0.9923499911376576, 0],
+        "result": [0.123457, 0.99235, 0]
+      }
+    ],
+    "invalid_vectors": [
+      { "id": "B7-D20", "name": "positive_zero", "params": [0, 0, 0], "reason": "zero_direction" },
+      {
+        "id": "B7-D21",
+        "name": "signed_zero",
+        "params_json": "[-0,0,-0]",
+        "reason": "zero_direction"
+      },
+      { "id": "B7-D22", "name": "too_few", "params": [1, 2], "reason": "invalid_params" },
+      { "id": "B7-D23", "name": "too_many", "params": [1, 2, 3, 4], "reason": "invalid_params" },
+      { "id": "B7-D24", "name": "wrong_type", "params": [1, "2", 3], "reason": "invalid_params" },
+      {
+        "id": "B7-D25",
+        "name": "nan",
+        "direct_decoder_values": ["NaN", 0, 0],
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B7-D26",
+        "name": "positive_infinity",
+        "direct_decoder_values": ["Infinity", 0, 0],
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B7-D27",
+        "name": "negative_infinity",
+        "direct_decoder_values": ["-Infinity", 0, 0],
+        "reason": "invalid_params"
+      }
+    ],
+    "method_cases": [
+      {
+        "id": "B7-D30",
+        "method": "player.getDirection",
+        "params": [],
+        "result": [0, 0, 1],
+        "work_cost": 0,
+        "side_effects": []
+      },
+      {
+        "id": "B7-D31",
+        "method": "player.setDirection",
+        "params": [1, 2, 3],
+        "result_source": "post_read",
+        "work_cost": 1,
+        "order": ["params", "permission", "work", "set_rotation", "post_read"],
+        "invariants": ["position", "dimension"]
+      },
+      { "id": "B7-D32", "name": "player_unbound", "method": "player.getDirection", "reason": "auth_required" },
+      {
+        "id": "B7-D33",
+        "name": "player_offline",
+        "method": "player.setDirection",
+        "reason": "player_offline"
+      },
+      {
+        "id": "B7-D34",
+        "name": "player_permission",
+        "method": "player.setDirection",
+        "reason": "permission_denied"
+      },
+      {
+        "id": "B7-D35",
+        "method": "entity.getDirection",
+        "params": ["mcr_eh_fixture-current"],
+        "result": [1, 0, 0],
+        "work_cost": 0,
+        "side_effects": []
+      },
+      {
+        "id": "B7-D36",
+        "method": "entity.setDirection",
+        "params": ["mcr_eh_fixture-current", 1, 2, 3],
+        "result_source": "post_read",
+        "work_cost": 1,
+        "order": ["params", "permission", "handle", "work", "set_rotation", "post_read"],
+        "invariants": ["position", "dimension"]
+      },
+      {
+        "id": "B7-D37",
+        "name": "paper_exception",
+        "method": "entity.setDirection",
+        "reason": "internal_error",
+        "retry": false
+      },
+      {
+        "id": "B7-D38",
+        "name": "post_read_failure",
+        "method": "player.setDirection",
+        "reason": "internal_error",
+        "retry": false
+      }
+    ]
+  },
+  "handles": {
+    "invalid_type": {
+      "id": "B7-H01",
+      "method": "entity.getDirection",
+      "params": [123],
+      "reason": "invalid_params"
+    },
+    "unresolved_strings": [
+      { "id": "B7-H02", "name": "empty", "handle": "", "reason": "entity_not_found" },
+      { "id": "B7-H03", "name": "foreign", "handle": "mcr_eh_foreign", "reason": "entity_not_found" },
+      { "id": "B7-H04", "name": "unknown", "handle": "mcr_eh_unknown", "reason": "entity_not_found" },
+      { "id": "B7-H05", "name": "old_epoch", "handle": "mcr_eh_old-epoch", "reason": "entity_not_found" },
+      { "id": "B7-H06", "name": "old_format", "handle": "mceh_legacy", "reason": "entity_not_found" }
+    ],
+    "terminal_transitions": [
+      {
+        "id": "B7-H10",
+        "name": "removed_unloaded_or_invalid",
+        "first_reason": "entity_unavailable",
+        "handle_released": true,
+        "next_reason": "entity_not_found"
+      },
+      {
+        "id": "B7-H11",
+        "name": "dimension_changed",
+        "first_reason": "entity_dimension_changed",
+        "handle_released": true,
+        "next_reason": "entity_not_found"
+      }
+    ]
+  },
+  "lightning": {
+    "wire_cases": [
+      {
+        "id": "B7-L01",
+        "method": "world.strikeLightning",
+        "params": [1.25, 2.5, -3.75],
+        "origin": [200, 0, 200],
+        "exact_target": [201.25, 2.5, 196.25],
+        "result": null
+      },
+      {
+        "id": "B7-L02",
+        "name": "notification",
+        "method": "world.strikeLightning",
+        "params": [1, 2, 3],
+        "request_id": "omitted",
+        "response": "none"
+      },
+      { "id": "B7-L03", "name": "wrong_count", "params": [1, 2], "reason": "invalid_params" },
+      { "id": "B7-L04", "name": "wrong_type", "params": [1, "2", 3], "reason": "invalid_params" },
+      {
+        "id": "B7-L05",
+        "name": "absolute_overflow",
+        "origin": [1.7976931348623157e308, 0, 0],
+        "params": [1.7976931348623157e308, 0, 0],
+        "reason": "invalid_params"
+      }
+    ],
+    "permission_order": [
+      "params",
+      "bound_identity",
+      "construction_permission",
+      "mcr.lightning",
+      "build_range",
+      "rate",
+      "work",
+      "chunk",
+      "full_strike"
+    ],
+    "permission_cases": [
+      { "id": "B7-L10", "name": "unbound", "reason": "auth_required" },
+      { "id": "B7-L11", "name": "online", "construction_permission": "mcr.online", "accepted": true },
+      { "id": "B7-L12", "name": "offline", "construction_permission": "mcr.offline", "accepted": true },
+      { "id": "B7-L13", "name": "construction_denied", "reason": "permission_denied" },
+      { "id": "B7-L14", "name": "lightning_denied", "permission": "mcr.lightning", "reason": "permission_denied" },
+      { "id": "B7-L15", "name": "xz_range_min_inclusive", "target": [-100, -100], "accepted": true },
+      { "id": "B7-L16", "name": "xz_range_max_inclusive", "target": [100, 100], "accepted": true },
+      { "id": "B7-L17", "name": "y_ignored_by_range", "target": [0, 1000000, 0], "accepted": true },
+      { "id": "B7-L18", "name": "xz_outside", "target": [101, 0], "reason": "build_denied" }
+    ],
+    "rate_policy": {
+      "window_ticks": 20,
+      "connection_accepts": 1,
+      "player_accepts": 1,
+      "global_same_tick_accepts": 2,
+      "global_window_accepts": 8,
+      "rejection_reason": "backpressure",
+      "atomic": true,
+      "refund_after_later_failure": false
+    },
+    "rate_cases": [
+      { "id": "B7-L20", "name": "connection_T", "tick": 100, "accepted": true },
+      { "id": "B7-L21", "name": "connection_T_plus_19", "tick": 119, "reason": "backpressure" },
+      { "id": "B7-L22", "name": "connection_T_plus_20", "tick": 120, "accepted": true },
+      {
+        "id": "B7-L23",
+        "name": "player_across_connections",
+        "tick": 100,
+        "connections": ["a", "b"],
+        "accepted": [true, false],
+        "second_reason": "backpressure"
+      },
+      {
+        "id": "B7-L24",
+        "name": "global_same_tick",
+        "tick": 100,
+        "distinct_players_and_connections": 3,
+        "accepted": [true, true, false],
+        "third_reason": "backpressure"
+      },
+      {
+        "id": "B7-L25",
+        "name": "global_rolling_window",
+        "window": [100, 119],
+        "accepted_ticks": [100, 101, 102, 103, 104, 105, 106, 107],
+        "attempt_tick": 119,
+        "ninth_reason": "backpressure"
+      },
+      {
+        "id": "B7-L26",
+        "name": "atomic_rejection",
+        "rejected_scope": "player",
+        "other_scopes_consumed": false
+      },
+      {
+        "id": "B7-L27",
+        "name": "rate_not_refunded_after_work_or_chunk_or_paper_failure",
+        "rate_slots_refunded": false
+      }
+    ],
+    "work_policy": {
+      "cost": 256,
+      "distribution_max_work_per_request": 4096,
+      "temporary_rejection": "backpressure",
+      "below_cost_rejection": "work_limit_exceeded",
+      "refund_after_later_failure": false
+    },
+    "work_cases": [
+      { "id": "B7-L30", "name": "distribution_policy", "max_work_per_request": 4096, "accepted": true },
+      { "id": "B7-L31", "name": "exact_cost", "max_work_per_request": 256, "accepted": true },
+      { "id": "B7-L32", "name": "below_cost", "max_work_per_request": 255, "reason": "work_limit_exceeded" },
+      { "id": "B7-L33", "name": "temporary_budget", "reason": "backpressure" },
+      { "id": "B7-L34", "name": "work_not_refunded_after_chunk_or_paper_failure", "work_refunded": false }
+    ],
+    "request_mode_cases": [
+      {
+        "id": "B7-L40",
+        "name": "request_temporary_rejection",
+        "mode": "request",
+        "reason": "backpressure",
+        "terminal": true
+      },
+      {
+        "id": "B7-L41",
+        "name": "notification_temporary_rejection",
+        "mode": "notification",
+        "reason": "backpressure",
+        "action": "defer_fifo_head",
+        "allows_overtake": false
+      },
+      {
+        "id": "B7-L42",
+        "name": "notification_permanent_rejection",
+        "mode": "notification",
+        "reason": "work_limit_exceeded",
+        "action": "consume_without_response",
+        "retry": false
+      }
+    ],
+    "paper_cases": [
+      { "id": "B7-L50", "name": "loaded_chunk", "load_chunk_calls": 0, "full_strike_calls": 1, "effect_calls": 0 },
+      {
+        "id": "B7-L51",
+        "name": "generated_chunk",
+        "load_chunk_generate": true,
+        "load_chunk_calls": 1,
+        "full_strike_calls": 1,
+        "effect_calls": 0
+      },
+      {
+        "id": "B7-L52",
+        "name": "chunk_load_failure",
+        "load_chunk_calls": 1,
+        "reason": "backpressure",
+        "full_strike_calls": 0,
+        "rate_refunded": false,
+        "work_refunded": false
+      },
+      {
+        "id": "B7-L53",
+        "name": "full_strike",
+        "api": "World#strikeLightning",
+        "calls": 1,
+        "effect_api_calls": 0,
+        "cause": "CUSTOM",
+        "result": null
+      },
+      { "id": "B7-L54", "name": "event_cancelled", "event_cancelled": true, "result": null, "retry": false },
+      {
+        "id": "B7-L55",
+        "name": "paper_exception",
+        "reason": "internal_error",
+        "partial_side_effect_possible": true,
+        "retry": false
+      }
+    ]
+  },
+  "particle_builder_regression": {
+    "stage": 1,
+    "wire_changed": false,
+    "method": "world.spawnParticle",
+    "default_receiver": "world",
+    "cases": [
+      {
+        "id": "B7-P01",
+        "name": "default_force",
+        "params": [1.25, 2.5, 3.75, 0, 0.5, 0, "minecraft:flame", 0.1, 4],
+        "effective_force": true,
+        "result": 4,
+        "representative_render": "minecraft:flame"
+      },
+      {
+        "id": "B7-P02",
+        "name": "explicit_false",
+        "params": [1.25, 2.5, 3.75, 0, 0.5, 0, "minecraft:flame", 0.1, 4, false],
+        "effective_force": false,
+        "result": 4,
+        "representative_render": "minecraft:flame"
+      },
+      { "id": "B7-P03", "name": "unknown", "reason": "unknown_particle" },
+      { "id": "B7-P04", "name": "typed_data_required", "reason": "particle_data_required" },
+      { "id": "B7-P05", "name": "temporary_admission", "reason": "backpressure" },
+      { "id": "B7-P06", "name": "work_limit", "reason": "work_limit_exceeded" }
+    ]
+  }
+}

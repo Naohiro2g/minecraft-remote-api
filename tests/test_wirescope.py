@@ -92,7 +92,7 @@ def test_python_lifecycle_fixture_conforms():
     assert parsed[0]["streams"][0]["hello"] == parsed[1]["streams"][0]["hello"]
     assert parsed[0]["streams"][0]["frames"] == []
     frames = parsed[1]["streams"][0]["frames"]
-    assert len(frames) == 13
+    assert len(frames) == 23
     observed = [
         (frame["direction"], frame["request_id"], frame["method"])
         for frame in frames
@@ -111,6 +111,16 @@ def test_python_lifecycle_fixture_conforms():
         ("receive", 6, "world.spawnEntity"),
         ("send", 7, "events.poll"),
         ("receive", 7, "events.poll"),
+        ("send", 8, "player.getDirection"),
+        ("receive", 8, "player.getDirection"),
+        ("send", 9, "player.setDirection"),
+        ("receive", 9, "player.setDirection"),
+        ("send", 10, "entity.getDirection"),
+        ("receive", 10, "entity.getDirection"),
+        ("send", 11, "entity.setDirection"),
+        ("receive", 11, "entity.setDirection"),
+        ("send", 12, "world.strikeLightning"),
+        ("receive", 12, "world.strikeLightning"),
     ]
 
 
@@ -190,7 +200,7 @@ def test_fixture_dump_command_is_deterministic_and_matches_committed_fixture():
     second = subprocess.run(command, check=True, capture_output=True, text=True)
     assert first.stdout == second.stdout
     assert json.loads(first.stdout) == json.loads(FIXTURE.read_text(encoding="utf-8"))
-    for forbidden in ("token", "credential", "pair_code", "player", "auth."):
+    for forbidden in ("token", "credential", "pair_code", '"player":', "auth."):
         assert forbidden not in first.stdout
 
 

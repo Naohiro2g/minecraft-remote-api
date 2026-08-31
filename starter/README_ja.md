@@ -1,10 +1,13 @@
-# McRemote Python starter（protocol 23.0.0 / package 2300.0.0b6）
+# McRemote Python starter
 
 この starter では、最初の接続によってブロック名の補完を獲得する変化を観察します。
 
 source checkoutのrootで`uv sync --frozen`を済ませてから、このdirectoryで実行します。
 現行公開betaの取得から始める場合は、top-level [`README.md`](../README.md) の
 「Current beta quick start」を使ってください。
+
+このsource checkoutのpackage metadataが`2301.0.0b7`の場合、protocol `23.1.0`のexact
+server candidateが必要です。公開sandboxがprotocol `23.0.0`の間はb7 clientを接続しません。
 
 ## 1. 環境設定を用意する
 
@@ -70,3 +73,25 @@ Enterを押すか途中で中断すると、`finally`でその位置をairへ戻
 - cleanup: `finally`で自動実行
 - 利用API: `setBuildOrigin()`、`setBlock()`、`setSign()`、`getSign()`
 - 成熟状態: 公開済みb6 APIのREADME隣接example
+
+## 6. b7 direction／full lightningを試す
+
+coordinatorが指定したexact protocol `23.1.0` server candidateへ接続するよう、local
+`param_mc_remote.py`を設定してから実行します。公開b6 sandboxでは実行しません。
+
+```bash
+uv run python b7_direction_lightning.py
+```
+
+最初にpaired playerの現在方向を読み、`[1,2,3]`方向へ向けた後、元の方向を`finally`で
+復元します。続いて`STRIKE`と正確に入力した場合だけ、starter座標`(10, 67, 5)`へfull
+lightningを要求します。
+
+- 最小version: protocol `23.1.0` / package `2301.0.0b7`
+- 実行mode: 通常request
+- 出力先: `REAL`
+- direction変更: paired playerのrotationだけ。一時変更後に復元
+- lightning変更: damage、fire、copper、rod、entity変更が起こり得る
+- cleanup: directionは自動復元。lightning副作用の一般的なrollbackはない
+- 利用API: `getDirection()`、`setDirection()`、`strikeLightning()`
+- 成熟状態: 未公開b7 Python component candidateのREADME隣接example

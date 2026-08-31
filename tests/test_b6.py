@@ -70,8 +70,8 @@ def test_shared_fixture_bytes_match_owner_digest():
     )
 
 
-def test_b6_i01_protocol_pins_23_0_0():
-    assert PROTOCOL == "23.0.0"
+def test_b6_i01_fixtures_remain_protocol_23_0_0_under_b7_client():
+    assert PROTOCOL == "23.1.0"
     assert SIGN_FIXTURE["protocol"] == "23.0.0"
     assert EVENTS_FIXTURE["protocol"] == "23.0.0"
 

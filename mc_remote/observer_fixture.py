@@ -11,7 +11,7 @@ from .observer import PythonObserverSource
 FIXTURE_TIME = 1786118400000
 
 FIXTURE_HELLO = {
-    "protocol": "23.0.0",
+    "protocol": "23.1.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "catalogHash": None,
@@ -43,7 +43,7 @@ def build_fixture():
         target_id_factory=lambda: "target-python-01",
         alias_factory=lambda: "MIND-STORM-000027",
     )
-    source.observe_request("hello", {"protocol": "23.0.0"}, 1)
+    source.observe_request("hello", {"protocol": "23.1.0"}, 1)
     source.observe_result("hello", FIXTURE_HELLO, 1)
 
     initial = source.snapshot((), emitted_at=FIXTURE_TIME)
@@ -98,6 +98,26 @@ def build_fixture():
         },
         7,
     )
+    source.observe_request("player.getDirection", [], 8)
+    source.observe_result("player.getDirection", [0, 0, 1], 8)
+    source.observe_request("player.setDirection", [1, 2, 3], 9)
+    source.observe_result(
+        "player.setDirection", [0.267261, 0.534522, 0.801784], 9
+    )
+    source.observe_request(
+        "entity.getDirection", ["mcr_eh_AAAAAAAAAAAAAAAAAAAAAA"], 10
+    )
+    source.observe_result("entity.getDirection", [1, 0, 0], 10)
+    source.observe_request(
+        "entity.setDirection",
+        ["mcr_eh_AAAAAAAAAAAAAAAAAAAAAA", 1, 2, 3],
+        11,
+    )
+    source.observe_result(
+        "entity.setDirection", [0.267261, 0.534522, 0.801784], 11
+    )
+    source.observe_request("world.strikeLightning", [1.25, 2.5, -3.75], 12)
+    source.observe_result("world.strikeLightning", None, 12)
     updated = source.snapshot(frames, emitted_at=FIXTURE_TIME + 100)
     source.connection_closed()
     return [initial, updated]

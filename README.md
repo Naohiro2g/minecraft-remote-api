@@ -24,7 +24,8 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）:
   - stable（PyPI）: `2000.0.0` — protocol 20.0.0
-  - beta実装（[GitHub prerelease](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2300.0.0b6) `v2300.0.0b6`）: `2300.0.0b6` — protocol 23.0.0 b6（PyPI／TestPyPIは非公開のまま）
+  - public beta（[GitHub prerelease](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2300.0.0b6) `v2300.0.0b6`）: `2300.0.0b6` — protocol 23.0.0 b6（PyPI／TestPyPIは非公開のまま）
+  - source candidate: `2301.0.0b7` — protocol 23.1.0 b7（未公開）
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: Python codeは`MIT`、同梱WireScope appは`AGPL-3.0-only`
@@ -32,18 +33,16 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 ## Current beta quick start / 現行betaの最短経路
 
 The current public beta is the exact Git tag `v2300.0.0b6`. It is not published
-to PyPI. The tracked starter on the current source branch uses the same b6
-package/protocol baseline and also contains the latest documentation examples.
-The commands below require Python 3.10 or newer, Git, and
-[uv](https://docs.astral.sh/uv/).
+to PyPI. Use that tag for the public b6 starter path. The commands below require
+Python 3.10 or newer, Git, and [uv](https://docs.astral.sh/uv/).
 
 現行の公開betaは exact Git tag `v2300.0.0b6` です。PyPIには公開していないため、
-exact release packageの導入時は後述のtag pinを使います。現行source branchのtracked starterは
-同じb6 package／protocol baselineを使い、最新の文書exampleも含みます。以下の実行には
-Python 3.10以上、Git、[uv](https://docs.astral.sh/uv/)が必要です。
+公開b6 starterにはそのtagを使います。以下の実行にはPython 3.10以上、Git、
+[uv](https://docs.astral.sh/uv/)が必要です。
 
 ```bash
-git clone https://github.com/Naohiro2g/minecraft-remote-api.git
+git clone --branch v2300.0.0b6 --depth 1 \
+  https://github.com/Naohiro2g/minecraft-remote-api.git
 cd minecraft-remote-api
 uv sync --frozen
 cd starter
@@ -57,13 +56,17 @@ into Minecraft chat. Success means that Minecraft chat shows
 `(5, 67, 5)`, and the `mc_constants` completion files are generated. The block
 is a persistent world change; remove it with `mc.setBlock(5, 67, 5, "air")`
 when it is no longer needed. See [`starter/README_ja.md`](starter/README_ja.md)
-for the completion exercise and the current b6 sign example.
+for the completion exercise. The b7 source candidate described below requires
+an exact protocol 23.1.0 server candidate and is not compatible with the public
+b6 sandbox while that server remains on protocol 23.0.0.
 
 初回接続では、表示された `/mcremote pair NNN-NNN` commandをMinecraft chatへ
 貼り付けます。Minecraft chatに`Hello, Minecraft from Python!`と表示され、starter座標
 `(5, 67, 5)`へsea lanternが1個置かれ、`mc_constants`補完ファイルが生成されれば成功です。
 このblockはworldへ残るため、不要になったら`mc.setBlock(5, 67, 5, "air")`で除去します。
-補完の観察と現行b6 sign例は[`starter/README_ja.md`](starter/README_ja.md)へ進んでください。
+補完の観察は[`starter/README_ja.md`](starter/README_ja.md)へ進んでください。後述のb7 source
+candidateにはexact protocol 23.1.0 server candidateが必要で、公開sandboxがprotocol 23.0.0の間は
+接続互換ではありません。
 
 The wheel contains the shared `@mc-remote/live` WireScope browser app as an
 immutable detached ZIP and manifest pair. The component remains
@@ -194,6 +197,52 @@ uv run python with_completion.py
 ```
 
 Manual helper scripts live in `scripts/` and are run from the repo root with `uv run python scripts/<name>.py`.
+
+***
+
+## b7 source candidate: direction and full lightning / b7 source candidate
+
+Protocol 23.1.0 adds four direction methods as one slice. Player methods target
+the authenticated paired player; entity methods accept the connection-epoch
+opaque handle returned by the server. Results are immutable three-number
+tuples. The client does not normalize or round direction values itself.
+
+protocol 23.1.0ではdirection四methodを一組で追加します。player methodは認証済みの
+paired playerを対象とし、entity methodはserverが返したconnection epoch限定のopaque
+handleを受け取ります。結果はimmutableな3要素tupleです。client側では方向を正規化・
+丸め直しません。
+
+```python
+direction = mc.getDirection()
+canonical = mc.setDirection(1, 2, 3)
+
+entity_direction = mc.getEntityDirection(handle)
+canonical_entity = mc.setEntityDirection(handle, 1, 2, 3)
+```
+
+`strikeLightning(x, y, z)` requests damage-capable full lightning at the exact
+origin-relative target and returns `None`. It can cause damage, fire, copper,
+lightning-rod, and entity changes. Those effects have no general automatic
+cleanup or rollback, and an `internal_error` is never retried automatically.
+The old `strikeLightningEffect` name is not provided.
+
+`strikeLightning(x, y, z)`はorigin相対のexact targetへdamage-capableなfull
+lightningを要求し、`None`を返します。damage、fire、copper、lightning rod、entity
+変更が起こり得ます。一般的な自動cleanup／rollbackはなく、`internal_error`を自動retry
+しません。旧`strikeLightningEffect`名は提供しません。
+
+The tracked [`starter/b7_direction_lightning.py`](starter/b7_direction_lightning.py)
+restores the paired player's original direction and runs lightning only after
+the user types `STRIKE`. Use it only with the coordinator-designated exact b7
+server candidate; the public b6 sandbox is not a b7 test target.
+
+tracked [`starter/b7_direction_lightning.py`](starter/b7_direction_lightning.py)は
+paired playerの元の方向を復元し、利用者が`STRIKE`と入力した場合だけlightningを実行します。
+coordinator指定のexact b7 server candidateだけで使用し、公開b6 sandboxをb7試験先にしません。
+
+```bash
+uv run python b7_direction_lightning.py
+```
 
 ***
 

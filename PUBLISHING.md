@@ -154,6 +154,32 @@ prereleaseとして公開済み、PyPI／TestPyPIは非公開のまま。
   （`00-hub/release-gate-notes_ja.md`「2026-08-27 b6横断release gate（CLOSED）」、
   `10-protocol/b6-artifact-candidate-record_ja.md`）
 
+### b7 / protocol 23.1 GitHub pre-release 確認（candidate）
+
+`2301.0.0b7`はdirection四methodとdamage-capableなfull lightningを追加する
+protocol `23.1.0` candidateである。公開release、tag、exact artifact set、live結果は
+coordinator gateまで主張しない。
+
+- knowledge contract: `mc-remote-knowledge@233f2631805bd86c4f51141a5d03aa8a4eb8651e`
+- owner fixture: `scratch-editor@607cda40588ec4579c503d457c3784385419ac65`
+- fixture path: `mc-remote/protocol/test/fixtures/direction-lightning-v23.1.json`
+- fixture SHA-256: `faad66c93d2c8ee8eb541f6b7297163cb681054b3de05ba3d130ac4288c1046a`
+- fixture case ledger: 81
+
+```bash
+uv lock --check
+uv run --with pytest pytest -q tests/test_b7.py tests/test_b6.py tests/test_wirescope.py
+uv run --with pytest pytest -q
+uv build
+unzip -p dist/minecraft_remote_api-2301.0.0b7-py3-none-any.whl \
+  '*/METADATA' | grep -iE '^Name:|^Version:|^Requires-Dist:'
+```
+
+`world.strikeLightningEffect`はaliasを含めて公開しない。`world.strikeLightning`の
+damage／fire／rod／copper／entity変化、visual／audio、event cancellation、後続tickは
+deterministic client testからlive PASSを導かない。実plugin代表往復はcoordinator指定の
+exact candidateだけで実施する。
+
 ---
 
 ## 4. TestPyPI で確認

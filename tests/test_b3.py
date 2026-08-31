@@ -1013,6 +1013,7 @@ def test_starter_contract():
         ".vscode/settings.json",
         "README_ja.md",
         "b6_sign.py",
+        "b7_direction_lightning.py",
         "hello.py",
         "param_mc_remote.template.py",
         "with_completion.py",

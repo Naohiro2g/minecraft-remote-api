@@ -14,7 +14,7 @@
         "kind": "main",
         "status": "connected",
         "hello": {
-          "protocol": "23.0.0",
+          "protocol": "23.1.0",
           "mc_version": "1.21.11",
           "supported_mc_versions": [
             "1.21.11"
@@ -54,7 +54,7 @@
         "kind": "main",
         "status": "connected",
         "hello": {
-          "protocol": "23.0.0",
+          "protocol": "23.1.0",
           "mc_version": "1.21.11",
           "supported_mc_versions": [
             "1.21.11"
@@ -264,6 +264,137 @@
                 "capacity_dropped_total": 0,
                 "explicitly_discarded_total": 0
               }
+            }
+          },
+          {
+            "sequence": 16,
+            "observed_at": 1786118400113,
+            "direction": "send",
+            "request_id": 8,
+            "method": "player.getDirection",
+            "payload": {
+              "params": []
+            }
+          },
+          {
+            "sequence": 17,
+            "observed_at": 1786118400114,
+            "direction": "receive",
+            "request_id": 8,
+            "method": "player.getDirection",
+            "payload": {
+              "result": [
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "sequence": 18,
+            "observed_at": 1786118400115,
+            "direction": "send",
+            "request_id": 9,
+            "method": "player.setDirection",
+            "payload": {
+              "params": [
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          {
+            "sequence": 19,
+            "observed_at": 1786118400116,
+            "direction": "receive",
+            "request_id": 9,
+            "method": "player.setDirection",
+            "payload": {
+              "result": [
+                0.267261,
+                0.534522,
+                0.801784
+              ]
+            }
+          },
+          {
+            "sequence": 20,
+            "observed_at": 1786118400117,
+            "direction": "send",
+            "request_id": 10,
+            "method": "entity.getDirection",
+            "payload": {
+              "params": [
+                "mcr_eh_AAAAAAAAAAAAAAAAAAAAAA"
+              ]
+            }
+          },
+          {
+            "sequence": 21,
+            "observed_at": 1786118400118,
+            "direction": "receive",
+            "request_id": 10,
+            "method": "entity.getDirection",
+            "payload": {
+              "result": [
+                1,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "sequence": 22,
+            "observed_at": 1786118400119,
+            "direction": "send",
+            "request_id": 11,
+            "method": "entity.setDirection",
+            "payload": {
+              "params": [
+                "mcr_eh_AAAAAAAAAAAAAAAAAAAAAA",
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          {
+            "sequence": 23,
+            "observed_at": 1786118400120,
+            "direction": "receive",
+            "request_id": 11,
+            "method": "entity.setDirection",
+            "payload": {
+              "result": [
+                0.267261,
+                0.534522,
+                0.801784
+              ]
+            }
+          },
+          {
+            "sequence": 24,
+            "observed_at": 1786118400121,
+            "direction": "send",
+            "request_id": 12,
+            "method": "world.strikeLightning",
+            "payload": {
+              "params": [
+                1.25,
+                2.5,
+                -3.75
+              ]
+            }
+          },
+          {
+            "sequence": 25,
+            "observed_at": 1786118400122,
+            "direction": "receive",
+            "request_id": 12,
+            "method": "world.strikeLightning",
+            "payload": {
+              "result": null
             }
           }
         ]
