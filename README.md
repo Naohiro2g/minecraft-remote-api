@@ -29,6 +29,42 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: Python codeは`MIT`、同梱WireScope appは`AGPL-3.0-only`
 
+## Current beta quick start / 現行betaの最短経路
+
+The current public beta is the exact Git tag `v2300.0.0b6`. It is not published
+to PyPI. The tracked starter on the current source branch uses the same b6
+package/protocol baseline and also contains the latest documentation examples.
+The commands below require Python 3.10 or newer, Git, and
+[uv](https://docs.astral.sh/uv/).
+
+現行の公開betaは exact Git tag `v2300.0.0b6` です。PyPIには公開していないため、
+exact release packageの導入時は後述のtag pinを使います。現行source branchのtracked starterは
+同じb6 package／protocol baselineを使い、最新の文書exampleも含みます。以下の実行には
+Python 3.10以上、Git、[uv](https://docs.astral.sh/uv/)が必要です。
+
+```bash
+git clone https://github.com/Naohiro2g/minecraft-remote-api.git
+cd minecraft-remote-api
+uv sync --frozen
+cd starter
+cp param_mc_remote.template.py param_mc_remote.py
+uv run python hello.py
+```
+
+On the first connection, copy the displayed `/mcremote pair NNN-NNN` command
+into Minecraft chat. Success means that Minecraft chat shows
+`Hello, Minecraft from Python!`, one sea lantern appears at starter coordinate
+`(5, 67, 5)`, and the `mc_constants` completion files are generated. The block
+is a persistent world change; remove it with `mc.setBlock(5, 67, 5, "air")`
+when it is no longer needed. See [`starter/README_ja.md`](starter/README_ja.md)
+for the completion exercise and the current b6 sign example.
+
+初回接続では、表示された `/mcremote pair NNN-NNN` commandをMinecraft chatへ
+貼り付けます。Minecraft chatに`Hello, Minecraft from Python!`と表示され、starter座標
+`(5, 67, 5)`へsea lanternが1個置かれ、`mc_constants`補完ファイルが生成されれば成功です。
+このblockはworldへ残るため、不要になったら`mc.setBlock(5, 67, 5, "air")`で除去します。
+補完の観察と現行b6 sign例は[`starter/README_ja.md`](starter/README_ja.md)へ進んでください。
+
 The wheel contains the shared `@mc-remote/live` WireScope browser app as an
 immutable detached ZIP and manifest pair. The component remains
 `AGPL-3.0-only`; its license, notice, exact asset hashes, and corresponding
@@ -123,6 +159,10 @@ uv lock --upgrade && uv sync
 
 ### Just use the package — with pip（パッケージを使うだけ：pip の場合）
 
+The plain command installs the PyPI stable line (`2000.0.0`, protocol 20.0.0),
+not the b6 prerelease. / 素のcommandで入るのはPyPI stable
+（`2000.0.0`、protocol 20.0.0）であり、b6 prereleaseではありません。
+
 ```bash
 pip install minecraft-remote-api
 ```
@@ -131,6 +171,15 @@ to update the package, run (パッケージを更新するには、次のコマ�
 
 ```bash
 pip install minecraft-remote-api -U
+```
+
+To install the exact b6 package without the tracked starter, pin the public Git
+tag explicitly. / tracked starterを使わずexact b6 packageだけを導入する場合は、
+公開Git tagを明示します。
+
+```bash
+python -m pip install \
+  "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2300.0.0b6"
 ```
 
 ## Run the starter（starterを実行）
@@ -145,6 +194,34 @@ uv run python with_completion.py
 ```
 
 Manual helper scripts live in `scripts/` and are run from the repo root with `uv run python scripts/<name>.py`.
+
+***
+
+## What's new in b6: signs and pickaxe poke / b6の新機能: signとpickaxe poke
+
+Protocol 23.0.0 b6 adds `getSign()`, `setSign()`, and `updateSignLine()` as one
+sign slice. It also replaces the historical block-right-click event with the
+`pickaxe_poke` event returned by `pollEvents()`. Entity handles in event and
+spawn results remain opaque strings; client code must not parse them as UUIDs.
+
+protocol 23.0.0 b6では、`getSign()`、`setSign()`、`updateSignLine()`を一組の
+sign sliceとして追加しました。また、過去のblock-right-click eventに代わり、
+`pollEvents()`が返す`pickaxe_poke` eventを追加しました。eventやspawn resultの
+entity handleはopaque stringのままであり、UUIDとして解析しません。
+
+Run the tracked [`starter/b6_sign.py`](starter/b6_sign.py) after `hello.py`.
+It places one sign, writes and reads its four front lines, waits so the result
+can be observed, and restores the location to air in `finally`. It requires
+package `2300.0.0b6` and protocol `23.0.0`.
+
+`hello.py`の後にtracked [`starter/b6_sign.py`](starter/b6_sign.py)を実行します。
+signを1個置いてfront 4行を書き戻し、読み取り結果とMinecraft上の表示を観察した後、
+`finally`で設置位置をairへ戻します。必要versionはpackage `2300.0.0b6`、protocol
+`23.0.0`です。
+
+```bash
+uv run python b6_sign.py
+```
 
 ***
 

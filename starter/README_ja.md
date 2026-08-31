@@ -1,6 +1,10 @@
-# McRemote Python starter
+# McRemote Python starter（protocol 23.0.0 / package 2300.0.0b6）
 
 この starter では、最初の接続によってブロック名の補完を獲得する変化を観察します。
+
+source checkoutのrootで`uv sync --frozen`を済ませてから、このdirectoryで実行します。
+現行公開betaの取得から始める場合は、top-level [`README.md`](../README.md) の
+「Current beta quick start」を使ってください。
 
 ## 1. 環境設定を用意する
 
@@ -31,6 +35,8 @@ uv run python hello.py
 
 初回は表示された pairing command を Minecraft 内で実行します。接続に成功すると、chat に
 メッセージが出て sea lantern が1個置かれ、同時に `mc_constants.py` と manifest が生成されます。
+sea lanternはstarter座標`(5, 67, 5)`に残ります。不要になったら、接続済みのコードから
+`mc.setBlock(5, 67, 5, "air")`を実行して除去してください。
 
 ## 4. 接続後を観察する
 
@@ -43,3 +49,24 @@ uv run python with_completion.py
 
 最初の sea lantern の隣に gold block が置かれます。補完用ファイルは接続先から得る一時生成物で、
 この starter の `.gitignore` により commit されません。
+
+この例はstarter座標`(6, 67, 5)`と`(7, 67, 5)`を変更したまま残します。観察後は、同じ
+接続／build originでそれぞれを`air`へ戻せます。
+
+## 5. 現行b6のsignを試す
+
+```bash
+uv run python b6_sign.py
+```
+
+このconcept sampleは`world.setBlock`、`world.setSign`、`world.getSign`を使います。
+starter座標`(8, 67, 5)`へstanding oak signを置き、front 4行を表示して読み返します。
+Enterを押すか途中で中断すると、`finally`でその位置をairへ戻します。
+
+- 最小version: protocol `23.0.0` / package `2300.0.0b6`
+- 実行mode: `DEBUG`（既定）
+- 出力先: `REAL`
+- world変更: 実行中だけsignを1個設置
+- cleanup: `finally`で自動実行
+- 利用API: `setBuildOrigin()`、`setBlock()`、`setSign()`、`getSign()`
+- 成熟状態: 公開済みb6 APIのREADME隣接example

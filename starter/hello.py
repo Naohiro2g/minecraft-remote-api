@@ -6,8 +6,7 @@ from mc_remote.minecraft import Minecraft
 # from mc_constants import block
 
 
-mc = Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR)
-mc.setBuildOrigin(ORIGIN.x, ORIGIN.y, ORIGIN.z)
-
-mc.postToChat("Hello, Minecraft from Python!")
-mc.setBlock(5, 62 + 5, 5, "sea_lantern")
+with Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR) as mc:
+    mc.setBuildOrigin(ORIGIN.x, ORIGIN.y, ORIGIN.z)
+    mc.postToChat("Hello, Minecraft from Python!")
+    mc.setBlock(5, 62 + 5, 5, "sea_lantern")
