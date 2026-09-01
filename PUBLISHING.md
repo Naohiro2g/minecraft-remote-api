@@ -160,11 +160,11 @@ prereleaseとして公開済み、PyPI／TestPyPIは非公開のまま。
 protocol `23.1.0` candidateである。公開release、tag、exact artifact set、live結果は
 coordinator gateまで主張しない。
 
-- knowledge contract: `mc-remote-knowledge@233f2631805bd86c4f51141a5d03aa8a4eb8651e`
-- owner fixture: `scratch-editor@607cda40588ec4579c503d457c3784385419ac65`
+- knowledge contract: `mc-remote-knowledge@2bddadd1114e05a9076911de83aec0836df36345`
+- owner fixture: `scratch-editor@773e2984132d82bb6e740d6458107fe42ef68a0a`
 - fixture path: `mc-remote/protocol/test/fixtures/direction-lightning-v23.1.json`
-- fixture SHA-256: `faad66c93d2c8ee8eb541f6b7297163cb681054b3de05ba3d130ac4288c1046a`
-- fixture case ledger: 81
+- fixture SHA-256: `586d24bf40136eec31f1827f23ef5b317f15100a17a635d7fe9f165e0af40dce`
+- fixture case ledger: 93 unique IDs
 
 ```bash
 uv lock --check

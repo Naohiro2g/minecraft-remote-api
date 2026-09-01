@@ -16,7 +16,7 @@ from mc_remote.observer import PythonObserverSource, validate_snapshot
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "direction-lightning-v23.1.json"
 FIXTURE = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-FIXTURE_SHA256 = "faad66c93d2c8ee8eb541f6b7297163cb681054b3de05ba3d130ac4288c1046a"
+FIXTURE_SHA256 = "586d24bf40136eec31f1827f23ef5b317f15100a17a635d7fe9f165e0af40dce"
 
 
 class FakeConn:
@@ -53,17 +53,43 @@ def _reason_error(reason, code=-32000):
     return raise_error
 
 
-def test_owner_fixture_identity_protocol_and_81_case_ledger():
+def test_owner_fixture_identity_protocol_and_93_case_ledger():
     assert hashlib.sha256(FIXTURE_PATH.read_bytes()).hexdigest() == FIXTURE_SHA256
     assert FIXTURE["schema"] == "mcremote.direction-lightning.v23.1"
     assert FIXTURE["protocol"] == PROTOCOL == "23.1.0"
     assert FIXTURE["knowledge_contract"] == {
-        "commit": "4ce7acd8644d3d895701dc6e103d87d99c6b21d2",
+        "commit": "2bddadd1114e05a9076911de83aec0836df36345",
         "path": "10-protocol/wire-format-design_ja.md",
         "section": "5.8.2",
     }
     ids = _all_case_ids(FIXTURE)
-    assert len(ids) == len(set(ids)) == 81
+    assert len(ids) == len(set(ids)) == 93
+
+
+def test_hello_permission_snapshot_remains_an_uninterpreted_server_fact():
+    case = FIXTURE["session_admission"]["hello_snapshot_cases"][0]
+    hello = {
+        "protocol": "23.1.0",
+        "mc_version": "1.21.11",
+        "supported_mc_versions": ["1.21.11"],
+        "catalogHash": None,
+        "dimension": "minecraft:overworld",
+        "origin": [200, 0, 200],
+        "world_constants": {"y_sea": 62},
+        "permissions": case["hello_permissions"],
+    }
+    lightning_method = FIXTURE["methods"]["strike_lightning"]
+    conn = FakeConn({"hello": hello, lightning_method: None})
+    mc = Minecraft(conn)
+
+    assert mc.hello() == hello
+    assert mc.permissions == case["hello_permissions"]
+    assert mc.strikeLightning(1, 2, 3) is None
+    assert conn.calls == [
+        ("hello", {"protocol": "23.1.0"}),
+        (lightning_method, [1, 2, 3]),
+    ]
+    assert FIXTURE["session_admission"]["command_permission_recheck"] is False
 
 
 def test_direction_decoder_projects_fixture_results_without_recanonicalizing():
@@ -268,7 +294,9 @@ def test_observer_projects_b7_params_results_and_errors():
         "dimension": "minecraft:overworld",
         "origin": [200, 0, 200],
         "world_constants": {"y_sea": 62},
-        "permissions": {"online": True, "offline": False, "buildRange": 100},
+        "permissions": FIXTURE["session_admission"]["hello_snapshot_cases"][0][
+            "hello_permissions"
+        ],
     }
     source.observe_request("hello", {"protocol": "23.1.0"}, 1)
     source.observe_result("hello", hello, 1)
@@ -296,6 +324,11 @@ def test_observer_projects_b7_params_results_and_errors():
     )
 
     snapshot = validate_snapshot(source.snapshot(frames, emitted_at=1786118400200))
+    assert snapshot["streams"][0]["hello"]["permissions"] == {
+        "online": True,
+        "offline": False,
+        "build_range": 100,
+    }
     projected = snapshot["streams"][0]["frames"]
     assert [frame["method"] for frame in projected] == [
         method for method, _, _ in exchanges for _ in range(2)

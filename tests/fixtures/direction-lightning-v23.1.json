@@ -2,9 +2,75 @@
   "schema": "mcremote.direction-lightning.v23.1",
   "protocol": "23.1.0",
   "knowledge_contract": {
-    "commit": "4ce7acd8644d3d895701dc6e103d87d99c6b21d2",
+    "commit": "2bddadd1114e05a9076911de83aec0836df36345",
     "path": "10-protocol/wire-format-design_ja.md",
     "section": "5.8.2"
+  },
+  "amendment_manifest": {
+    "predecessor": {
+      "commit": "607cda40588ec4579c503d457c3784385419ac65",
+      "path": "mc-remote/protocol/test/fixtures/direction-lightning-v23.1.json",
+      "bytes": 14179,
+      "sha256": "faad66c93d2c8ee8eb541f6b7297163cb681054b3de05ba3d130ac4288c1046a"
+    },
+    "case_migration": {
+      "predecessor_case_count": 81,
+      "unchanged_id_ranges": [
+        "B7-D01..B7-D14",
+        "B7-D20..B7-D27",
+        "B7-D30..B7-D38",
+        "B7-H01..B7-H06",
+        "B7-H10..B7-H11",
+        "B7-L01..B7-L05",
+        "B7-L10",
+        "B7-L15..B7-L18",
+        "B7-L20..B7-L27",
+        "B7-L30..B7-L34",
+        "B7-L40..B7-L42",
+        "B7-L50..B7-L55",
+        "B7-P01..B7-P06"
+      ],
+      "removed_cases": [
+        {
+          "old_id": "B7-L11",
+          "disposition": "replaced",
+          "successor_ids": ["B7-A10", "B7-A11", "B7-A12", "B7-A13"]
+        },
+        {
+          "old_id": "B7-L12",
+          "disposition": "replaced",
+          "successor_ids": ["B7-A14", "B7-A15", "B7-A16", "B7-A17"]
+        },
+        {
+          "old_id": "B7-L13",
+          "disposition": "replaced",
+          "successor_ids": ["B7-A10", "B7-A12", "B7-A14", "B7-A15"]
+        },
+        {
+          "old_id": "B7-L14",
+          "disposition": "deleted_obsolete_permission",
+          "successor_ids": []
+        }
+      ],
+      "added_ids": [
+        "B7-A01",
+        "B7-A10",
+        "B7-A11",
+        "B7-A12",
+        "B7-A13",
+        "B7-A14",
+        "B7-A15",
+        "B7-A16",
+        "B7-A17",
+        "B7-A20",
+        "B7-A21",
+        "B7-A22",
+        "B7-A23",
+        "B7-A30",
+        "B7-A31",
+        "B7-A32"
+      ]
+    }
   },
   "methods": {
     "player_get_direction": "player.getDirection",
@@ -30,6 +96,160 @@
     "unknown_particle",
     "particle_data_required"
   ],
+  "session_admission": {
+    "snapshot_timing": "hello",
+    "permission_nodes": {
+      "online": "mcr.online",
+      "offline": "mcr.offline",
+      "independent": true
+    },
+    "current_state_match_required": true,
+    "command_permission_recheck": false,
+    "immediate_revocation": {
+      "reuse": ["session_revoke", "credential_revoke"],
+      "new_wire_method": false
+    },
+    "hello_snapshot_cases": [
+      {
+        "id": "B7-A01",
+        "name": "hello_snapshots_permissions_and_build_range",
+        "player_state": "online",
+        "effective_permissions": { "online": true, "offline": false },
+        "effective_build_range": 100,
+        "hello_permissions": { "online": true, "offline": false, "buildRange": 100 },
+        "session_snapshot": { "onlineAllowed": true, "offlineAllowed": false, "buildRange": 100 }
+      }
+    ],
+    "admission_matrix": [
+      {
+        "id": "B7-A10",
+        "name": "online_neither",
+        "player_state": "online",
+        "permissions": { "online": false, "offline": false },
+        "accepted": false,
+        "reason": "permission_denied"
+      },
+      {
+        "id": "B7-A11",
+        "name": "online_online_only",
+        "player_state": "online",
+        "permissions": { "online": true, "offline": false },
+        "accepted": true
+      },
+      {
+        "id": "B7-A12",
+        "name": "online_offline_only",
+        "player_state": "online",
+        "permissions": { "online": false, "offline": true },
+        "accepted": false,
+        "reason": "permission_denied"
+      },
+      {
+        "id": "B7-A13",
+        "name": "online_both",
+        "player_state": "online",
+        "permissions": { "online": true, "offline": true },
+        "accepted": true
+      },
+      {
+        "id": "B7-A14",
+        "name": "offline_neither",
+        "player_state": "offline",
+        "permissions": { "online": false, "offline": false },
+        "accepted": false,
+        "reason": "permission_denied"
+      },
+      {
+        "id": "B7-A15",
+        "name": "offline_online_only",
+        "player_state": "offline",
+        "permissions": { "online": true, "offline": false },
+        "accepted": false,
+        "reason": "permission_denied"
+      },
+      {
+        "id": "B7-A16",
+        "name": "offline_offline_only",
+        "player_state": "offline",
+        "permissions": { "online": false, "offline": true },
+        "accepted": true
+      },
+      {
+        "id": "B7-A17",
+        "name": "offline_both",
+        "player_state": "offline",
+        "permissions": { "online": true, "offline": true },
+        "accepted": true
+      }
+    ],
+    "transition_cases": [
+      {
+        "id": "B7-A20",
+        "name": "online_only_quit",
+        "initial_state": "online",
+        "permissions": { "online": true, "offline": false },
+        "event": "PlayerQuitEvent",
+        "next_state": "offline",
+        "session_closed": true
+      },
+      {
+        "id": "B7-A21",
+        "name": "offline_only_join",
+        "initial_state": "offline",
+        "permissions": { "online": false, "offline": true },
+        "event": "PlayerJoinEvent",
+        "next_state": "online",
+        "session_closed": true
+      },
+      {
+        "id": "B7-A22",
+        "name": "both_quit_continues",
+        "initial_state": "online",
+        "permissions": { "online": true, "offline": true },
+        "event": "PlayerQuitEvent",
+        "next_state": "offline",
+        "session_closed": false,
+        "commands_continue": true
+      },
+      {
+        "id": "B7-A23",
+        "name": "both_join_continues",
+        "initial_state": "offline",
+        "permissions": { "online": true, "offline": true },
+        "event": "PlayerJoinEvent",
+        "next_state": "online",
+        "session_closed": false,
+        "commands_continue": true
+      }
+    ],
+    "snapshot_change_cases": [
+      {
+        "id": "B7-A30",
+        "name": "permission_change_waits_for_reconnect",
+        "session_snapshot": { "onlineAllowed": true, "offlineAllowed": false, "buildRange": 100 },
+        "provider_change": { "offline": true },
+        "existing_session_changed": false,
+        "refresh": "reconnect"
+      },
+      {
+        "id": "B7-A31",
+        "name": "range_change_waits_for_reconnect",
+        "session_snapshot": { "onlineAllowed": true, "offlineAllowed": false, "buildRange": 100 },
+        "provider_change": { "buildRange": 200 },
+        "existing_session_changed": false,
+        "refresh": "reconnect"
+      },
+      {
+        "id": "B7-A32",
+        "name": "reconnect_refreshes_snapshot",
+        "action": "reconnect",
+        "prior_snapshot": { "onlineAllowed": true, "offlineAllowed": false, "buildRange": 100 },
+        "provider_state": { "online": true, "offline": true, "buildRange": 200 },
+        "next_snapshot": { "onlineAllowed": true, "offlineAllowed": true, "buildRange": 200 },
+        "snapshot_refreshed": true
+      }
+    ]
+  },
   "direction": {
     "output": {
       "decimal_places": 6,
@@ -250,21 +470,15 @@
     ],
     "permission_order": [
       "params",
-      "bound_identity",
-      "construction_permission",
-      "mcr.lightning",
-      "build_range",
+      "bound_session_admission",
+      "build_range_snapshot",
       "rate",
       "work",
       "chunk",
       "full_strike"
     ],
-    "permission_cases": [
-      { "id": "B7-L10", "name": "unbound", "reason": "auth_required" },
-      { "id": "B7-L11", "name": "online", "construction_permission": "mcr.online", "accepted": true },
-      { "id": "B7-L12", "name": "offline", "construction_permission": "mcr.offline", "accepted": true },
-      { "id": "B7-L13", "name": "construction_denied", "reason": "permission_denied" },
-      { "id": "B7-L14", "name": "lightning_denied", "permission": "mcr.lightning", "reason": "permission_denied" },
+    "admission_cases": [{ "id": "B7-L10", "name": "unbound", "reason": "auth_required" }],
+    "range_cases": [
       { "id": "B7-L15", "name": "xz_range_min_inclusive", "target": [-100, -100], "accepted": true },
       { "id": "B7-L16", "name": "xz_range_max_inclusive", "target": [100, 100], "accepted": true },
       { "id": "B7-L17", "name": "y_ignored_by_range", "target": [0, 1000000, 0], "accepted": true },
