@@ -171,9 +171,15 @@ uv lock --check
 uv run --with pytest pytest -q tests/test_b7.py tests/test_b6.py tests/test_wirescope.py
 uv run --with pytest pytest -q
 uv build
+uv run python scripts/check_wirescope_wheel.py \
+  dist/minecraft_remote_api-2301.0.0b7-py3-none-any.whl
 unzip -p dist/minecraft_remote_api-2301.0.0b7-py3-none-any.whl \
   '*/METADATA' | grep -iE '^Name:|^Version:|^Requires-Dist:'
 ```
+
+同梱WireScopeの実browser確認は
+`uv run python scripts/b7_wirescope_browser_e2e.py`でloopback stationへ接続し、
+direction四methodと`world.strikeLightning`それぞれの成功／server error exchangeを確認する。
 
 `world.strikeLightningEffect`はaliasを含めて公開しない。`world.strikeLightning`の
 damage／fire／rod／copper／entity変化、visual／audio、event cancellation、後続tickは

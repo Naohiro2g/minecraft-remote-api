@@ -12,6 +12,9 @@ Manual helper scripts live here.
 - `b4_pose_wirescope_live.py` - run the paired-player pose contract carried
   forward from b4, using protocol 22 DimensionKey fields, through an isolated
   pairing session and WireScope app
+- `b7_wirescope_browser_e2e.py` - serve the exact bundled WireScope app over
+  the loopback station and emit successful and server-error exchanges for all
+  five b7 direction/lightning methods
 - `b5_build_modes_live.py` - exercise DEBUG/TRACE/FAST, explicit flush, automatic
   close flush, and `getBlocks` against a real protocol 22 plugin; every touched
   block is captured first and restoration is attempted in `finally`
@@ -28,5 +31,6 @@ uv run python scripts/sync_catalog.py 127.0.0.1 --out examples
 
 uv run python scripts/check_wirescope_wheel.py dist/*.whl
 uv run python scripts/b4_pose_wirescope_live.py
+uv run python scripts/b7_wirescope_browser_e2e.py
 uv run python scripts/b5_build_modes_live.py 127.0.0.1 0 64 0
 ```

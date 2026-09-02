@@ -20,7 +20,7 @@ import mc_remote.wirescope as wirescope
 
 
 SOURCE_COMMIT = "192d1e3ccd213fb5012b92655e51b779270e15be"
-BUNDLED_APP_SOURCE_COMMIT = "1a11c46bac5696afd3f494caac56ae682ed00fb0"
+BUNDLED_APP_SOURCE_COMMIT = "0be46fcfaca409a5ede10f592520d93e7c59ba15"
 HELLO = {
     "protocol": "22.0.0",
     "mc_version": "1.21.11",
@@ -220,6 +220,12 @@ def test_bundled_delivery_pair_matches_build_input_and_component_files():
         assert b"world.spawnParticle" in app_script
         assert b"world.spawnEntity" in app_script
         assert b"connection.flush" in app_script
+        assert b"player.getDirection" in app_script
+        assert b"player.setDirection" in app_script
+        assert b"entity.getDirection" in app_script
+        assert b"entity.setDirection" in app_script
+        assert b"world.strikeLightning" in app_script
+        assert b"world.strikeLightningEffect" not in app_script
 
 
 def test_bootstrap_and_assets_require_exact_authority_and_leak_no_secret():

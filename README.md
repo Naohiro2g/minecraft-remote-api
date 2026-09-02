@@ -71,15 +71,20 @@ candidateにはexact protocol 23.1.0 server candidateが必要で、公開sandbo
 The wheel contains the shared `@mc-remote/live` WireScope browser app as an
 immutable detached ZIP and manifest pair. The component remains
 `AGPL-3.0-only`; its license, notice, exact asset hashes, and corresponding
-source are included in the distribution. The Python client code remains MIT.
+source are included in the distribution. This b7 pair recognizes the four
+direction methods and `world.strikeLightning`; the removed
+`world.strikeLightningEffect` name is not included. The Python client code
+remains MIT.
 
 wheelには共通`@mc-remote/live` WireScope browser appを、bytesを変更しない
 detached ZIP／manifest pairとして同梱します。このcomponentは
 `AGPL-3.0-only`であり、license、notice、全asset hash、対応source導線を
-配布物に含めます。Python client codeは引き続きMITです。
+配布物に含めます。このb7 pairはdirection四methodと
+`world.strikeLightning`を認識し、削除済みの
+`world.strikeLightningEffect`名は含みません。Python client codeは引き続きMITです。
 
 - WireScope corresponding source:
-  <https://github.com/Naohiro2g/scratch-editor/tree/1a11c46bac5696afd3f494caac56ae682ed00fb0/mc-remote/live>
+  <https://github.com/Naohiro2g/scratch-editor/tree/0be46fcfaca409a5ede10f592520d93e7c59ba15/mc-remote/live>
 
 --
 
