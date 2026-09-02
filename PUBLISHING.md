@@ -154,17 +154,34 @@ prereleaseとして公開済み、PyPI／TestPyPIは非公開のまま。
   （`00-hub/release-gate-notes_ja.md`「2026-08-27 b6横断release gate（CLOSED）」、
   `10-protocol/b6-artifact-candidate-record_ja.md`）
 
-### b7 / protocol 23.1 GitHub pre-release 確認（candidate）
+### b7 / protocol 23.1 GitHub pre-release 確認（released）
 
 `2301.0.0b7`はdirection四methodとdamage-capableなfull lightningを追加する
-protocol `23.1.0` candidateである。公開release、tag、exact artifact set、live結果は
-coordinator gateまで主張しない。
+protocol `23.1.0`のGitHub prereleaseである。PyPI／TestPyPIは非公開のまま。
 
-- knowledge contract: `mc-remote-knowledge@2bddadd1114e05a9076911de83aec0836df36345`
+- release: [`v2301.0.0b7`](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2301.0.0b7)
+- tag target: `91a25d317c95570fd9d92b5e63a5f585a856eda3`（公開時の`main`と一致）
+- prerelease=true、draft=false、Latest非対象
+- GitHub binary assets: なし
+- wheel: `minecraft_remote_api-2301.0.0b7-py3-none-any.whl`、196,970 bytes、
+  SHA-256 `81540d22b1ee05d7b24bd2e6c9270a37a194c6c1ddc868148a8263624826d2ba`
+- sdist: `minecraft_remote_api-2301.0.0b7.tar.gz`、203,313 bytes、
+  SHA-256 `55a9915b7607e35e2c1f335561b65fcd38deff90fe49f5b56c65122665b37a0b`
+- 全test 253/253 PASS、targeted WireScope／b7 test 112/112 PASS、clean buildを二回実行して
+  wheel／sdistともbyte-for-byte一致
 - owner fixture: `scratch-editor@773e2984132d82bb6e740d6458107fe42ef68a0a`
 - fixture path: `mc-remote/protocol/test/fixtures/direction-lightning-v23.1.json`
 - fixture SHA-256: `586d24bf40136eec31f1827f23ef5b317f15100a17a635d7fe9f165e0af40dce`
 - fixture case ledger: 93 unique IDs
+- bundled WireScope source: `scratch-editor@0be46fcfaca409a5ede10f592520d93e7c59ba15`
+- exact compatible McRemote: `v1.21.11-2301.0.0b7@3d5f710db97f4b14613f7e0abaafd535701d1906`
+- exact compatible Scratch／WireScope: `v2301.0.0b7@0be46fcfaca409a5ede10f592520d93e7c59ba15`
+- live evidence: knowledge `14-evidence/records/2026-09-03-b7-direction-lightning-live_ja.md`
+- knowledge close: `mc-remote-knowledge@5945a79b357d9bb8a14ddb942f30629d410f6c8d`
+  （`00-hub/release-gate-notes_ja.md`「2026-09-02 b7横断release gate（CLOSED）」、
+  `10-protocol/b7-artifact-candidate-record_ja.md`）
+
+公開成果物の再現確認には、exact tag `v2301.0.0b7`のclean checkoutで次を使う。
 
 ```bash
 uv lock --check
@@ -177,14 +194,14 @@ unzip -p dist/minecraft_remote_api-2301.0.0b7-py3-none-any.whl \
   '*/METADATA' | grep -iE '^Name:|^Version:|^Requires-Dist:'
 ```
 
-同梱WireScopeの実browser確認は
+同梱WireScopeの実browser確認には
 `uv run python scripts/b7_wirescope_browser_e2e.py`でloopback stationへ接続し、
 direction四methodと`world.strikeLightning`それぞれの成功／server error exchangeを確認する。
 
 `world.strikeLightningEffect`はaliasを含めて公開しない。`world.strikeLightning`の
 damage／fire／rod／copper／entity変化、visual／audio、event cancellation、後続tickは
-deterministic client testからlive PASSを導かない。実plugin代表往復はcoordinator指定の
-exact candidateだけで実施する。
+deterministic client testからlive PASSを導かない。b7 live gateはcoordinator指定のexact setで
+完了しており、記録済み結果を別serverへ一般化しない。
 
 ---
 

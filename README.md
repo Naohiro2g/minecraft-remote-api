@@ -24,21 +24,22 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）:
   - stable（PyPI）: `2000.0.0` — protocol 20.0.0
-  - public beta（[GitHub prerelease](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2300.0.0b6) `v2300.0.0b6`）: `2300.0.0b6` — protocol 23.0.0 b6（PyPI／TestPyPIは非公開のまま）
-  - source candidate: `2301.0.0b7` — protocol 23.1.0 b7（未公開）
+  - public beta（[GitHub prerelease](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2301.0.0b7) `v2301.0.0b7`）: `2301.0.0b7` — protocol 23.1.0 b7（PyPI／TestPyPIは非公開のまま）
+  - public sandbox compatible beta: `2300.0.0b6` — protocol 23.0.0 b6
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
 - license（ライセンス）: Python codeは`MIT`、同梱WireScope appは`AGPL-3.0-only`
 
-## Current beta quick start / 現行betaの最短経路
+## Public sandbox quick start (b6) / 公開sandboxの最短経路（b6）
 
-The current public beta is the exact Git tag `v2300.0.0b6`. It is not published
-to PyPI. Use that tag for the public b6 starter path. The commands below require
-Python 3.10 or newer, Git, and [uv](https://docs.astral.sh/uv/).
+The latest GitHub prerelease is b7, but the public sandbox deployment was not
+part of that release and remains on protocol 23.0.0. Use the exact b6 tag for
+this sandbox starter path. The commands below require Python 3.10 or newer,
+Git, and [uv](https://docs.astral.sh/uv/).
 
-現行の公開betaは exact Git tag `v2300.0.0b6` です。PyPIには公開していないため、
-公開b6 starterにはそのtagを使います。以下の実行にはPython 3.10以上、Git、
-[uv](https://docs.astral.sh/uv/)が必要です。
+最新のGitHub prereleaseはb7ですが、公開sandboxへのdeployはそのrelease対象外であり、
+protocol 23.0.0のままです。このsandbox starterにはexact b6 tagを使います。
+以下の実行にはPython 3.10以上、Git、[uv](https://docs.astral.sh/uv/)が必要です。
 
 ```bash
 git clone --branch v2300.0.0b6 --depth 1 \
@@ -56,16 +57,16 @@ into Minecraft chat. Success means that Minecraft chat shows
 `(5, 67, 5)`, and the `mc_constants` completion files are generated. The block
 is a persistent world change; remove it with `mc.setBlock(5, 67, 5, "air")`
 when it is no longer needed. See [`starter/README_ja.md`](starter/README_ja.md)
-for the completion exercise. The b7 source candidate described below requires
-an exact protocol 23.1.0 server candidate and is not compatible with the public
-b6 sandbox while that server remains on protocol 23.0.0.
+for the completion exercise. The b7 prerelease described below requires an
+exact protocol 23.1.0 server and is not compatible with the public b6 sandbox
+while that server remains on protocol 23.0.0.
 
 初回接続では、表示された `/mcremote pair NNN-NNN` commandをMinecraft chatへ
 貼り付けます。Minecraft chatに`Hello, Minecraft from Python!`と表示され、starter座標
 `(5, 67, 5)`へsea lanternが1個置かれ、`mc_constants`補完ファイルが生成されれば成功です。
 このblockはworldへ残るため、不要になったら`mc.setBlock(5, 67, 5, "air")`で除去します。
-補完の観察は[`starter/README_ja.md`](starter/README_ja.md)へ進んでください。後述のb7 source
-candidateにはexact protocol 23.1.0 server candidateが必要で、公開sandboxがprotocol 23.0.0の間は
+補完の観察は[`starter/README_ja.md`](starter/README_ja.md)へ進んでください。後述のb7
+prereleaseにはexact protocol 23.1.0 serverが必要で、公開sandboxがprotocol 23.0.0の間は
 接続互換ではありません。
 
 The wheel contains the shared `@mc-remote/live` WireScope browser app as an
@@ -168,8 +169,8 @@ uv lock --upgrade && uv sync
 ### Just use the package — with pip（パッケージを使うだけ：pip の場合）
 
 The plain command installs the PyPI stable line (`2000.0.0`, protocol 20.0.0),
-not the b6 prerelease. / 素のcommandで入るのはPyPI stable
-（`2000.0.0`、protocol 20.0.0）であり、b6 prereleaseではありません。
+not the b7 GitHub prerelease. / 素のcommandで入るのはPyPI stable
+（`2000.0.0`、protocol 20.0.0）であり、b7 GitHub prereleaseではありません。
 
 ```bash
 pip install minecraft-remote-api
@@ -181,13 +182,14 @@ to update the package, run (パッケージを更新するには、次のコマ�
 pip install minecraft-remote-api -U
 ```
 
-To install the exact b6 package without the tracked starter, pin the public Git
-tag explicitly. / tracked starterを使わずexact b6 packageだけを導入する場合は、
-公開Git tagを明示します。
+To install the exact b7 package without the tracked starter, pin the public Git
+tag explicitly. It requires an exact protocol 23.1.0 server. / tracked starterを
+使わずexact b7 packageだけを導入する場合は、公開Git tagを明示します。接続先には
+exact protocol 23.1.0 serverが必要です。
 
 ```bash
 python -m pip install \
-  "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2300.0.0b6"
+  "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api@v2301.0.0b7"
 ```
 
 ## Run the starter（starterを実行）
@@ -205,7 +207,7 @@ Manual helper scripts live in `scripts/` and are run from the repo root with `uv
 
 ***
 
-## b7 source candidate: direction and full lightning / b7 source candidate
+## b7 GitHub prerelease: direction and full lightning / b7 GitHub prerelease
 
 Protocol 23.1.0 adds four direction methods as one slice. Player methods target
 the authenticated paired player; entity methods accept the connection-epoch
@@ -238,12 +240,12 @@ lightningを要求し、`None`を返します。damage、fire、copper、lightni
 
 The tracked [`starter/b7_direction_lightning.py`](starter/b7_direction_lightning.py)
 restores the paired player's original direction and runs lightning only after
-the user types `STRIKE`. Use it only with the coordinator-designated exact b7
-server candidate; the public b6 sandbox is not a b7 test target.
+the user types `STRIKE`. Use it only with an exact protocol 23.1.0 server; the
+public b6 sandbox is not a b7 target.
 
 tracked [`starter/b7_direction_lightning.py`](starter/b7_direction_lightning.py)は
 paired playerの元の方向を復元し、利用者が`STRIKE`と入力した場合だけlightningを実行します。
-coordinator指定のexact b7 server candidateだけで使用し、公開b6 sandboxをb7試験先にしません。
+exact b7 serverだけで使用し、公開b6 sandboxをb7接続先にしません。
 
 ```bash
 uv run python b7_direction_lightning.py
