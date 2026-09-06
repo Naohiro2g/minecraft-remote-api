@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.7"
+          enable-cache: true
+
+      - run: uv lock --check
+
+      - run: uv run --with pytest pytest -q
+
+      - run: uv build
+
+      - run: uv run python scripts/check_wirescope_wheel.py dist/*.whl
+
+      - name: Generate manifest.json
+        run: |
+          set -euo pipefail
+          WHEEL=$(ls dist/*.whl)
+          SDIST=$(ls dist/*.tar.gz)
+          WHEEL_SHA=$(sha256sum "$WHEEL" | cut -d' ' -f1)
+          SDIST_SHA=$(sha256sum "$SDIST" | cut -d' ' -f1)
+          WIRESCOPE_COMMIT=$(jq -r '.source.commit' mc_remote/_wirescope_app/wirescope-app.manifest.json)
+          jq -n \
+            --arg source_commit "${{ github.sha }}" \
+            --arg wirescope_commit "$WIRESCOPE_COMMIT" \
+            --arg wheel_file "$(basename "$WHEEL")" \
+            --arg wheel_sha "$WHEEL_SHA" \
+            --arg sdist_file "$(basename "$SDIST")" \
+            --arg sdist_sha "$SDIST_SHA" \
+            '{
+              schema: "mc-remote.release-manifest",
+              schema_version: 1,
+              release_tag: null,
+              source_commit: $source_commit,
+              bundled_wirescope_source_commit: $wirescope_commit,
+              artifacts: [
+                {role: "wheel", kind: "https-file", file: $wheel_file, sha256: $wheel_sha},
+                {role: "sdist", kind: "https-file", file: $sdist_file, sha256: $sdist_sha}
+              ]
+            }' > manifest.json
+          cat manifest.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minecraft-remote-api-dist
+          path: |
+            dist/*
+            manifest.json
+          if-no-files-found: error
+          retention-days: 90

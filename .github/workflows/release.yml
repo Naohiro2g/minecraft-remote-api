@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve the commit the release tag points to
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG_NAME="${{ github.event.release.tag_name }}"
+          SOURCE_COMMIT=$(gh api "repos/${{ github.repository }}/commits/$TAG_NAME" -q .sha)
+          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+          echo "SOURCE_COMMIT=$SOURCE_COMMIT" >> "$GITHUB_ENV"
+
+      - name: Find the matching successful ci.yml run for that commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          RUN_ID=$(gh api --method GET "repos/${{ github.repository }}/actions/workflows/ci.yml/runs" \
+            -f head_sha="$SOURCE_COMMIT" -f status=success -q '.workflow_runs[0].id')
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "::error::commit $SOURCE_COMMIT に対応する成功済み ci.yml run が見つからない。release.yml は再build しない設計のため自動フォールバックしない -- このcommitで ci.yml を再実行（再push または workflow_dispatch）してから、あらためて release を作成し直してください（retention-days=90 を超えている場合も同様）"
+            exit 1
+          fi
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Download the candidate artifact (bytes unchanged)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh run download "$RUN_ID" -n minecraft-remote-api-dist -D dist-candidate --repo "${{ github.repository }}"
+          WHEEL=$(find dist-candidate -name '*.whl')
+          SDIST=$(find dist-candidate -name '*.tar.gz')
+          CANDIDATE_MANIFEST=$(find dist-candidate -name 'manifest.json')
+          echo "WHEEL=$WHEEL" >> "$GITHUB_ENV"
+          echo "SDIST=$SDIST" >> "$GITHUB_ENV"
+          echo "CANDIDATE_MANIFEST=$CANDIDATE_MANIFEST" >> "$GITHUB_ENV"
+
+      - name: Verify the release tag matches the candidate wheel's version
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${TAG_NAME#v}"
+          PROJECT_VERSION=$(basename "$WHEEL" | sed -E 's/^minecraft_remote_api-(.+)-py3-none-any\.whl$/\1/')
+          if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
+            echo "::error::tag '$TAG_NAME' の version '$TAG_VERSION' が候補wheelの version '$PROJECT_VERSION' と一致しない（version bumpを忘れていませんか）"
+            exit 1
+          fi
+          echo "TAG_VERSION=$TAG_VERSION" >> "$GITHUB_ENV"
+
+      - name: Verify the prerelease flag matches the version suffix
+        run: |
+          set -euo pipefail
+          if [[ "$TAG_VERSION" =~ (b|rc)[0-9]+$ ]]; then
+            if [ "${{ github.event.release.prerelease }}" != "true" ]; then
+              echo "::error::'$TAG_NAME' は pre-release 形式だが GitHub release 側に prerelease フラグが立っていない"
+              exit 1
+            fi
+          else
+            if [ "${{ github.event.release.prerelease }}" != "false" ]; then
+              echo "::error::'$TAG_NAME' は stable 形式だが GitHub release 側に prerelease フラグが立っている"
+              exit 1
+            fi
+          fi
+
+      - name: Verify downloaded bytes match what ci.yml tested
+        run: |
+          set -euo pipefail
+          for role_file in "wheel:$WHEEL" "sdist:$SDIST"; do
+            role="${role_file%%:*}"
+            file="${role_file#*:}"
+            actual=$(sha256sum "$file" | cut -d' ' -f1)
+            expected=$(jq -r --arg r "$role" '.artifacts[] | select(.role==$r) | .sha256' "$CANDIDATE_MANIFEST")
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::$role の sha256 が候補 manifest の記録値と不一致（download破損等）"
+              exit 1
+            fi
+          done
+
+      - name: Relabel manifest.json with the actual release tag
+        run: |
+          set -euo pipefail
+          jq --arg t "$TAG_NAME" '.release_tag = $t' "$CANDIDATE_MANIFEST" > manifest.json
+          cat manifest.json
+
+      - name: Attach wheel, sdist and manifest.json to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG_NAME" "$WHEEL" "$SDIST" manifest.json \
+            --repo "${{ github.repository }}" --clobber

@@ -252,6 +252,108 @@ uv publish --token pypi-XXXXXXXXXXXX
 
 ---
 
+## 7. GitHub Release を作成する
+
+タグ push 後、GitHub Release を作成する。
+
+```bash
+gh release create v<version> \
+  --title "v<version>" \
+  --generate-notes \
+  --prerelease            # bN／rcN のときのみ付ける。stable では省略する
+```
+
+- **`--draft` は使わない。** draft のままだと `release: published` イベントが発火せず、
+  `.github/workflows/release.yml` による wheel／sdist／`manifest.json` の自動添付が動かない。
+- `--prerelease` を付けると GitHub 側の「Latest」表示対象からも自動的に外れる（別途フラグ不要）。
+- GitHub は tag／version 文字列から `prerelease` 状態を自動判定しない（自動認識は PyPI の
+  PEP 440 のみ。`mc-remote-knowledge` `10-protocol/versioning-design_ja.md` §10.12）。`bN`／
+  `rcN` のリリースで `--prerelease` を付け忘れると、`release.yml` の prerelease 整合チェックで
+  失敗する。
+
+---
+
+## 8. wheel／sdist／manifest.json が Release Assets へ自動添付される（vNEXT 以降）
+
+`v2301.0.0b7` までの GitHub prerelease には GitHub binary assets が一切添付されていない（本書の
+各リリース節に記載の通り）。**次のリリースから**、`.github/workflows/release.yml` が
+`release: published` イベントをtriggerに、wheel／sdist／`manifest.json` を同じ Release へ自動
+添付する。**v2301.0.0b7 以前は遡及的に添付しない**（そのまま asset 無しで残る）。
+
+### 処理内容（再build しない設計）
+
+`release.yml` は **checkout も build もしない**。仕組みは次の通り。
+
+1. release の tag が指す commit を API で解決する。
+2. その commit に対応する、`.github/workflows/ci.yml` の成功済み run を検索する。
+3. その run が生成した候補 artifact（wheel／sdist／`manifest.json`）を **そのまま** download
+   する（bytes は一切加工しない）。
+4. tag の version と候補 wheel の version が一致すること、`prerelease` フラグが version の
+   `bN`／`rcN` サフィックスと整合すること、download した bytes の SHA-256 が候補 manifest の
+   記録値と一致することを確認する。
+5. `manifest.json` の `release_tag` フィールドだけを実際の tag 名へ更新する（wheel／sdist の
+   bytes は無変更）。
+6. wheel／sdist／`manifest.json` を Release へ添付する。
+
+この設計は `mc-remote-knowledge` `DECISIONS_ja.md` `2026-09-07-01`（build要否はartifactの変更
+有無で決まる。releaseというphase名やeventそのものでは決まらない）に従っている。release時点で
+再buildすると、実際にtestした実体とRelease assetになる実体が食い違う余地が生まれるため、意図
+的に避けている。
+
+### 前提条件：tag作成前に、そのcommitで ci.yml が成功していること
+
+`release.yml` は候補 artifact が既に存在することを前提にする。version bump した commit を
+`main` へ push すれば（本書 §1〜§6 の通常の流れに既に従っていれば）`ci.yml` が自動的に候補
+artifact を生成するので、通常は追加の作業は要らない。
+
+候補 artifact の `retention-days` は 90 日（GitHub 既定上限）。それを超えて release 作成が
+遅れた場合や、対応する `ci.yml` run が見つからない場合、`release.yml` は **rebuild へ
+フォールバックせず**明確なエラーで停止する。復旧するには、該当 commit で `ci.yml` を再実行
+（`gh workflow run ci.yml --ref <commit/branch>` 等）してから、あらためて release を作り直す。
+
+### 失敗時の復旧
+
+`release.yml` が失敗して停止した場合、原因を直してから GitHub Actions の
+「Re-run failed jobs」で再実行できる（`gh release upload ... --clobber` を使っているため、
+一部 asset が既に添付済みでも安全に再実行できる）。
+
+### 成功後のインストール経路
+
+成功すると、次の2経路が両方使えるようになる。
+
+```bash
+# 既存: tag から直接 build（変更なし）
+uv pip install git+https://github.com/Naohiro2g/minecraft-remote-api.git@v<version>
+
+# 新規: Release asset から直接 install
+pip install https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v<version>/minecraft_remote_api-<version>-py3-none-any.whl
+```
+
+### manifest.json
+
+同じ Release へ、次の schema（`mc-remote-knowledge` `DECISIONS_ja.md` `2026-09-06-04` で
+cross-repo共通に確定したもの）で `manifest.json` も添付される。
+
+```json
+{
+  "schema": "mc-remote.release-manifest",
+  "schema_version": 1,
+  "release_tag": "v<version>",
+  "source_commit": "<このrepoのcommit>",
+  "bundled_wirescope_source_commit": "<同梱WireScopeの由来commit（scratch-editor）>",
+  "artifacts": [
+    { "role": "wheel", "kind": "https-file", "file": "...", "sha256": "..." },
+    { "role": "sdist", "kind": "https-file", "file": "...", "sha256": "..." }
+  ]
+}
+```
+
+`bundled_wirescope_source_commit` は現状の vendoring 経路（scratch-editor の特定 commit を手作業
+で pin して取り込む方式）の由来をそのまま記録するだけで、vendoring 自体の切り替えは今回対象外
+（`2026-09-06-02`で「本統一が実装された後の切替対象」と明記された将来作業）。
+
+---
+
 ## チートシート
 
 毎回の流れ: **バージョンを上げる → `dist/` を掃除 → `uv build` → TestPyPI で確認 → `uv publish` → タグ付け**
