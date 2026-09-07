@@ -24,7 +24,7 @@ Minecraft Remoteプロジェクトについては、以下のセクションを�
 - description（概要）: `Python Client/API for Minecraft Remote`
 - version（バージョン）:
   - stable（PyPI）: `2000.0.0` — protocol 20.0.0
-  - public beta（[GitHub prerelease](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2301.0.0b7) `v2301.0.0b7`）: `2301.0.0b7` — protocol 23.1.0 b7（PyPI／TestPyPIは非公開のまま）
+  - public beta（[GitHub prerelease](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2301.0.0b7.post2) `v2301.0.0b7.post2`）: `2301.0.0b7.post2` — protocol 23.1.0 b7（機能変更なし、CI/Release自動化のpost-release。PyPI／TestPyPIは非公開のまま）
   - public sandbox compatible beta: `2300.0.0b6` — protocol 23.0.0 b6
 - module name（モジュール名）: `mc_remote`
 - author（著者）: `Naohiro2g` / Code2Create.Club
