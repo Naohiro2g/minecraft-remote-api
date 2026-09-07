@@ -311,11 +311,30 @@ artifact を生成するので、通常は追加の作業は要らない。
 フォールバックせず**明確なエラーで停止する。復旧するには、該当 commit で `ci.yml` を再実行
 （`gh workflow run ci.yml --ref <commit/branch>` 等）してから、あらためて release を作り直す。
 
+### 重要：`release.yml` 自体にバグがあった場合、修正commitをtagし直す必要がある
+
+`release: published` イベントは、**default branch（`main`）の最新ではなく、release の tag が
+指す commit 自身にある `release.yml` の内容**で実行される（`v2301.0.0b7.post2` の実地検証で
+実際に踏んだ挙動。`main` に修正を push した直後に既存 tag のまま release を作り直しても、
+古い `release.yml` が使われ続けた）。
+
+そのため、`release.yml`（または `ci.yml`）自体にバグが見つかって修正した場合は：
+
+1. 修正を `main` へ commit・push する
+2. **tag を、その修正 commit（またはそれ以降）を指すように作り直す**——既存 tag のまま
+   release を再作成しても直らない
+3. 対象 commit で `ci.yml` が成功していることを確認してから release を作る（§前提条件）
+
+「push すればすぐ新しい内容で動く」ものではない点に注意する。
+
 ### 失敗時の復旧
 
-`release.yml` が失敗して停止した場合、原因を直してから GitHub Actions の
-「Re-run failed jobs」で再実行できる（`gh release upload ... --clobber` を使っているため、
-一部 asset が既に添付済みでも安全に再実行できる）。
+一時的な失敗（network エラー等、`release.yml` 自体は正しい場合）は、原因を確認した上で
+GitHub Actions の「Re-run failed jobs」で再実行できる（`gh release upload ... --clobber` を
+使っているため、一部 asset が既に添付済みでも安全に再実行できる）。
+
+`release.yml` 自体にバグがあった場合は「Re-run failed jobs」では直らない（上記の通り、tag が
+指す commit の内容がそのまま再実行されるだけ）。上の「修正commitをtagし直す」手順に従うこと。
 
 ### 成功後のインストール経路
 
