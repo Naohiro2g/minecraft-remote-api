@@ -62,7 +62,7 @@ jobs:
       - name: Verify the prerelease flag matches the version suffix
         run: |
           set -euo pipefail
-          if [[ "$TAG_VERSION" =~ (b|rc)[0-9]+$ ]]; then
+          if [[ "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(b|rc)[0-9]+ ]]; then
             if [ "${{ github.event.release.prerelease }}" != "true" ]; then
               echo "::error::'$TAG_NAME' は pre-release 形式だが GitHub release 側に prerelease フラグが立っていない"
               exit 1
