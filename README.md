@@ -29,9 +29,13 @@ from mc_remote import Minecraft
 # 公式箱庭サーバーまたは自前サーバーに接続
 mc = Minecraft.create(address="sb-beta.mc-remote.com", port=25575)
 
-# チャットを送信し、ブロックを1個置く
+# 建築原点とプレイヤー位置の設定
+mc.setBuildOrigin(200, 0, 200)
+mc.setPos(200, 100, 200)
+
+# チャットを送信し、ブロックを1個置く（原点からの相対座標で (205, 67, 205) に置かれます）
 mc.postToChat("Hello, Minecraft from Python!")
-mc.setBlock(0, 70, 0, "sea_lantern")
+mc.setBlock(5, 67, 5, "sea_lantern")
 print("マインクラフトの世界にブロックを置きました！")
 ```
 
@@ -43,7 +47,7 @@ python hello.py
 
 1. 実行すると、ターミナルに `/mcremote pair NNN-NNN`（数字6桁）が表示されます。
 2. マインクラフトのゲーム内チャットを開き、そのコマンドを貼り付けてEnterキーを押します。
-3. チャットに `Hello, Minecraft from Python!` と表示され、座標 `(0, 70, 0)` にシーランタン（海のランタン）が光れば成功です！
+3. チャットに `Hello, Minecraft from Python!` と表示され、座標 `(205, 67, 205)`（原点 `(200, 0, 200)` ＋ 相対座標 `(5, 67, 5)`）にシーランタン（海のランタン）が光れば成功です！
 
 ---
 
