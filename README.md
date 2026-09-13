@@ -92,7 +92,7 @@ python hello.py
 
 ## 関連プロジェクト & 設計思想
 
-- **プロジェクト公式サイト**: [mc-remote.com](https://mc-remote.com/)（カリキュラム全体像、Web版Scratchエディタ、開発ロードマップ）
+- **プロジェクト公式サイト**: [mc-remote.com](https://mc-remote.com/)（探究の全体像、Web版Scratchエディタ、開発ロードマップ）
 - **ナレッジベース & 設計正本 (SSOT)**: [Naohiro2g/mc-remote-knowledge](https://github.com/Naohiro2g/mc-remote-knowledge)
   - Pythonクライアント設計仕様: [`12-python-client/`](https://github.com/Naohiro2g/mc-remote-knowledge/tree/main/12-python-client)
   - プロトコル仕様: [`10-protocol/`](https://github.com/Naohiro2g/mc-remote-knowledge/tree/main/10-protocol)
