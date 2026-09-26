@@ -1,10 +1,10 @@
 version = 1
 revision = 3
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [[package]]
 name = "minecraft-remote-api"
-version = "2301.0.0b7.post2"
+version = "2301.0.0b7.post3"
 source = { editable = "." }
 dependencies = [
     { name = "pygame-ce" },
@@ -19,12 +19,6 @@ version = "2.5.7"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e9/0d/bb6a6fdf1b227c0bb9a44437a70962a3854bcc541533c261e5021a5ee691/pygame_ce-2.5.7.tar.gz", hash = "sha256:86beb797cd73c141299a29b56f7df2b0543fbdc81d428022458329ff694aaa51", size = 5935870, upload-time = "2026-03-02T09:26:59.005Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/24/49a68d24908ae0be0e69631c015e288ea3b4f3e851aae60141faeb8d3892/pygame_ce-2.5.7-cp310-cp310-macosx_10_11_universal2.whl", hash = "sha256:77d7d27cc46b846c814f1d85366d5af066483917f26433a10a949e74f471dfeb", size = 17234485, upload-time = "2026-03-02T09:25:16.992Z" },
-    { url = "https://files.pythonhosted.org/packages/fe/9e/228bfcd45db754eb70112e969c05678704da71508f105b2a59964029d0fc/pygame_ce-2.5.7-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9da68411fd4a1bb50375a40cc0ee5c0f83da51450acda8a87e7a83837670f657", size = 12722138, upload-time = "2026-03-02T09:25:19.971Z" },
-    { url = "https://files.pythonhosted.org/packages/d4/8f/4ae05558744db08d681b96a36d61c1e2c647ba14cbd0b53a6aea1402b9a0/pygame_ce-2.5.7-cp310-cp310-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:1f9a60af653f367807dc50059122a5f6cbd1b5de68233306421b0c3218bcc92d", size = 13249126, upload-time = "2026-03-02T09:25:22.53Z" },
-    { url = "https://files.pythonhosted.org/packages/25/54/dd8ef25eec93dc7e2b1c35cf2d596791887aefaa98cc37f0050793dda52b/pygame_ce-2.5.7-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:322052db99d25f7faca0502e0b2a905eb68c10ec5f7a1fd59803c4175f1d1269", size = 12822724, upload-time = "2026-03-02T09:25:25.209Z" },
-    { url = "https://files.pythonhosted.org/packages/75/86/9e90ddb19cd000024dac7c5de587ccd65a7ba522dd13cea17fb31a22e9f0/pygame_ce-2.5.7-cp310-cp310-win32.whl", hash = "sha256:275910c7f26baa7bf52b8e0ebd9301fe968806b9bd777506d6fc17e2bbcf3121", size = 9838344, upload-time = "2026-03-02T09:25:27.896Z" },
-    { url = "https://files.pythonhosted.org/packages/04/41/186172be6e46a7198f6d8fc07b455b5d6af326e109a518bac2cf39239ba5/pygame_ce-2.5.7-cp310-cp310-win_amd64.whl", hash = "sha256:de75f752d6a090839ebdc69b3365478d0f8a98ea02d1eee417a4a1436c1b5168", size = 10421706, upload-time = "2026-03-02T09:25:30.43Z" },
     { url = "https://files.pythonhosted.org/packages/e7/db/4f899c372e114e6f7eab1546c46233fae621594cb0271cd8a967f1b38a06/pygame_ce-2.5.7-cp311-cp311-macosx_10_11_universal2.whl", hash = "sha256:903eab0a59563fd0d134e502a11c9f144d21dc93ee1f5b4b4eec31f8745142b4", size = 17229304, upload-time = "2026-03-02T09:25:33.293Z" },
     { url = "https://files.pythonhosted.org/packages/2b/c7/78d3fc4e27b4372cef878996a3973749bebf553758106dcc0ca7976acf9e/pygame_ce-2.5.7-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:ec2f2d8c95d1a5c9bfc9ffbae4c356fd71bcbc4fde70e59e3d050261bacfe908", size = 12720096, upload-time = "2026-03-02T09:25:36.088Z" },
     { url = "https://files.pythonhosted.org/packages/72/9a/202c2c3f5e0eb8a016ce8bce185992c979866bb73ad7d8ab01d0de39577b/pygame_ce-2.5.7-cp311-cp311-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:a980109b5aee984b78c884d607d4a406a92b63a8a7044180d0e2f8a26a7276a7", size = 13245692, upload-time = "2026-03-02T09:25:39.14Z" },

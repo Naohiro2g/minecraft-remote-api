@@ -3,6 +3,14 @@ name: Release
 on:
   release:
     types: [published]
+  # 既存 Release の asset を TestPyPI へ出し直す復旧経路。main の本ファイルで実行されるため、
+  # publish job の修正を tag の作り直しなしで適用できる（promote は実行しない）
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "publish する既存 Release の tag（例: v2301.0.0b7.post3）"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -10,6 +18,7 @@ permissions:
 
 jobs:
   promote:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
       - name: Resolve the commit the release tag points to
@@ -101,3 +110,86 @@ jobs:
           set -euo pipefail
           gh release upload "$TAG_NAME" "$WHEEL" "$SDIST" manifest.json \
             --repo "${{ github.repository }}" --clobber
+
+  # soak（versioning-design §10.9）: Release asset と同じ bytes を TestPyPI へ出す。
+  # 再 build しない。Trusted Publishing（OIDC）で publish し、API token は使わない。
+  # TestPyPI の Trusted Publisher 登録値: workflow=release.yml, environment=testpypi
+  publish-testpypi:
+    needs: promote
+    if: >-
+      ${{ !cancelled() && (needs.promote.result == 'success' ||
+      (github.event_name == 'workflow_dispatch' && needs.promote.result == 'skipped')) }}
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/minecraft-remote-api
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Resolve the tag to publish
+        env:
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG_NAME="${EVENT_TAG:-$INPUT_TAG}"
+          if ! [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+((b|rc)[0-9]+)?(\.post[0-9]+)?$ ]]; then
+            echo "::error::tag '$TAG_NAME' は release tag の形式ではない"
+            exit 1
+          fi
+          SOURCE_COMMIT=$(gh api "repos/${{ github.repository }}/commits/$TAG_NAME" -q .sha)
+          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+          echo "SOURCE_COMMIT=$SOURCE_COMMIT" >> "$GITHUB_ENV"
+
+      - name: Download the Release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG_NAME" --repo "${{ github.repository }}" -D release-assets \
+            -p '*.whl' -p '*.tar.gz' -p manifest.json
+
+      - name: Verify the assets against manifest.json
+        run: |
+          set -euo pipefail
+          MANIFEST=release-assets/manifest.json
+          if [ "$(jq -r .release_tag "$MANIFEST")" != "$TAG_NAME" ]; then
+            echo "::error::manifest.json の release_tag が '$TAG_NAME' と一致しない"
+            exit 1
+          fi
+          if [ "$(jq -r .source_commit "$MANIFEST")" != "$SOURCE_COMMIT" ]; then
+            echo "::error::manifest.json の source_commit が tag の commit $SOURCE_COMMIT と一致しない"
+            exit 1
+          fi
+          mkdir dist
+          for role in wheel sdist; do
+            file=$(jq -r --arg r "$role" '.artifacts[] | select(.role==$r) | .file' "$MANIFEST")
+            expected=$(jq -r --arg r "$role" '.artifacts[] | select(.role==$r) | .sha256' "$MANIFEST")
+            actual=$(sha256sum "release-assets/$file" | cut -d' ' -f1)
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::$file の sha256 が manifest.json の記録値と一致しない"
+              exit 1
+            fi
+            mv "release-assets/$file" dist/
+          done
+          VERSION=$(basename dist/*.whl | sed -E 's/^minecraft_remote_api-(.+)-py3-none-any\.whl$/\1/')
+          if [ "$VERSION" != "${TAG_NAME#v}" ]; then
+            echo "::error::wheel の version '$VERSION' が tag '$TAG_NAME' と一致しない"
+            exit 1
+          fi
+          ls -l dist
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.7"
+
+      - name: Publish to TestPyPI (Trusted Publishing)
+        run: |
+          set -euo pipefail
+          # --check-url: 同じ file が既にあれば skip するので、再実行しても安全
+          uv publish --trusted-publishing always \
+            --publish-url https://test.pypi.org/legacy/ \
+            --check-url https://test.pypi.org/simple/ \
+            dist/*

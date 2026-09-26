@@ -18,10 +18,10 @@
 ```bash
 uv init --python 3.13 mc-hello
 cd mc-hello
-uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api.git@v2301.0.0b7.post2"
+uv add https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v2301.0.0b7.post3/minecraft_remote_api-2301.0.0b7.post3-py3-none-any.whl
 ```
 
-現在は、新プロトコル版がPyPIに未登録なので、GitHub.comのリリース版を使います（Gitが必要です）。
+現在は、新プロトコル版がPyPIに未登録なので、GitHub.comのリリースに添付されたパッケージを使います。
 
 ### Step 2: 最小コード（`hello.py`）を書く
 
@@ -118,7 +118,7 @@ uv run python hello.py
 ## パッケージ情報 & 対応環境
 
 - **パッケージ名**: `minecraft-remote-api`（インポート名: `mc_remote`）
-- **現行バージョン**: `2301.0.0b7.post2`（Protocol 23.1.0 準拠）
+- **現行バージョン**: `2301.0.0b7.post3`（Protocol 23.1.0 準拠）
 - **対応Python**: 3.11〜3.13（標準は3.13）
 - **対応マインクラフト**: Java版 1.21.11（Paper 26.x対応準備中）
 - **接続先**:
