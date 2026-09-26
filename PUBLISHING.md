@@ -1,357 +1,233 @@
-# PyPI 公開手順 / Publishing to PyPI
+# 公開手順 / Publishing
 
-`minecraft-remote-api` を [PyPI](https://pypi.org/project/minecraft-remote-api/) に公開・更新するための手順です。
-このリポは **uv に全面移行**しました（ビルドバックエンド `uv_build`）。以下は uv を前提とします。
-従来の Poetry 手順は、ロールバック用に末尾の付録に残します。
+`minecraft-remote-api` を公開するための手順です。ビルドバックエンドは `uv_build`、手順はすべて uv を前提とします。
 
-- パッケージ名: `minecraft-remote-api`
-- モジュール名: `mc_remote`
-- ビルドバックエンド: `uv_build`（`pyproject.toml` の `[build-system]`）
+- パッケージ名: `minecraft-remote-api`（import 名: `mc_remote`）
 - 依存は `[project.dependencies]`（PEP 621 標準）に記載
+- 対応 Python: 3.10〜3.13（`requires-python = ">=3.10"`、上限は付けない。対応範囲は classifiers と CI matrix で示す。3.10 は iPad の Pythonista 3 のため。DECISIONS `2026-09-27-02`）
 
 > **貢献するだけなら公開は不要。** PR を出すのに build / publish は要りません。
 > `uv sync` で開発環境を作り、コードを動かし／テストして push するだけです。
-> 本書は「PyPI へ配布する人」向けです。
->
-> **ベータ（bN）は PyPI に出しません。** `2200.0.0b5`（protocol 22.0.0 b5）は
-> **GitHub の pre-release タグのみ**で配布します。Python API の tag は
-> `v2200.0.0b5`、package は `minecraft-remote-api==2200.0.0b5` です。
-> PyPI 公開は rc/stable 以降です。採番・配布チャンネルの正本は
-> ナレッジ `10-protocol/versioning-design_ja.md`。
+
+## 公開チャンネルの現状
+
+採番・配布チャンネル・機構モードの正本はナレッジ `10-protocol/versioning-design_ja.md`（§10.4、§10.9）です。
+
+| チャンネル | 状態 | 経路 |
+| --- | --- | --- |
+| GitHub Release（pre-release） | 正式な配布先 | `release.yml` が候補 artifact を Release asset へ昇格 |
+| TestPyPI | **soak 中**（公開チャンネルの予行。DECISIONS `2026-09-26-03`） | `release.yml` の `publish-testpypi` job（Trusted Publishing） |
+| PyPI.org | 新プロトコル版は未公開。無指定の取得は旧 stable（`1214.x`）のまま | mature 判定後に追加する |
+
+API token による手作業の upload は正式経路にしません。
 
 ---
 
-## 0. 事前準備（初回のみ）
+## 1. 全体の流れ
 
-### アカウントと API トークン
-
-1. [PyPI](https://pypi.org/account/register/) と [TestPyPI](https://test.pypi.org/account/register/) のアカウントを作成（別々のアカウント／別々のトークン）。
-2. API トークンを発行する。
-   - PyPI: <https://pypi.org/manage/account/token/>
-   - TestPyPI: <https://test.pypi.org/manage/account/token/>
-3. トークンは `pypi-` で始まる文字列。**一度しか表示されない**ので安全な場所に保管する。
-
-uv はトークンを `--token` 引数か環境変数で受け取ります（`~/.pypirc` は読みません）。
-
-```bash
-export UV_PUBLISH_TOKEN=pypi-XXXXXXXXXXXX          # 本番 PyPI 用
-```
+1. `pyproject.toml` の `version` を上げ、README の「現行バージョン」とインストール URL を合わせ、`uv lock` する。
+2. `main` へ push する。`ci.yml` が Python 3.10〜3.13 で test し、候補 artifact（wheel／sdist／`manifest.json`）を作る。
+3. tag を作って push する。
+4. GitHub Release を作る（`--prerelease`、draft にしない）。
+5. `release.yml` が動く。
+   - `promote`：候補 artifact を再 build せずに Release asset へ添付する。
+   - `publish-testpypi`：添付した asset と同じ bytes を TestPyPI へ publish する。
+6. TestPyPI と GitHub Release の両方を確認する（§5）。
 
 ---
 
-## 1. バージョンを上げる（必須）
+## 2. バージョンを上げる
 
-PyPI は**同じバージョンで再アップロードできません**。公開のたびに必ず上げること。
-
-`pyproject.toml` の `version` を編集します。
+PyPI／TestPyPI は**同じバージョンを二度と upload できません**（削除しても番号は消費済み）。公開のたびに必ず上げます。
 
 ```toml
 [project]
-version = "2000.0.0"   # ← ここを更新
+version = "2301.0.0b7.post3"   # ← ここを更新
 ```
 
-### バージョニング規則（重要）
-
-採番は新スキーム（protocol 連動）に従う。**詳細・根拠はナレッジが正本**:
-`mc-remote-knowledge` の `10-protocol/versioning-design_ja.md`。
-
-- MC 1.21.11 対応の**改訂初版 = `2000.0.0`**（protocol 20.0.0 を fold）。
-- 旧版（`〜1214.10.13`）はベータ扱いで仕切り直し。`2000 > 1214` なので素の
-  `pip install` でも確実に新版が「最新」として配られる（epoch 不使用）。
-- fold 規則: protocol `X.Y.Z` の数字を連結してメジャー番号にする（例 20.0.0 → `2000`）。
-  右から patch・minor を各1桁、残り全部がメジャー。**minor / patch は 0–9 を維持**する。
-
-README の Package Information のバージョンも合わせて更新すること。
-
----
-
-## 2. 古いビルド成果物を掃除する（推奨）
+- 採番は protocol 連動の新スキーム。fold 規則（protocol `X.Y.Z` → メジャー番号）と接尾辞（`bN`／`rcN`）は versioning-design が正本。
+- コードを変えずに公開物だけ差し替える場合は `.postN`（ドット区切り）を使う（DECISIONS `2026-09-07-03`）。
 
 ```bash
-rm -rf dist/
-```
-
----
-
-## 3. ビルド
-
-```bash
-uv build
-```
-
-`dist/` に wheel（`minecraft_remote_api-<version>-py3-none-any.whl`）と sdist（`.tar.gz`）が生成されます。
-
-確認（中身に `mc_remote/` が入り、依存が宣言されているか）:
-
-```bash
-unzip -l dist/minecraft_remote_api-*-py3-none-any.whl | grep mc_remote
-unzip -p dist/minecraft_remote_api-*-py3-none-any.whl '*/METADATA' | grep -iE '^Version:|^Requires-Dist:'
-```
-
-### b3 GitHub pre-release 確認
-
-`2100.0.0b3` は PyPI に publish しない。release gate では、少なくとも次を確認する。
-
-```bash
-uv --cache-dir /tmp/uv-cache run python tests/test_b1.py
-uv --cache-dir /tmp/uv-cache run python tests/test_b2.py
-uv --cache-dir /tmp/uv-cache run python tests/test_b3.py
-uv --cache-dir /tmp/uv-cache build
-unzip -p dist/minecraft_remote_api-2100.0.0b3-py3-none-any.whl '*/METADATA' | grep -iE '^Name:|^Version:|^Requires-Dist:'
-```
-
-実機確認は `scripts/auth_smoke.py` を使う。`token_key` / `sandbox` はローカル token-store key
-であり、`hello.params` には送らない。権限検証用サーバーでは
-`permission_denied` が token 破棄に繋がらないことも確認する。
-
-b3 の `catalog.get` 実機確認は `scripts/sync_catalog.py` を使う。`catalogHash` が実値であること、
-生成された `mc_constants.py` に接続先の block/entity/particle が namespace 付きで並ぶこと、
-manifest と `~/.cache/mcremote/catalogs/<catalogHash>.json` が作られること、同じ catalog の
-再同期では cache が使われることを確認する。projection は同梱せず、実機確認後も
-`git status` に現れないことを確認する。
-
-Python client repo には現時点で専用 lint 設定を置いていないため、b3 の Python 側 gate は
-unit tests + build + live smoke を blocker とする。lint は設定追加時に gate へ組み込む。
-
-### b5 / protocol 22 GitHub pre-release 確認
-
-`2200.0.0b5`はprotocol 22最初のexact compatibility setであり、構造化block値に加えて
-DEBUG／TRACE／FAST、bounded connection FIFO、`connection.flush`、自動flushを同じ
-候補へ収容する。部分実装をb5 GREENとしない。
-
-```bash
-uv --cache-dir /tmp/uv-cache run --with pytest pytest -q
-uv --cache-dir /tmp/uv-cache build
-unzip -p dist/minecraft_remote_api-2200.0.0b5-py3-none-any.whl \
-  '*/METADATA' | grep -iE '^Name:|^Version:|^Requires-Dist:'
-```
-
-deterministic gateでは、全modeのsetterが`None`、TRACEがsetter一回につき一回だけ待機、
-FAST notificationに`id`が無いこと、mode transition fence、queue backpressure、
-明示／正常closeのflush、WireScopeのrequest-id `null`／`connection.flush`投影を確認する。
-plugin、Scratch、common WireScope artifactとのexact fixtureおよびreal-browser／live evidenceは
-別gateとして記録する。
-
-### b6 / protocol 23 GitHub pre-release 確認（released）
-
-`2300.0.0b6`はprotocol 23最初のexact compatibility set（sign三操作`getSign`／`setSign`／
-`updateSignLine`、`pickaxe_poke`、`mcr_eh_` entity handle、protocol 23 cleanup）。GitHub
-prereleaseとして公開済み、PyPI／TestPyPIは非公開のまま。
-
-- release: [`v2300.0.0b6`](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2300.0.0b6)
-- tag target: `a30a37b15658da655fe1e3535a73fb0e80c06f56`（`main`と一致）
-- prerelease=true、draft=false、Latest非対象
-- GitHub binary assets: なし
-- wheel: `minecraft_remote_api-2300.0.0b6-py3-none-any.whl`、173,301 bytes、
-  SHA-256 `0887807f0d00f71fcb543caf16c3963b70580bf073b6a7576d7f274399a1877b`
-- sdist: `minecraft_remote_api-2300.0.0b6.tar.gz`、178,483 bytes、
-  SHA-256 `0507a10cbd6b31c2dd84ebff0034c5f72625ff1142d30f1c0d41e14d0ce2da3b`
-- 独立クリーンチェックアウト2件からの再buildでwheel／sdist両方のSHA-256がbyte-for-byte一致
-  （reproducibility確認済み）。全test 242/242 PASS
-- exact compatible McRemote: `v1.21.11-2300.0.0b6@4e8f1ff1bd48bfa28c465f2dc24060fbb419317f`
-- exact compatible Scratch／Bridge／WireScope: `v2300.0.0b6@df9264ec355dd722a848df46e96d4b0fc9340ca2`
-- knowledge close: `mc-remote-knowledge@c3a14878660ce8dc9d02ec9861340e64b2050dea`
-  （`00-hub/release-gate-notes_ja.md`「2026-08-27 b6横断release gate（CLOSED）」、
-  `10-protocol/b6-artifact-candidate-record_ja.md`）
-
-### b7 / protocol 23.1 GitHub pre-release 確認（released）
-
-`2301.0.0b7`はdirection四methodとdamage-capableなfull lightningを追加する
-protocol `23.1.0`のGitHub prereleaseである。PyPI／TestPyPIは非公開のまま。
-
-- release: [`v2301.0.0b7`](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2301.0.0b7)
-- tag target: `91a25d317c95570fd9d92b5e63a5f585a856eda3`（公開時の`main`と一致）
-- prerelease=true、draft=false、Latest非対象
-- GitHub binary assets: なし
-- wheel: `minecraft_remote_api-2301.0.0b7-py3-none-any.whl`、196,970 bytes、
-  SHA-256 `81540d22b1ee05d7b24bd2e6c9270a37a194c6c1ddc868148a8263624826d2ba`
-- sdist: `minecraft_remote_api-2301.0.0b7.tar.gz`、203,313 bytes、
-  SHA-256 `55a9915b7607e35e2c1f335561b65fcd38deff90fe49f5b56c65122665b37a0b`
-- 全test 253/253 PASS、targeted WireScope／b7 test 112/112 PASS、clean buildを二回実行して
-  wheel／sdistともbyte-for-byte一致
-- owner fixture: `scratch-editor@773e2984132d82bb6e740d6458107fe42ef68a0a`
-- fixture path: `mc-remote/protocol/test/fixtures/direction-lightning-v23.1.json`
-- fixture SHA-256: `586d24bf40136eec31f1827f23ef5b317f15100a17a635d7fe9f165e0af40dce`
-- fixture case ledger: 93 unique IDs
-- bundled WireScope source: `scratch-editor@0be46fcfaca409a5ede10f592520d93e7c59ba15`
-- exact compatible McRemote: `v1.21.11-2301.0.0b7@3d5f710db97f4b14613f7e0abaafd535701d1906`
-- exact compatible Scratch／WireScope: `v2301.0.0b7@0be46fcfaca409a5ede10f592520d93e7c59ba15`
-- live evidence: knowledge `14-evidence/records/2026-09-03-b7-direction-lightning-live_ja.md`
-- knowledge close: `mc-remote-knowledge@5945a79b357d9bb8a14ddb942f30629d410f6c8d`
-  （`00-hub/release-gate-notes_ja.md`「2026-09-02 b7横断release gate（CLOSED）」、
-  `10-protocol/b7-artifact-candidate-record_ja.md`）
-
-公開成果物の再現確認には、exact tag `v2301.0.0b7`のclean checkoutで次を使う。
-
-```bash
+uv lock
 uv lock --check
-uv run --with pytest pytest -q tests/test_b7.py tests/test_b6.py tests/test_wirescope.py
+```
+
+---
+
+## 3. 候補 artifact（`ci.yml`）
+
+`main` への push で `ci.yml` が動きます。
+
+- `test` job：Python 3.10／3.11／3.12／3.13 の matrix で `uv lock --check` と pytest。
+- `build-candidate` job：`uv build`、WireScope 同梱の検査、`manifest.json` 生成、workflow artifact `minecraft-remote-api-dist`（保持 90 日）として保存。
+
+手元で同じ確認をする場合:
+
+```bash
 uv run --with pytest pytest -q
 uv build
-uv run python scripts/check_wirescope_wheel.py \
-  dist/minecraft_remote_api-2301.0.0b7-py3-none-any.whl
-unzip -p dist/minecraft_remote_api-2301.0.0b7-py3-none-any.whl \
-  '*/METADATA' | grep -iE '^Name:|^Version:|^Requires-Dist:'
-```
-
-同梱WireScopeの実browser確認には
-`uv run python scripts/b7_wirescope_browser_e2e.py`でloopback stationへ接続し、
-direction四methodと`world.strikeLightning`それぞれの成功／server error exchangeを確認する。
-
-`world.strikeLightningEffect`はaliasを含めて公開しない。`world.strikeLightning`の
-damage／fire／rod／copper／entity変化、visual／audio、event cancellation、後続tickは
-deterministic client testからlive PASSを導かない。b7 live gateはcoordinator指定のexact setで
-完了しており、記録済み結果を別serverへ一般化しない。
-
----
-
-## 4. TestPyPI で確認
-
-```bash
-uv publish --publish-url https://test.pypi.org/legacy/ --token pypi-YYYYYYYYYYYY
-```
-
-インストール確認（依存は本番 PyPI から取得させる）:
-
-```bash
-uv pip install --index-url https://test.pypi.org/simple/ \
-               --extra-index-url https://pypi.org/simple/ \
-               minecraft-remote-api
+uv run python scripts/check_wirescope_wheel.py dist/*.whl
+unzip -p dist/minecraft_remote_api-*-py3-none-any.whl '*/METADATA' | grep -iE '^Version:|^Requires-Python:|^Requires-Dist:'
 ```
 
 ---
 
-## 5. 本番 PyPI へ公開
+## 4. tag と GitHub Release
 
 ```bash
-uv publish                      # UV_PUBLISH_TOKEN を使う場合
-# または
-uv publish --token pypi-XXXXXXXXXXXX
-```
-
----
-
-## 6. 公開後の確認
-
-1. プロジェクトページで新バージョンを確認: <https://pypi.org/project/minecraft-remote-api/>
-2. クリーンな環境でインストール確認:
-
-   ```bash
-   uv pip install --upgrade minecraft-remote-api
-   python -c "import mc_remote; print('ok')"
-   ```
-
-3. コミットしてタグを付け push:
-
-   ```bash
-   git add pyproject.toml README.md uv.lock
-   git commit -m "Release <version>"
-   git tag v<version>
-   git push && git push --tags
-   ```
-
----
-
-## 7. GitHub Release を作成する
-
-タグ push 後、GitHub Release を作成する。
-
-```bash
+git tag v<version>
+git push origin v<version>
 gh release create v<version> \
   --title "v<version>" \
   --generate-notes \
-  --prerelease            # bN／rcN のときのみ付ける。stable では省略する
+  --prerelease            # bN／rcN（.postN を含む）のときのみ。stable では省略する
 ```
 
-- **`--draft` は使わない。** draft のままだと `release: published` イベントが発火せず、
-  `.github/workflows/release.yml` による wheel／sdist／`manifest.json` の自動添付が動かない。
-- `--prerelease` を付けると GitHub 側の「Latest」表示対象からも自動的に外れる（別途フラグ不要）。
-- GitHub は tag／version 文字列から `prerelease` 状態を自動判定しない（自動認識は PyPI の
-  PEP 440 のみ。`mc-remote-knowledge` `10-protocol/versioning-design_ja.md` §10.12）。`bN`／
-  `rcN` のリリースで `--prerelease` を付け忘れると、`release.yml` の prerelease 整合チェックで
-  失敗する。
+- **`--draft` は使わない。** draft では `release: published` が発火せず、`release.yml` が動かない。
+- GitHub は version 文字列から prerelease を自動判定しない（versioning-design §10.12）。`--prerelease` を付け忘れると `release.yml` の整合チェックで失敗する。
 
----
+### `release.yml` の処理
 
-## 8. wheel／sdist／manifest.json が Release Assets へ自動添付される（vNEXT 以降）
+`promote` job は **checkout も build もしません**（DECISIONS `2026-09-07-01`：artifact が変わらなければ検証済みのものを再利用する）。
 
-`v2301.0.0b7` までの GitHub prerelease には GitHub binary assets が一切添付されていない（本書の
-各リリース節に記載の通り）。**次のリリースから**、`.github/workflows/release.yml` が
-`release: published` イベントをtriggerに、wheel／sdist／`manifest.json` を同じ Release へ自動
-添付する。**v2301.0.0b7 以前は遡及的に添付しない**（そのまま asset 無しで残る）。
-
-### 処理内容（再build しない設計）
-
-`release.yml` は **checkout も build もしない**。仕組みは次の通り。
-
-1. release の tag が指す commit を API で解決する。
-2. その commit に対応する、`.github/workflows/ci.yml` の成功済み run を検索する。
-3. その run が生成した候補 artifact（wheel／sdist／`manifest.json`）を **そのまま** download
-   する（bytes は一切加工しない）。
-4. tag の version と候補 wheel の version が一致すること、`prerelease` フラグが version の
-   `bN`／`rcN` サフィックスと整合すること、download した bytes の SHA-256 が候補 manifest の
-   記録値と一致することを確認する。
-5. `manifest.json` の `release_tag` フィールドだけを実際の tag 名へ更新する（wheel／sdist の
-   bytes は無変更）。
+1. tag が指す commit を API で解決する。
+2. その commit で成功した `ci.yml` の run を探す。
+3. 候補 artifact をそのまま download する。
+4. tag と wheel の version の一致、`prerelease` フラグと接尾辞の整合、sha256 と候補 `manifest.json` の一致を確認する。
+5. `manifest.json` の `release_tag` だけを実際の tag 名へ更新する。
 6. wheel／sdist／`manifest.json` を Release へ添付する。
 
-この設計は `mc-remote-knowledge` `DECISIONS_ja.md` `2026-09-07-01`（build要否はartifactの変更
-有無で決まる。releaseというphase名やeventそのものでは決まらない）に従っている。release時点で
-再buildすると、実際にtestした実体とRelease assetになる実体が食い違う余地が生まれるため、意図
-的に避けている。
+`publish-testpypi` job は、Release asset を download し、`manifest.json` の `release_tag`／`source_commit`／sha256 と照合してから、
+`uv publish --trusted-publishing always` で TestPyPI へ出します。
 
-### 前提条件：tag作成前に、そのcommitで ci.yml が成功していること
+### 注意：`release.yml` は tag が指す commit の内容で動く
 
-`release.yml` は候補 artifact が既に存在することを前提にする。version bump した commit を
-`main` へ push すれば（本書 §1〜§6 の通常の流れに既に従っていれば）`ci.yml` が自動的に候補
-artifact を生成するので、通常は追加の作業は要らない。
-
-候補 artifact の `retention-days` は 90 日（GitHub 既定上限）。それを超えて release 作成が
-遅れた場合や、対応する `ci.yml` run が見つからない場合、`release.yml` は **rebuild へ
-フォールバックせず**明確なエラーで停止する。復旧するには、該当 commit で `ci.yml` を再実行
-（`gh workflow run ci.yml --ref <commit/branch>` 等）してから、あらためて release を作り直す。
-
-### 重要：`release.yml` 自体にバグがあった場合、修正commitをtagし直す必要がある
-
-`release: published` イベントは、**default branch（`main`）の最新ではなく、release の tag が
-指す commit 自身にある `release.yml` の内容**で実行される（`v2301.0.0b7.post2` の実地検証で
-実際に踏んだ挙動。`main` に修正を push した直後に既存 tag のまま release を作り直しても、
-古い `release.yml` が使われ続けた）。
-
-そのため、`release.yml`（または `ci.yml`）自体にバグが見つかって修正した場合は：
-
-1. 修正を `main` へ commit・push する
-2. **tag を、その修正 commit（またはそれ以降）を指すように作り直す**——既存 tag のまま
-   release を再作成しても直らない
-3. 対象 commit で `ci.yml` が成功していることを確認してから release を作る（§前提条件）
-
-「push すればすぐ新しい内容で動く」ものではない点に注意する。
+`release: published` イベントは、`main` の最新ではなく **tag が指す commit にある `release.yml`** で実行されます
+（`v2301.0.0b7.post2` で実際に踏んだ挙動）。公開済みの tag は動かさないので、`release.yml` の修正は次の版から効きます。
 
 ### 失敗時の復旧
 
-一時的な失敗（network エラー等、`release.yml` 自体は正しい場合）は、原因を確認した上で
-GitHub Actions の「Re-run failed jobs」で再実行できる（`gh release upload ... --clobber` を
-使っているため、一部 asset が既に添付済みでも安全に再実行できる）。
-
-`release.yml` 自体にバグがあった場合は「Re-run failed jobs」では直らない（上記の通り、tag が
-指す commit の内容がそのまま再実行されるだけ）。上の「修正commitをtagし直す」手順に従うこと。
-
-### 成功後のインストール経路
-
-成功すると、次の2経路が両方使えるようになる。
+| 失敗した箇所 | 復旧 |
+| --- | --- |
+| 一時的な失敗（network 等） | Actions の「Re-run failed jobs」。`--clobber` と `--check-url` により再実行は安全 |
+| `promote` の手順自体のバグ | `main` で修正し、次の版（`.postN` 等）で出し直す |
+| `publish-testpypi` の手順自体のバグ | `main` で修正し、`main` の `release.yml` を dispatch して既存 Release の asset を publish し直す（下記） |
+| 対応する `ci.yml` run が見つからない（90 日超過等） | その commit で `ci.yml` を再実行（`gh workflow run ci.yml --ref <branch>`）してから Release を作り直す |
 
 ```bash
-# 既存: tag から直接 build（変更なし）
-uv pip install git+https://github.com/Naohiro2g/minecraft-remote-api.git@v<version>
-
-# 新規: Release asset から直接 install
-pip install https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v<version>/minecraft_remote_api-<version>-py3-none-any.whl
+gh workflow run release.yml --ref main -f tag=v<version>
 ```
 
-### manifest.json
+dispatch では `promote` は動かず、`publish-testpypi` だけが動きます。
 
-同じ Release へ、次の schema（`mc-remote-knowledge` `DECISIONS_ja.md` `2026-09-06-04` で
-cross-repo共通に確定したもの）で `manifest.json` も添付される。
+---
+
+## 5. TestPyPI（soak）
+
+### 5.1 Trusted Publisher の登録（human owner、初回のみ）
+
+TestPyPI の project `minecraft-remote-api` は既にあるので、project の管理画面「Publishing」から GitHub の Trusted Publisher を追加します。
+
+| 項目 | 値 |
+| --- | --- |
+| Owner | `Naohiro2g` |
+| Repository name | `minecraft-remote-api` |
+| Workflow name | `release.yml` |
+| Environment name | `testpypi` |
+
+GitHub 側の environment `testpypi` は、最初の実行時に自動で作られます。承認者を付ける場合は、repo の Settings → Environments で設定します。
+
+### 5.2 exact-pin で取得する（利用目的ごと）
+
+pre-release は、無指定の取得では選ばれません。版を明示して取得します。
+
+**学習者（hello）**：GitHub Release に添付した wheel を直接指定します。git は不要です。
+
+```bash
+uv init --python 3.13 mc-hello
+cd mc-hello
+uv add https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v<version>/minecraft_remote_api-<version>-py3-none-any.whl
+```
+
+**beta tester（TestPyPI から取得）**：本 package だけを TestPyPI から取り、依存（`pygame-ce`）は PyPI.org から取ります。
+プロジェクトの `pyproject.toml` に次を足します。
+
+```toml
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+explicit = true
+
+[tool.uv.sources]
+minecraft-remote-api = { index = "testpypi" }
+```
+
+```bash
+uv add "minecraft-remote-api==<version>"
+```
+
+`explicit = true` の index は `[tool.uv.sources]` で指名した package にだけ使われます。TestPyPI にある同名の旧版や、
+TestPyPI 上の無関係な package が依存の解決に混ざることはありません。
+
+**OSS 開発者**：source checkout で開発します。
+
+```bash
+git clone https://github.com/Naohiro2g/minecraft-remote-api.git
+cd minecraft-remote-api
+uv sync --frozen
+```
+
+特定の版を再現する場合は `git checkout v<version>` してから `uv sync --frozen` します。
+
+**無指定の取得が旧 stable のままであることの確認**：
+
+```bash
+uv init --python 3.13 check-default && cd check-default
+uv add minecraft-remote-api --refresh
+uv tree --depth 1      # 1214.x が選ばれていること
+```
+
+### 5.3 yank／unyank
+
+yank は「無指定や範囲指定の解決から外す」操作です。`==` による exact-pin では yank 後も取得できます（PEP 592）。
+削除ではないので、yank しても番号は消費されたままです。
+
+- 操作：TestPyPI の project 管理画面 → Releases → 対象版の Options → Yank（理由を書く）。戻すときは同じ画面で Un-yank。
+- 出し直し：同じ版番号は再 upload できない。修正版は `.postN` を上げて §1 の流れで出す。
+
+yank の効果を確認するときは、**pre-release を許す範囲指定**で解決させます。無指定の解決はもともと pre-release を選ばないため、
+yank の有無で結果が変わらず、確認になりません。§5.2 の TestPyPI 設定をしたプロジェクトで:
+
+```bash
+# yank 後：範囲指定では選ばれないこと（候補が他に無ければ解決に失敗する）
+uv add "minecraft-remote-api>=2301.0.0b0" --prerelease allow --refresh
+# yank 後：exact-pin では取得できること
+uv add "minecraft-remote-api==<version>" --refresh
+```
+
+### 5.4 アカウントの記録
+
+遷移ゲート③の記録として、次を human owner が記入します。
+
+| 項目 | PyPI.org | TestPyPI |
+| --- | --- | --- |
+| project owner | （未記入） | （未記入） |
+| 2FA | （未記入） | 確認済み（2026-09-26） |
+| 2人目の maintainer | （未記入） | （未記入） |
+
+---
+
+## 6. PyPI.org（未実施）
+
+mature への移行は、soak の記録を見て human owner が判定します。移行後は `release.yml` に PyPI.org 向けの publish job
+（environment `pypi`、PyPI.org 側にも Trusted Publisher を登録）を足し、`bN`／`rcN` を pre-release として出します。
+
+---
+
+## 7. `manifest.json`
+
+各 Release へ次の schema（DECISIONS `2026-09-06-04`）で添付されます。
 
 ```json
 {
@@ -367,26 +243,15 @@ cross-repo共通に確定したもの）で `manifest.json` も添付される�
 }
 ```
 
-`bundled_wirescope_source_commit` は現状の vendoring 経路（scratch-editor の特定 commit を手作業
-で pin して取り込む方式）の由来をそのまま記録するだけで、vendoring 自体の切り替えは今回対象外
-（`2026-09-06-02`で「本統一が実装された後の切替対象」と明記された将来作業）。
+`v2301.0.0b7` までの Release には asset が添付されていません（遡及しない）。
 
 ---
 
-## チートシート
+## 付録
 
-毎回の流れ: **バージョンを上げる → `dist/` を掃除 → `uv build` → TestPyPI で確認 → `uv publish` → タグ付け**
+- リリースごとの確認記録（b3〜b7）：[`docs/release-records_ja.md`](docs/release-records_ja.md)
 
-| 作業 | コマンド |
-| --- | --- |
-| 開発環境（貢献者向け） | `uv sync` |
-| ビルド | `uv build` |
-| TestPyPI へ公開 | `uv publish --publish-url https://test.pypi.org/legacy/ --token <TOKEN>` |
-| 本番 PyPI へ公開 | `uv publish --token <TOKEN>`（または `UV_PUBLISH_TOKEN`） |
-
----
-
-## 付録: Poetry へのロールバック
+### Poetry へのロールバック
 
 uv 運用で問題が出た場合、ビルドバックエンドを Poetry に戻せます。`pyproject.toml` を以下に差し替える:
 
@@ -400,14 +265,6 @@ packages = [{ include = "mc_remote", from = "." }]   # 配布名≠import名の�
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
-```
-
-その後:
-
-```bash
-poetry lock          # poetry.lock を再生成
-poetry build
-poetry publish       # 公開
 ```
 
 > 注: `mc_remote` は配布名（`minecraft-remote-api`）と import 名が異なるため、
