@@ -11,43 +11,78 @@
 
 ## 3分で動かす（最短クイックスタート）
 
-前提: Python 3.10以上、およびマインクラフト（Java版 1.21.1 推奨）が起動していること。
+前提: [uv](https://docs.astral.sh/uv/getting-started/installation/) がインストールされていること。Python本体はuvが用意します。
 
-### Step 1: パッケージのインストール
+### Step 1: プロジェクトを作り、モジュールを追加
 
 ```bash
-pip install minecraft-remote-api
+uv init --python 3.13 mc-hello
+cd mc-hello
+uv add "minecraft-remote-api @ git+https://github.com/Naohiro2g/minecraft-remote-api.git@v2301.0.0b7.post2"
 ```
 
-*(開発やソースコードから動かす場合は `uv sync` を推奨します)*
+現在は、新プロトコル版がPyPIに未登録なので、GitHub.comのリリース版を使います（Gitが必要です）。
 
-### Step 2: 最小コード（`hello.py`）を作成
+### Step 2: 最小コード（`hello.py`）を書く
+
+`mc-hello` フォルダの `main.py` は使わないので削除してかまいません。`hello.py` を作ります。
 
 ```python
-from mc_remote import Minecraft
-
-# 公式箱庭サーバーまたは自前サーバーに接続
+from mc_remote.minecraft import Minecraft
+# 公式箱庭サーバー（ベータ）に接続
 mc = Minecraft.create(address="sb-beta.mc-remote.com", port=25575)
 
-# 建築原点とプレイヤー位置の設定
+# 建築原点の設定
 mc.setBuildOrigin(200, 0, 200)
-mc.setPos(200, 100, 200)
 
-# チャットを送信し、ブロックを1個置く（原点からの相対座標で (205, 67, 205) に置かれます）
+# チャット送信
 mc.postToChat("Hello, Minecraft from Python!")
+
+# プレイヤー位置、視線方向の設定
+mc.setPos("overworld", 30, 120, 30)  # (230, 120, 230) に移動
+mc.setDirection(-1, -2, -1)
+
+# ブロック設置
+# 建築原点からの相対計算で実際は (205, 67, 205) に置かれます。
 mc.setBlock(5, 67, 5, "sea_lantern")
-print("マインクラフトの世界にブロックを置きました！")
 ```
 
 ### Step 3: 実行とペアリング
 
 ```bash
-python hello.py
+uv run hello.py
 ```
 
-1. 実行すると、ターミナルに `/mcremote pair NNN-NNN`（数字6桁）が表示されます。
-2. マインクラフトのゲーム内チャットを開き、そのコマンドを貼り付けてEnterキーを押します。
-3. チャットに `Hello, Minecraft from Python!` と表示され、座標 `(205, 67, 205)`（原点 `(200, 0, 200)` ＋ 相対座標 `(5, 67, 5)`）にシーランタン（海のランタン）が光れば成功です！
+ターミナルに表示される `/mcremote pair NNN-NNN` をゲーム内チャットに貼り付け、Enterを押すと認証が完了します。認証は2時間有効です。チャットに `Hello, Minecraft from Python!` と表示され、`(205, 67, 205)` にシーランタンが光れば成功です。
+
+---
+
+<a id="jupyter"></a>
+
+## Jupyter Notebookで1行ずつ実行する
+
+コードを1行ずつ実行して、マイクラの世界がどう変わるかを確かめながら進められます。Step 1で作った `mc-hello` フォルダで作業します。
+
+### VS Codeで使う
+
+1. ノートブックの実行に必要なカーネルを、開発用の依存として追加します。
+
+   ```bash
+   uv add --dev ipykernel
+   ```
+
+2. VS Codeに拡張機能「Jupyter」（Microsoft）を入れ、`mc-hello` フォルダを開きます。
+3. `hello.ipynb` などのノートブックを作り、右上の「カーネルの選択」→「Python環境」から `mc-hello` の `.venv` を選びます。
+4. セルに `hello.py` の内容を分けて書き、1つずつ実行します。ペアリング用の `/mcremote pair NNN-NNN` はセルの出力に表示されます。
+
+### JupyterLabで使う
+
+```bash
+uv add --dev jupyterlab
+uv run jupyter lab
+```
+
+ブラウザでJupyterLabが開きます。新しいノートブックを作れば、`mc-hello` の環境でそのまま実行できます。
 
 ---
 
@@ -57,14 +92,16 @@ python hello.py
 
 ```bash
 git clone https://github.com/Naohiro2g/minecraft-remote-api.git
-cd minecraft-remote-api/starter
+cd minecraft-remote-api
+uv sync --frozen
+cd starter
 cp param_mc_remote.template.py param_mc_remote.py
-python hello.py
+uv run python hello.py
 ```
 
 - **環境アダプター (`param_mc_remote.py`)**: サーバー接続先や建築原点をプログラム本体から分離します（Git管理外）。
 - **生きたカタログ補完 (`mc_constants`)**: 初回接続時に接続先サーバーのブロック定義を自動取得し、Pythonコード内で `block.SEA_LANTERN` のような正確な型補完が効くようになります。
-- 詳しい段階的学習法は [`starter/README_ja.md`](starter/README_ja.md) をご覧ください。
+- 詳しい段階的学習法は [`starter/README_ja.md`](https://github.com/Naohiro2g/minecraft-remote-api/blob/main/starter/README_ja.md) をご覧ください。
 
 ---
 
@@ -82,7 +119,8 @@ python hello.py
 
 - **パッケージ名**: `minecraft-remote-api`（インポート名: `mc_remote`）
 - **現行バージョン**: `2301.0.0b7.post2`（Protocol 23.1.0 準拠）
-- **対応マインクラフト**: Java版 1.21.1（Paper 26.x対応準備中）
+- **対応Python**: 3.11〜3.13（標準は3.13）
+- **対応マインクラフト**: Java版 1.21.11（Paper 26.x対応準備中）
 - **接続先**:
   - 公式箱庭（サンドボックス）サーバー: `sb-beta.mc-remote.com:25575`
   - 自前サーバー: PaperMC サーバーに [McRemote プラグイン](https://github.com/Naohiro2g/McRemote) を導入して起動
@@ -110,8 +148,10 @@ cd minecraft-remote-api
 uv sync
 ```
 
+pyenv／pip／Poetryを使っていた方は [uvへの移行ガイド](https://github.com/Naohiro2g/minecraft-remote-api/blob/main/docs/migrate-to-uv_ja.md) をご覧ください。
+
 ### ライセンス
 
 - Python クライアントコード本体: **MIT License**
 - 同梱 WireScope browser app (`@mc-remote/live`): **AGPL-3.0-only**
-  - ソースコード、ライセンス条項、アセットハッシュ値の検証データは [GitHub Releases](https://github.com/Naohiro2g/minecraft-remote-api/releases) および [`LICENSE`](LICENSE) を参照してください。
+  - ソースコード、ライセンス条項、アセットハッシュ値の検証データは [GitHub Releases](https://github.com/Naohiro2g/minecraft-remote-api/releases) および [`LICENSE`](https://github.com/Naohiro2g/minecraft-remote-api/blob/main/LICENSE) を参照してください。
