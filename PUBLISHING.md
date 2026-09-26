@@ -4,7 +4,7 @@
 
 - パッケージ名: `minecraft-remote-api`（import 名: `mc_remote`）
 - 依存は `[project.dependencies]`（PEP 621 標準）に記載
-- 対応 Python: 3.11〜3.13（`requires-python = ">=3.11"`、上限は付けない。対応範囲は classifiers と CI matrix で示す）
+- 対応 Python: 3.10〜3.13（`requires-python = ">=3.10"`、上限は付けない。対応範囲は classifiers と CI matrix で示す。3.10 は iPad の Pythonista 3 のため。DECISIONS `2026-09-27-02`）
 
 > **貢献するだけなら公開は不要。** PR を出すのに build / publish は要りません。
 > `uv sync` で開発環境を作り、コードを動かし／テストして push するだけです。
@@ -26,7 +26,7 @@ API token による手作業の upload は正式経路にしません。
 ## 1. 全体の流れ
 
 1. `pyproject.toml` の `version` を上げ、README の「現行バージョン」とインストール URL を合わせ、`uv lock` する。
-2. `main` へ push する。`ci.yml` が Python 3.11〜3.13 で test し、候補 artifact（wheel／sdist／`manifest.json`）を作る。
+2. `main` へ push する。`ci.yml` が Python 3.10〜3.13 で test し、候補 artifact（wheel／sdist／`manifest.json`）を作る。
 3. tag を作って push する。
 4. GitHub Release を作る（`--prerelease`、draft にしない）。
 5. `release.yml` が動く。
@@ -59,7 +59,7 @@ uv lock --check
 
 `main` への push で `ci.yml` が動きます。
 
-- `test` job：Python 3.11／3.12／3.13 の matrix で `uv lock --check` と pytest。
+- `test` job：Python 3.10／3.11／3.12／3.13 の matrix で `uv lock --check` と pytest。
 - `build-candidate` job：`uv build`、WireScope 同梱の検査、`manifest.json` 生成、workflow artifact `minecraft-remote-api-dist`（保持 90 日）として保存。
 
 手元で同じ確認をする場合:
