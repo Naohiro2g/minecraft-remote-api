@@ -68,6 +68,16 @@ jobs:
           fi
           echo "TAG_VERSION=$TAG_VERSION" >> "$GITHUB_ENV"
 
+      - name: Set the release title (minecraft-remote-api <version>)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # 命名規則は mc-remote-knowledge versioning-design §10.12.1（DECISIONS 2026-09-27-03）。
+          # GitHub の既定（tag 名）に任せず、固定 trigger で明示指定する
+          gh release edit "$TAG_NAME" --repo "${{ github.repository }}" \
+            --title "minecraft-remote-api $TAG_VERSION"
+
       - name: Verify the prerelease flag matches the version suffix
         run: |
           set -euo pipefail

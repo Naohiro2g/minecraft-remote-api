@@ -79,10 +79,13 @@ unzip -p dist/minecraft_remote_api-*-py3-none-any.whl '*/METADATA' | grep -iE '^
 git tag v<version>
 git push origin v<version>
 gh release create v<version> \
-  --title "v<version>" \
+  --title "minecraft-remote-api <version>" \
   --generate-notes \
   --prerelease            # bN／rcN（.postN を含む）のときのみ。stable では省略する
 ```
+
+- **title は `minecraft-remote-api <version>`**（`<version>` は tag から先頭の `v` を除いた文字列。versioning-design §10.12.1、DECISIONS `2026-09-27-03`）。
+  `release.yml` もこの形へ明示的に設定し直すので、GitHub の既定（tag 名）にはならない。
 
 - **`--draft` は使わない。** draft では `release: published` が発火せず、`release.yml` が動かない。
 - GitHub は version 文字列から prerelease を自動判定しない（versioning-design §10.12）。`--prerelease` を付け忘れると `release.yml` の整合チェックで失敗する。
@@ -94,7 +97,7 @@ gh release create v<version> \
 1. tag が指す commit を API で解決する。
 2. その commit で成功した `ci.yml` の run を探す。
 3. 候補 artifact をそのまま download する。
-4. tag と wheel の version の一致、`prerelease` フラグと接尾辞の整合、sha256 と候補 `manifest.json` の一致を確認する。
+4. tag と wheel の version の一致を確認し、title を `minecraft-remote-api <version>` に設定する。`prerelease` フラグと接尾辞の整合、sha256 と候補 `manifest.json` の一致を確認する。
 5. `manifest.json` の `release_tag` だけを実際の tag 名へ更新する。
 6. wheel／sdist／`manifest.json` を Release へ添付する。
 
