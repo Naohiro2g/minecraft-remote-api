@@ -1,6 +1,8 @@
 # minecraft-remote-api
 
-マイクラリモコン（Minecraft Remote / mc-remote）のための公式Pythonクライアント／APIパッケージです。Pythonコードを書いて、最新のマインクラフトの世界を自由にプログラミング・自動建築できます。
+[マイクラリモコン](https://mc-remote.com/)（Minecraft Remote / mc-remote）のための公式Pythonクライアント／APIパッケージです。Pythonコードを書いて、最新のマインクラフトの世界を自由にプログラミング・自動建築できます。
+
+🏠 **公式サイト**: [mc-remote.com](https://mc-remote.com/)
 
 > [!NOTE]
 > **🌐 言語方針について / Language Policy**  
@@ -25,7 +27,7 @@ uv add https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v2301
 
 ### Step 2: 最小コード（`hello.py`）を書く
 
-`mc-hello` フォルダの `main.py` は使わないので削除してかまいません。`hello.py` を作ります。
+`mc-hello` フォルダに `hello.py` を作ります。
 
 ```python
 from mc_remote.minecraft import Minecraft
