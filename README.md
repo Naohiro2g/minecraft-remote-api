@@ -90,6 +90,18 @@ uv run jupyter lab
 
 ノートブックは、一度 import したモジュールを覚えています。自分で作った `.py` や `mc_remote` 自体を書き換えたら、**カーネルを再起動**（VS Code・JupyterLabとも「Restart」）してから、import のセルから実行し直してください。再起動しないと、書き換える前のコードが動き続けます。
 
+**手早く再起動するには**
+
+- JupyterLab：Esc を押してから `0` を2回。メニューの「Kernel → Restart Kernel and Run All Cells…」なら、再起動と上からの全セル再実行を1回で行えます。
+- VS Code：ノートブック上部の「Restart」。キーボードショートカットに割り当てることもできます。
+- セルから再起動する（JupyterLab）：
+
+  ```python
+  mc.close()   # マイクラとの接続を閉じる
+  import os
+  os._exit(0)  # カーネルが止まり、JupyterLab が自動で起動し直す
+  ```
+
 ---
 
 ## 本格的な学習とスターター（`starter/`）
