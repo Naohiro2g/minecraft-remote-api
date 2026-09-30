@@ -63,6 +63,12 @@ OBSERVED_METHODS = frozenset(
         "world.getHeight",
         "world.spawnParticle",
         "world.spawnEntity",
+        "world.playSound",
+        "world.playBlockSound",
+        "world.getNearbyEntities",
+        "entity.getPose",
+        "entity.setPose",
+        "entity.remove",
         "events.poll",
         "connection.flush",
         "player.getPos",
@@ -134,6 +140,13 @@ def _canonical_id(value, context):
     value = _required_string(value, context)
     if _QUALIFIED_BLOCK_ID.fullmatch(value) is None:
         raise ObserverValidationError(f"{context} must be a canonical namespace ID")
+    return value
+
+
+def _resource_id(value, context):
+    value = _required_string(value, context)
+    if not (_QUALIFIED_BLOCK_ID.fullmatch(value) or _SHORT_BLOCK_ID.fullmatch(value)):
+        raise ObserverValidationError(f"{context} must be a resource ID")
     return value
 
 
@@ -261,6 +274,77 @@ def _parse_permissions(value):
         if not isinstance(build_range, str):
             _finite_number(build_range, "permissions.build_range")
         parsed["build_range"] = build_range
+    return parsed
+
+
+def _parse_particle_spec(value, context):
+    if isinstance(value, str):
+        return _resource_id(value, context)
+    spec = _object(value, context)
+    _exact_fields(spec, {"particle_id", "receiver", "data"}, context)
+    parsed = {
+        "particle_id": _resource_id(spec.get("particle_id"), f"{context}.particle_id")
+    }
+    if "receiver" in spec:
+        if spec["receiver"] not in ("world", "self"):
+            raise ObserverValidationError(f"{context}.receiver must be world or self")
+        parsed["receiver"] = spec["receiver"]
+    if "data" in spec:
+        data = _object(spec["data"], f"{context}.data")
+        particle_id = parsed["particle_id"]
+        resolved_id = particle_id if ":" in particle_id else "minecraft:" + particle_id
+        if resolved_id == "minecraft:dust":
+            if set(data) != {"color", "size"}:
+                raise ObserverValidationError("dust data must contain exactly color and size")
+            color = _integer_tuple(data["color"], f"{context}.data.color")
+            size = _finite_number(data["size"], f"{context}.data.size")
+            if any(not 0 <= item <= 255 for item in color) or not 0.01 <= size <= 4:
+                raise ObserverValidationError("dust data is outside its ranges")
+            parsed["data"] = {"color": color, "size": size}
+        elif resolved_id == "minecraft:block":
+            parsed["data"] = _parse_block_value(
+                data, f"{context}.data", require_namespace=False
+            )
+        else:
+            raise ObserverValidationError("unsupported particle data")
+    return parsed
+
+
+def _parse_sound_options(value, context):
+    options = _object(value, context)
+    _exact_fields(options, {"volume", "pitch", "note", "receiver"}, context)
+    if "pitch" in options and "note" in options:
+        raise ObserverValidationError("sound pitch and note are mutually exclusive")
+    parsed = {}
+    for key, low, high in (("volume", 0, 1), ("pitch", 0.5, 2), ("note", 0, 24)):
+        if key in options:
+            parser = _integer if key == "note" else _finite_number
+            number = parser(options[key], f"{context}.{key}")
+            if not low <= number <= high:
+                raise ObserverValidationError(f"sound {key} is outside its range")
+            parsed[key] = number
+    if "receiver" in options:
+        if options["receiver"] not in ("world", "self"):
+            raise ObserverValidationError("sound receiver must be world or self")
+        parsed["receiver"] = options["receiver"]
+    return parsed
+
+
+def _parse_nearby_entities(value):
+    if not isinstance(value, list) or len(value) > 64:
+        raise ObserverValidationError("nearby result must be an array of at most 64 entries")
+    parsed = []
+    for item in value:
+        entry = _object(item, "nearby entry")
+        if set(entry) != {"handle", "type", "pos"}:
+            raise ObserverValidationError("nearby entry must contain handle, type, and pos")
+        parsed.append(
+            {
+                "handle": _parse_result("world.spawnEntity", entry["handle"]),
+                "type": _canonical_id(entry["type"], "nearby type"),
+                "pos": _number_tuple(entry["pos"], "nearby pos"),
+            }
+        )
     return parsed
 
 
@@ -481,6 +565,8 @@ def _parse_params(method, value):
         raise ObserverValidationError(
             "world.spawnEntity params must contain x, y, z, and entity"
         )
+    elif method in {"world.playSound", "world.playBlockSound"} and len(value) not in {4, 5}:
+        raise ObserverValidationError("sound params must contain 4 or 5 values")
     elif method == "events.poll" and len(value) not in {1, 2}:
         raise ObserverValidationError(
             "events.poll params must contain after_sequence and optional options"
@@ -500,12 +586,40 @@ def _parse_params(method, value):
             _finite_number(item, f"frame.payload.params[{index}]")
             for index, item in enumerate(value)
         ]
-    elif method == "entity.getDirection":
+    elif method in {"entity.getDirection", "entity.getPose", "entity.remove"}:
         if len(value) != 1 or not isinstance(value[0], str):
             raise ObserverValidationError(
-                "entity.getDirection params must contain one string handle"
+                f"{method} params must contain one string handle"
             )
         return [value[0]]
+    elif method == "entity.setPose":
+        if len(value) != 7 or not isinstance(value[0], str):
+            raise ObserverValidationError(
+                "entity.setPose requires handle, dimension, x, y, z, yaw, pitch"
+            )
+        return [
+            value[0],
+            _dimension_ref(value[1], "frame.payload.params[1]"),
+            *[
+                _finite_number(item, f"frame.payload.params[{index}]")
+                for index, item in enumerate(value[2:], start=2)
+            ],
+        ]
+    elif method == "world.getNearbyEntities":
+        if len(value) != 5:
+            raise ObserverValidationError(
+                "nearby params must contain x, y, z, radius, max_entities"
+            )
+        parsed = [
+            _finite_number(item, f"frame.payload.params[{index}]")
+            for index, item in enumerate(value[:4])
+        ]
+        limit = _integer(value[4], "frame.payload.params[4]")
+        if not 0 <= parsed[3] <= 64 or not 1 <= limit <= 64:
+            raise ObserverValidationError(
+                "nearby radius or max_entities is outside its range"
+            )
+        return parsed + [limit]
     elif method == "entity.setDirection":
         if len(value) != 4 or not isinstance(value[0], str):
             raise ObserverValidationError(
@@ -605,13 +719,25 @@ def _parse_params(method, value):
                 )
             parsed.append({"max_events": max_events})
         return parsed
+    if method in {"world.playSound", "world.playBlockSound"}:
+        parser = _integer if method == "world.playBlockSound" else _finite_number
+        parsed = [parser(item, f"frame.payload.params[{index}]") for index, item in enumerate(value[:3])]
+        if method == "world.playSound":
+            parsed.append(_resource_id(value[3], "sound_id"))
+        else:
+            if value[3] not in ("place", "hit", "break", "step", "fall"):
+                raise ObserverValidationError("unsupported block sound kind")
+            parsed.append(value[3])
+        if len(value) == 5:
+            parsed.append(_parse_sound_options(value[4], "sound options"))
+        return parsed
     if method == "world.spawnEntity":
         return [
             *[
                 _finite_number(item, f"frame.payload.params[{index}]")
                 for index, item in enumerate(value[:3])
             ],
-            _canonical_id(value[3], "frame.payload.params[3]"),
+            _resource_id(value[3], "frame.payload.params[3]"),
         ]
     if method == "world.spawnParticle":
         parsed = [
@@ -622,7 +748,7 @@ def _parse_params(method, value):
             raise ObserverValidationError("particle offsets must be non-negative")
         parsed.extend(
             [
-                _canonical_id(value[6], "frame.payload.params[6]"),
+                _parse_particle_spec(value[6], "frame.payload.params[6]"),
                 _finite_number(value[7], "frame.payload.params[7]"),
                 _integer(
                     value[8], "frame.payload.params[8]", non_negative=True
@@ -656,7 +782,7 @@ def _parse_result(method, value):
             ),
             "pos": _number_tuple(position.get("pos"), "frame.payload.result.pos"),
         }
-    if method in {"player.getPose", "player.setPose"}:
+    if method in {"player.getPose", "player.setPose", "entity.getPose", "entity.setPose"}:
         pose = _object(value, "frame.payload.result")
         _exact_fields(
             pose,
@@ -711,10 +837,15 @@ def _parse_result(method, value):
                 "world.spawnEntity success result must be an entity handle"
             )
         return value
+    if method == "world.getNearbyEntities":
+        return _parse_nearby_entities(value)
     if method in {
         "world.setBlock",
         "world.setBlocks",
         "world.strikeLightning",
+        "world.playSound",
+        "world.playBlockSound",
+        "entity.remove",
         "connection.flush",
     }:
         if value is not None:
@@ -1190,7 +1321,7 @@ class PythonObserverSource:
             allowed = _project_hello(result)
         elif method in {"player.getPos", "player.setPos"}:
             allowed = _project_position(result)
-        elif method in {"player.getPose", "player.setPose"}:
+        elif method in {"player.getPose", "player.setPose", "entity.getPose", "entity.setPose"}:
             allowed = _project_pose(result)
         elif method in {
             "player.getDirection",
@@ -1220,6 +1351,7 @@ class PythonObserverSource:
             "world.getHeight",
             "world.spawnParticle",
             "world.spawnEntity",
+            "world.getNearbyEntities",
         }:
             try:
                 allowed = _parse_result(method, result)
@@ -1229,6 +1361,9 @@ class PythonObserverSource:
             "world.setBlock",
             "world.setBlocks",
             "world.strikeLightning",
+            "world.playSound",
+            "world.playBlockSound",
+            "entity.remove",
             "connection.flush",
         }:
             allowed = None

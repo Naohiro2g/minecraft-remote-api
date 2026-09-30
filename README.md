@@ -133,6 +133,11 @@ uv run python hello.py
 - **演出とイベント**: `mc.spawnParticle()`, `mc.strikeLightning()`, `mc.pollEvents()`（ツルハシで叩いた検知など）
 - **高速建築モード**: `DEBUG`（1行ずつ確認）、`TRACE`（動作を観察）、`FAST`（超高速建築）
 
+開発中のB8ではentityの検索・pose操作、particleの色・表示先、サウンドを追加しています。
+[B8 APIと3D graphの利用例](docs/b8-python_ja.md) を参照してください。
+B8では `from mc_remote import Minecraft` が使え、pygameは必要なときに `uv add pygame-ce` で追加します。
+パッケージ側のoptional extraは `pygame` です。導入試験には [Windows 11の入口手順](docs/windows-b8-entry_ja.md) を用意しています。
+
 ---
 
 ## パッケージ情報 & 対応環境

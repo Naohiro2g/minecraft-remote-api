@@ -4,14 +4,17 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "minecraft-remote-api"
-version = "2301.0.0b7.post3"
+version = "2320.0.0b8"
 source = { editable = "." }
-dependencies = [
+
+[package.optional-dependencies]
+pygame = [
     { name = "pygame-ce" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pygame-ce", specifier = ">=2.5.7,<3" }]
+requires-dist = [{ name = "pygame-ce", marker = "extra == 'pygame'", specifier = ">=2.5" }]
+provides-extras = ["pygame"]
 
 [[package]]
 name = "pygame-ce"

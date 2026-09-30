@@ -56,7 +56,8 @@ def _reason_error(reason, code=-32000):
 def test_owner_fixture_identity_protocol_and_93_case_ledger():
     assert hashlib.sha256(FIXTURE_PATH.read_bytes()).hexdigest() == FIXTURE_SHA256
     assert FIXTURE["schema"] == "mcremote.direction-lightning.v23.1"
-    assert FIXTURE["protocol"] == PROTOCOL == "23.1.0"
+    assert FIXTURE["protocol"] == "23.1.0"
+    assert PROTOCOL == "23.2.0"
     assert FIXTURE["knowledge_contract"] == {
         "commit": "2bddadd1114e05a9076911de83aec0836df36345",
         "path": "10-protocol/wire-format-design_ja.md",
@@ -86,7 +87,7 @@ def test_hello_permission_snapshot_remains_an_uninterpreted_server_fact():
     assert mc.permissions == case["hello_permissions"]
     assert mc.strikeLightning(1, 2, 3) is None
     assert conn.calls == [
-        ("hello", {"protocol": "23.1.0"}),
+        ("hello", {"protocol": PROTOCOL}),
         (lightning_method, [1, 2, 3]),
     ]
     assert FIXTURE["session_admission"]["command_permission_recheck"] is False

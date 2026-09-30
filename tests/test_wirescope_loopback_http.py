@@ -20,7 +20,7 @@ import mc_remote.wirescope as wirescope
 
 
 SOURCE_COMMIT = "192d1e3ccd213fb5012b92655e51b779270e15be"
-BUNDLED_APP_SOURCE_COMMIT = "0be46fcfaca409a5ede10f592520d93e7c59ba15"
+BUNDLED_APP_SOURCE_COMMIT = "5aaa9c59acc393cd0a0de5cb45a5e619a5e87abe"
 HELLO = {
     "protocol": "22.0.0",
     "mc_version": "1.21.11",
@@ -218,6 +218,10 @@ def test_bundled_delivery_pair_matches_build_input_and_component_files():
         assert b"events.poll" in app_script
         assert b"world.getHeight" in app_script
         assert b"world.spawnParticle" in app_script
+        assert b"world.getNearbyEntities" in app_script
+        assert b"entity.getPose" in app_script
+        assert b"entity.setPose" in app_script
+        assert b"entity.remove" in app_script
         assert b"world.spawnEntity" in app_script
         assert b"connection.flush" in app_script
         assert b"player.getDirection" in app_script

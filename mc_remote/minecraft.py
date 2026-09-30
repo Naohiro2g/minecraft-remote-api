@@ -1,6 +1,5 @@
 import os
 import math
-import re
 import time
 import threading
 import warnings
@@ -43,6 +42,15 @@ from .dimension import (
     require_dimension_ref,
 )
 from .direction_value import DirectionValue, decode_direction_value
+from .entity_value import (
+    NearbyEntity,
+    PoseValue,
+    decode_entity_pose,
+    decode_nearby_entities,
+)
+from .particle_value import BlockParticleData, DustData, ParticleSpec, particle_spec
+from .resource_id import resource_id
+from .sound_value import SoundOptions, sound_options
 from .sign_value import (
     LineValue,
     SignValue,
@@ -68,7 +76,7 @@ from .b5_values import (
 _StateT = TypeVar("_StateT")
 _TRACE_DELAY_UNSET = object()
 _FORCE_UNSET = object()
-_CANONICAL_ID = re.compile(r"^[a-z0-9_.-]+:[a-z0-9/._-]+$")
+_SOUND_OPTIONS_UNSET = object()
 
 
 class BuildMode(str, Enum):
@@ -126,6 +134,12 @@ __all__ = [
     "ProjectileTarget",
     "SignValue",
     "DirectionValue",
+    "NearbyEntity",
+    "PoseValue",
+    "ParticleSpec",
+    "DustData",
+    "BlockParticleData",
+    "SoundOptions",
     "CatalogProjectionError",
     "CatalogProjectionWarning",
     "WireScopeWarning",
@@ -135,7 +149,7 @@ __all__ = [
 
 # Wire protocol version this client speaks (sent in the hello handshake and
 # checked by the server). Distinct from the PyPI/distribution version.
-PROTOCOL = "23.1.0"
+PROTOCOL = "23.2.0"
 
 CatalogProjectionError = _projection.CatalogProjectionError
 CatalogProjectionWarning = _projection.CatalogProjectionWarning
@@ -169,12 +183,6 @@ def _finite_values(where, *values):
     return parsed
 
 
-def _canonical_id(value, where):
-    if not isinstance(value, str) or _CANONICAL_ID.fullmatch(value) is None:
-        raise ValueError(f"{where} must be a canonical namespace ID")
-    return value
-
-
 def _add_exception_note(exception, note, *, cause=None):
     add_note = getattr(exception, "add_note", None)
     if add_note is not None:
@@ -196,7 +204,7 @@ def _env_first(*names):
 class Minecraft:
     """Client for a running Minecraft server speaking protocol 23.x.
 
-    protocol 23.1.0 b7 surface: ``hello`` handshake (carrying an optional
+    protocol 23.2.0 b8 surface: ``hello`` handshake (carrying an optional
     ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
     structured block values, ``postToChat`` (wire ``chat.post``), paired-player
     position and pose helpers (``getPos`` / ``setPos`` / ``getPose`` /
@@ -497,7 +505,7 @@ class Minecraft:
         offset_x,
         offset_y,
         offset_z,
-        particle,
+        particle: str | ParticleSpec,
         speed,
         count,
     ) -> int: ...
@@ -511,7 +519,7 @@ class Minecraft:
         offset_x,
         offset_y,
         offset_z,
-        particle,
+        particle: str | ParticleSpec,
         speed,
         count,
         force: bool,
@@ -525,12 +533,18 @@ class Minecraft:
         offset_x,
         offset_y,
         offset_z,
-        particle,
+        particle: str | ParticleSpec,
         speed,
         count,
         force=_FORCE_UNSET,
     ):
-        """Spawn a b5 data-free particle without pre-rounding its position."""
+        """Spawn a particle from a namespace ID or a ParticleSpec mapping.
+
+        ParticleSpec accepts receiver ``world`` (default) or ``self`` and dust
+        color/size or block data. Validation errors retain the server's reason;
+        explicit data=None is sent as JSON null and rejected by the server.
+        This remains an id-bearing request in every build mode.
+        """
 
         position = _finite_values("world.spawnParticle position", x, y, z)
         offsets = _finite_values(
@@ -543,7 +557,7 @@ class Minecraft:
         if count_value < 0:
             raise ValueError("particle count must be non-negative")
         params = position + offsets + [
-            _canonical_id(particle, "particle"),
+            particle_spec(particle),
             speed_value,
             count_value,
         ]
@@ -562,12 +576,89 @@ class Minecraft:
         """Spawn an entity and return its opaque connection-epoch handle."""
 
         params = _finite_values("world.spawnEntity position", x, y, z)
-        params.append(_canonical_id(entity, "entity"))
+        params.append(resource_id(entity, "entity"))
         result = self.conn.rpc("world.spawnEntity", params)
         try:
             return EntityHandle(result)
         except ValueError as exc:
             raise McRemoteError(f"invalid world.spawnEntity result: {exc}") from exc
+
+    def playSound(self, x, y, z, sound_id: str, options: SoundOptions = _SOUND_OPTIONS_UNSET) -> None:
+        """Play a registry sound at an origin-relative continuous position.
+
+        Options: volume 0..1, pitch 0.5..2 OR note 0..24, receiver world/self.
+        Missing options use server defaults. Server errors propagate unchanged.
+        """
+        params = _finite_values("world.playSound position", x, y, z)
+        params.append(resource_id(sound_id, "sound_id"))
+        if options is not _SOUND_OPTIONS_UNSET:
+            params.append(sound_options(options))
+        if self.conn.rpc("world.playSound", params) is not None:
+            raise McRemoteError("world.playSound result must be null")
+
+    def playBlockSound(self, x, y, z, kind: str, options: SoundOptions = _SOUND_OPTIONS_UNSET) -> None:
+        """Play place/hit/break/step/fall for a block at integer coordinates.
+
+        Omitted fields use that block's raw SoundGroup volume/pitch. Explicit
+        pitch or note replaces the group pitch. An air block yields no_block.
+        """
+        params = _integer_values("world.playBlockSound position", x, y, z)
+        if not isinstance(kind, str):
+            raise TypeError("block sound kind must be a string")
+        params.append(kind)
+        if options is not _SOUND_OPTIONS_UNSET:
+            params.append(sound_options(options))
+        if self.conn.rpc("world.playBlockSound", params) is not None:
+            raise McRemoteError("world.playBlockSound result must be null")
+
+    def getNearbyEntities(self, x, y, z, radius, max_entities) -> tuple[NearbyEntity, ...]:
+        """Query non-player entities without loading chunks, in distance order.
+
+        The center and returned positions are relative to this stream's origin.
+        Radius is 0..64 and max_entities is 1..64; lower server policy caps may
+        reject a request. Handles belong to this connection epoch. The result
+        is a snapshot: an entity can disappear before the next operation.
+        """
+
+        params = _finite_values("world.getNearbyEntities", x, y, z, radius)
+        limit = _integer_values("world.getNearbyEntities max_entities", max_entities)[0]
+        if not 0 <= radius <= 64 or not 1 <= limit <= 64:
+            raise ValueError("radius must be 0..64 and max_entities must be 1..64")
+        return decode_nearby_entities(
+            self.conn.rpc("world.getNearbyEntities", params + [limit]), limit
+        )
+
+    def getEntityPose(self, handle: str) -> PoseValue:
+        """Read an entity's dimension and origin-relative pose."""
+
+        if not isinstance(handle, str):
+            raise TypeError("entity handle must be a string")
+        return decode_entity_pose(self.conn.rpc("entity.getPose", [handle]))
+
+    def setEntityPose(self, handle: str, dimension, x, y, z, yaw, pitch) -> PoseValue:
+        """Teleport once and return the server's post-read pose.
+
+        A successful dimension move retains the handle. Neither the stream's
+        build dimension nor its origin changes. Entity AI may move it later.
+        """
+
+        if not isinstance(handle, str):
+            raise TypeError("entity handle must be a string")
+        dimension = require_dimension_ref(dimension, "dimension")
+        values = _finite_values("entity.setPose", x, y, z, yaw, pitch)
+        if not -90 <= pitch <= 90:
+            raise ValueError("entity.setPose pitch must be -90..90")
+        return decode_entity_pose(
+            self.conn.rpc("entity.setPose", [handle, dimension] + values)
+        )
+
+    def removeEntity(self, handle: str) -> None:
+        """Remove an entity; the server immediately invalidates its handle."""
+
+        if not isinstance(handle, str):
+            raise TypeError("entity handle must be a string")
+        if self.conn.rpc("entity.remove", [handle]) is not None:
+            raise McRemoteError("entity.remove success result must be null")
 
     def pollEvents(self, max_events=None) -> EventBatch:
         """Poll this connection epoch without destructively dequeuing events.

@@ -5,16 +5,16 @@
     "file": "wirescope-app.zip",
     "format": "zip",
     "format_version": 1,
-    "sha256": "98d684dc15f369f6568d249357d8fd3af11893859d3c07c2554295df19a263b8"
+    "sha256": "870c5bf33c7af5fe720fde0514a3192865dfc1057707bbbba405bbf238642a15"
   },
   "source": {
     "repository": "https://github.com/Naohiro2g/scratch-editor",
-    "commit": "0be46fcfaca409a5ede10f592520d93e7c59ba15",
+    "commit": "5aaa9c59acc393cd0a0de5cb45a5e619a5e87abe",
     "subdirectory": "mc-remote/live",
-    "corresponding_source_url": "https://github.com/Naohiro2g/scratch-editor/tree/0be46fcfaca409a5ede10f592520d93e7c59ba15/mc-remote/live"
+    "corresponding_source_url": "https://github.com/Naohiro2g/scratch-editor/tree/5aaa9c59acc393cd0a0de5cb45a5e619a5e87abe/mc-remote/live"
   },
   "build": {
-    "recipe": "npm ci && npm run build:artifact --workspace=@mc-remote/live -- --source-commit 0be46fcfaca409a5ede10f592520d93e7c59ba15",
+    "recipe": "npm ci && npm run build:artifact --workspace=@mc-remote/live -- --source-commit 5aaa9c59acc393cd0a0de5cb45a5e619a5e87abe",
     "toolchain": {
       "node": "24.19.0",
       "rolldown-vite": "7.3.1",
@@ -22,9 +22,9 @@
       "jszip": "3.10.1"
     },
     "input_identity": {
-      "source_commit": "0be46fcfaca409a5ede10f592520d93e7c59ba15",
+      "source_commit": "5aaa9c59acc393cd0a0de5cb45a5e619a5e87abe",
       "package_json_sha256": "84b74060253ef940952db82c24e1cee4d18d652ae11449ee601a92d1f72a6bbe",
-      "package_lock_sha256": "98bd8649bef2f16132c680348a342e3bdd5e4e2b430c83036b0defb39919da26"
+      "package_lock_sha256": "9756bf3b70d4c00390a75eb49b22b364f3409665f8c356e4e8c959ffda2c4f2b"
     }
   },
   "protocols": {
@@ -53,19 +53,19 @@
       "sha256": "5abea27cf22d38d01b5f24df0b92394d4291d32e8cb87c532a22da12e5bd77f1"
     },
     {
-      "path": "assets/index-DiIkMUhs.js",
-      "bytes": 61531,
-      "sha256": "1560dba2b2c95a8e45b993b0873b76aaa160bbf59890791cf817f3fc42024147"
+      "path": "assets/index-vUoOVldI.js",
+      "bytes": 63670,
+      "sha256": "43f47ab291d5f2901a6008eb193f3e04f612cc174ccd5db1169cefe01f7bc5b3"
     },
     {
-      "path": "assets/index-DiIkMUhs.js.map",
-      "bytes": 186980,
-      "sha256": "f813cb7f647c2ce235cec7a6263cb7bfeadf08e26bb1c0ec1d5f080b8a448a25"
+      "path": "assets/index-vUoOVldI.js.map",
+      "bytes": 193263,
+      "sha256": "b44f75c196b62cc7d5440deab2cab2762d5a086a21f9be06bd51df235b452385"
     },
     {
       "path": "index.html",
       "bytes": 674,
-      "sha256": "35b282a920bcca1fe9607b11844fe6fdd97ba1cedf2062c4cedfb0dcd0e43136"
+      "sha256": "b3826d85870c05f69e4c266f9df8ec544b139c467e89cff6a9a0435a5bd12647"
     }
   ],
   "license_expression": "AGPL-3.0-only"

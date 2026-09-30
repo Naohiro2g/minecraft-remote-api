@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve the bundled b7 WireScope and emit deterministic b7 observer frames."""
+"""Serve the current bundled WireScope with deterministic b7 regression frames."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from mc_remote._wirescope_app import WireScopeApp
+from mc_remote._wirescope_app import BUNDLED_MANIFEST_SHA256, WireScopeApp
 from mc_remote.connection import McRpcError
 from mc_remote.observer import PythonObserverSource
 from mc_remote.wirescope import _start_loopback_station
@@ -15,9 +15,7 @@ from mc_remote.wirescope import _start_loopback_station
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_ROOT = ROOT / "mc_remote" / "_wirescope_app"
-MANIFEST_SHA256 = (
-    "7498e32150884aec8c3d562b454d8b042032aa21893ae7fe886c06df2baf028f"
-)
+MANIFEST_SHA256 = BUNDLED_MANIFEST_SHA256
 
 
 class _Terminal:

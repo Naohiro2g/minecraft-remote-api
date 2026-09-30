@@ -1,0 +1,646 @@
+{
+  "schema": "mcremote.entity-particle.v23.2",
+  "protocol": "23.2.0",
+  "knowledge_contract": {
+    "commit": "b853078bb0af1bc5cacb4b4ce08ffe7227190f60",
+    "path": "10-protocol/wire-format-design_ja.md",
+    "section": "5.8.3",
+    "decision": "2026-09-30-01"
+  },
+  "methods": {
+    "nearby": "world.getNearbyEntities",
+    "get_pose": "entity.getPose",
+    "set_pose": "entity.setPose",
+    "remove": "entity.remove",
+    "particle": "world.spawnParticle"
+  },
+  "nearby": {
+    "stream_dimension": "minecraft:overworld",
+    "params_order": ["x", "y", "z", "radius", "max_entities"],
+    "protocol_caps": { "radius_min": 0, "radius_max": 64, "max_entities_min": 1, "max_entities_max": 64 },
+    "distribution_policy": { "max_radius": 64, "max_entities": 64, "may_lower": true, "may_raise": false },
+    "result_fields": ["handle", "type", "pos"],
+    "filter_order": ["player", "dimension", "validity", "uuid_dedup", "sphere", "sort", "truncate", "issue_all"],
+    "sort_keys": ["unrounded_absolute_squared_distance", "canonical_lowercase_uuid_unicode_code_points"],
+    "sphere_boundary_inclusive": true,
+    "work_cost": "intersecting_chunk_columns + max_entities",
+    "chunk_columns_depend_on_loaded_state": false,
+    "validation_order": [
+      "params",
+      "absolute_coordinates",
+      "policy_caps",
+      "permission",
+      "build_range",
+      "work_cost",
+      "work_admission",
+      "candidate_search",
+      "filter_sort_truncate",
+      "issue_all"
+    ],
+    "cases": [
+      {
+        "id": "B8-N01",
+        "name": "radius_zero_includes_coincident_non_player",
+        "origin": [0, 0, 0],
+        "params": [0, 0, 0, 0, 1],
+        "candidates": [
+          { "uuid": "00000000-0000-0000-0000-000000000001", "absolute_pos": [0, 0, 0], "type": "minecraft:cow" },
+          { "uuid": "00000000-0000-0000-0000-000000000002", "absolute_pos": [0, 0, 0], "player": true },
+          { "uuid": "00000000-0000-0000-0000-000000000003", "absolute_pos": [0.0001, 0, 0], "type": "minecraft:pig" }
+        ],
+        "selected_uuids": ["00000000-0000-0000-0000-000000000001"],
+        "chunk_columns": 1,
+        "work_cost": 2
+      },
+      {
+        "id": "B8-N02",
+        "name": "sphere_boundary_inclusive_and_player_dimension_validity_filter",
+        "origin": [200, 0, 200],
+        "params": [0, 0, 0, 5, 2],
+        "candidates": [
+          { "uuid": "00000000-0000-0000-0000-000000000010", "absolute_pos": [203, 4, 200], "type": "minecraft:cow" },
+          {
+            "uuid": "00000000-0000-0000-0000-000000000011",
+            "absolute_pos": [205.0001, 0, 200],
+            "type": "minecraft:pig"
+          },
+          { "uuid": "00000000-0000-0000-0000-000000000012", "absolute_pos": [200, 0, 200], "player": true },
+          {
+            "uuid": "00000000-0000-0000-0000-000000000013",
+            "absolute_pos": [200, 0, 200],
+            "dimension": "minecraft:the_nether"
+          },
+          { "uuid": "00000000-0000-0000-0000-000000000014", "absolute_pos": [200, 0, 200], "valid": false }
+        ],
+        "selected_uuids": ["00000000-0000-0000-0000-000000000010"],
+        "result": [{ "handle": "mcr_eh_cow", "type": "minecraft:cow", "pos": [3, 4, 0] }],
+        "boundary_squared_distance": 25
+      },
+      {
+        "id": "B8-N03",
+        "name": "unrounded_distance_orders_equal_wire_positions",
+        "params": [0, 0, 0, 2, 2],
+        "candidates": [
+          { "uuid": "00000000-0000-0000-0000-000000000021", "absolute_pos": [1.00049, 0, 0], "wire_pos": [1, 0, 0] },
+          { "uuid": "00000000-0000-0000-0000-000000000022", "absolute_pos": [1.0004, 0, 0], "wire_pos": [1, 0, 0] }
+        ],
+        "selected_uuids": ["00000000-0000-0000-0000-000000000022", "00000000-0000-0000-0000-000000000021"]
+      },
+      {
+        "id": "B8-N04",
+        "name": "equal_distance_uses_lowercase_uuid_code_point_order_and_dedup",
+        "params": [0, 0, 0, 1, 2],
+        "candidates": [
+          { "uuid": "00000000-0000-0000-0000-00000000000b", "absolute_pos": [1, 0, 0] },
+          { "uuid": "00000000-0000-0000-0000-00000000000a", "absolute_pos": [-1, 0, 0] },
+          { "uuid": "00000000-0000-0000-0000-00000000000a", "absolute_pos": [-1, 0, 0] }
+        ],
+        "selected_uuids": ["00000000-0000-0000-0000-00000000000a", "00000000-0000-0000-0000-00000000000b"]
+      },
+      {
+        "id": "B8-N05",
+        "name": "negative_coordinate_and_chunk_edge",
+        "origin": [0, 0, 0],
+        "params": [-0.001, 0, -16, 0, 1],
+        "chunk_bounds": [-1, -1, -1, -1],
+        "chunk_columns": 1,
+        "work_cost": 2,
+        "result": []
+      },
+      {
+        "id": "B8-N06",
+        "name": "bounding_square_crosses_four_columns",
+        "params": [0, 0, 0, 1, 1],
+        "chunk_bounds": [-1, 0, -1, 0],
+        "chunk_columns": 4,
+        "work_cost": 5,
+        "loaded_chunk_columns": 1,
+        "result": []
+      },
+      {
+        "id": "B8-N07",
+        "name": "both_protocol_caps_inclusive",
+        "params": [0, 0, 0, 64, 64],
+        "chunk_bounds": [-4, 4, -4, 4],
+        "chunk_columns": 81,
+        "work_cost": 145,
+        "result": []
+      },
+      {
+        "id": "B8-N08",
+        "name": "radius_over_protocol_cap",
+        "params": [0, 0, 0, 64.001, 1],
+        "reason": "invalid_params",
+        "candidate_search_calls": 0
+      },
+      {
+        "id": "B8-N09",
+        "name": "entity_count_over_protocol_cap",
+        "params": [0, 0, 0, 1, 65],
+        "reason": "invalid_params",
+        "candidate_search_calls": 0
+      },
+      {
+        "id": "B8-N10",
+        "name": "zero_entity_limit",
+        "params": [0, 0, 0, 1, 0],
+        "reason": "invalid_params",
+        "candidate_search_calls": 0
+      },
+      {
+        "id": "B8-N11",
+        "name": "lower_runtime_radius_cap",
+        "policy": { "max_radius": 32, "max_entities": 64 },
+        "params": [0, 0, 0, 33, 1],
+        "reason": "invalid_params",
+        "candidate_search_calls": 0
+      },
+      {
+        "id": "B8-N12",
+        "name": "lower_runtime_entity_cap",
+        "policy": { "max_radius": 64, "max_entities": 32 },
+        "params": [0, 0, 0, 1, 33],
+        "reason": "invalid_params",
+        "candidate_search_calls": 0
+      },
+      {
+        "id": "B8-N13",
+        "name": "build_range_checks_entire_square",
+        "params": [100, 0, 100, 10, 1],
+        "build_bounds_xz": [0, 105, 0, 105],
+        "reason": "build_denied",
+        "candidate_search_calls": 0
+      },
+      {
+        "id": "B8-N14",
+        "name": "chunk_index_unrepresentable",
+        "params": [1e20, 0, 0, 1, 1],
+        "reason": "invalid_params",
+        "candidate_search_calls": 0
+      },
+      {
+        "id": "B8-N15",
+        "name": "request_work_limit",
+        "params": [0, 0, 0, 64, 64],
+        "max_work_per_request": 144,
+        "reason": "work_limit_exceeded",
+        "candidate_search_calls": 0,
+        "handle_resolution_calls": 0,
+        "handle_issuance_calls": 0
+      },
+      {
+        "id": "B8-N16",
+        "name": "session_budget_shortfall",
+        "params": [0, 0, 0, 64, 64],
+        "session_work_remaining": 144,
+        "reason": "backpressure",
+        "candidate_search_calls": 0,
+        "handle_resolution_calls": 0,
+        "handle_issuance_calls": 0
+      },
+      {
+        "id": "B8-N17",
+        "name": "player_budget_shortfall",
+        "params": [0, 0, 0, 64, 64],
+        "player_work_remaining": 144,
+        "reason": "backpressure",
+        "candidate_search_calls": 0,
+        "handle_resolution_calls": 0,
+        "handle_issuance_calls": 0
+      },
+      {
+        "id": "B8-N18",
+        "name": "global_budget_shortfall",
+        "params": [0, 0, 0, 64, 64],
+        "global_work_remaining": 144,
+        "reason": "backpressure",
+        "candidate_search_calls": 0,
+        "handle_resolution_calls": 0,
+        "handle_issuance_calls": 0
+      },
+      {
+        "id": "B8-N19",
+        "name": "checked_work_arithmetic_overflow",
+        "calculation_only": true,
+        "chunk_spans_decimal": ["9223372036854775807", "2"],
+        "reason": "work_limit_exceeded"
+      }
+    ],
+    "handle_transaction_cases": [
+      {
+        "id": "B8-H01",
+        "name": "same_dimension_reuses_handle",
+        "issued_dimension": "minecraft:overworld",
+        "current_dimension": "minecraft:overworld",
+        "old_handle": "mcr_eh_same",
+        "result_handle": "mcr_eh_same",
+        "new_handles": 0
+      },
+      {
+        "id": "B8-H02",
+        "name": "external_dimension_move_reissues_atomically",
+        "issued_dimension": "minecraft:overworld",
+        "current_dimension": "minecraft:the_nether",
+        "old_handle": "mcr_eh_old",
+        "result_handle": "mcr_eh_new",
+        "old_handle_after_success": "entity_not_found",
+        "registry_commit_count": 1
+      },
+      {
+        "id": "B8-H03",
+        "name": "staged_revoke_offsets_new_handle_at_capacity",
+        "current_handles": 256,
+        "staged_revokes": 1,
+        "new_handles": 1,
+        "open_spawn_reservations": 0,
+        "projected_size": 256,
+        "capacity": 256,
+        "accepted": true
+      },
+      {
+        "id": "B8-H04",
+        "name": "reservation_blocks_transaction_and_rolls_back",
+        "current_handles": 256,
+        "staged_revokes": 1,
+        "new_handles": 1,
+        "open_spawn_reservations": 1,
+        "projected_size": 257,
+        "capacity": 256,
+        "reason": "entity_capacity_exhausted",
+        "old_handle_preserved": true,
+        "registry_commit_count": 0,
+        "work_refunded": false
+      },
+      {
+        "id": "B8-H05",
+        "name": "removed_after_filter_is_omitted_without_refill",
+        "sorted_uuids": [
+          "00000000-0000-0000-0000-000000000031",
+          "00000000-0000-0000-0000-000000000032",
+          "00000000-0000-0000-0000-000000000033"
+        ],
+        "max_entities": 2,
+        "unavailable_after_truncate": ["00000000-0000-0000-0000-000000000032"],
+        "result_uuids": ["00000000-0000-0000-0000-000000000031"],
+        "staged_handle_revokes": 1,
+        "reason": null
+      },
+      {
+        "id": "B8-H06",
+        "name": "all_selected_candidates_unavailable",
+        "max_entities": 1,
+        "unavailable_after_truncate": ["00000000-0000-0000-0000-000000000031"],
+        "result": [],
+        "reason": null
+      },
+      {
+        "id": "B8-H07",
+        "name": "later_capacity_failure_rolls_back_unavailable_handle_revoke",
+        "staged_handle_revokes": 1,
+        "reason": "entity_capacity_exhausted",
+        "old_handle_preserved": true,
+        "registry_commit_count": 0,
+        "work_refunded": false
+      }
+    ]
+  },
+  "entity_lifecycle": {
+    "pose_fields": ["dimension", "pos", "yaw", "pitch"],
+    "set_order": [
+      "params",
+      "permission",
+      "handle",
+      "target_dimension",
+      "build_range",
+      "work_admission",
+      "paper_operation"
+    ],
+    "cases": [
+      {
+        "id": "B8-E01",
+        "name": "get_pose_is_read_only",
+        "method": "entity.getPose",
+        "params": ["mcr_eh_pose"],
+        "result": { "dimension": "minecraft:overworld", "pos": [1.235, 64.556, 3], "yaw": -170, "pitch": 45.36 },
+        "work_cost": 0
+      },
+      {
+        "id": "B8-E02",
+        "name": "set_pose_crosses_dimension_and_keeps_handle",
+        "method": "entity.setPose",
+        "params": ["mcr_eh_pose", "minecraft:the_nether", 1.23456, 64.55556, 3, 190, 45.36],
+        "post_read": {
+          "dimension": "minecraft:the_nether",
+          "pos": [1.23456, 64.55556, 3],
+          "yaw": 190,
+          "pitch": 45.36
+        },
+        "result": { "dimension": "minecraft:the_nether", "pos": [1.235, 64.556, 3], "yaw": -170, "pitch": 45.36 },
+        "teleport_calls": 1,
+        "work_cost": 1,
+        "issued_dimension_after_success": "minecraft:the_nether"
+      },
+      {
+        "id": "B8-E03",
+        "name": "teleport_false_is_not_success",
+        "method": "entity.setPose",
+        "params": ["mcr_eh_pose", "minecraft:the_nether", 1, 2, 3, 0, 0],
+        "teleport_return": false,
+        "reason": "teleport_failed",
+        "work_cost": 1,
+        "work_refunded": false
+      },
+      {
+        "id": "B8-E04",
+        "name": "remove_releases_handle",
+        "method": "entity.remove",
+        "params": ["mcr_eh_pose"],
+        "result": null,
+        "work_cost": 1,
+        "handle_valid_after_success": false,
+        "next_reason": "entity_not_found"
+      },
+      {
+        "id": "B8-E05",
+        "name": "unresolved_handle",
+        "method": "entity.getPose",
+        "params": ["mcr_eh_unknown"],
+        "reason": "entity_not_found"
+      },
+      {
+        "id": "B8-E06",
+        "name": "first_unavailable_then_not_found",
+        "method": "entity.remove",
+        "params": ["mcr_eh_removed"],
+        "first_reason": "entity_unavailable",
+        "next_reason": "entity_not_found"
+      },
+      {
+        "id": "B8-E07",
+        "name": "external_dimension_change_then_not_found",
+        "method": "entity.getPose",
+        "params": ["mcr_eh_moved"],
+        "first_reason": "entity_dimension_changed",
+        "next_reason": "entity_not_found"
+      }
+    ]
+  },
+  "particle_stage_2": {
+    "method": "world.spawnParticle",
+    "params_order": [
+      "x",
+      "y",
+      "z",
+      "offset_x",
+      "offset_y",
+      "offset_z",
+      "particle",
+      "speed",
+      "count",
+      "force_optional"
+    ],
+    "top_level_fields": ["particle_id", "receiver", "data"],
+    "receivers": ["world", "self"],
+    "default_receiver": "world",
+    "default_force": true,
+    "dust_data_fields": ["color", "size"],
+    "dust_color_channel_range": [0, 255],
+    "dust_size_range": [0.01, 4],
+    "block_data_fields": ["block_id", "state"],
+    "typed_ids": ["minecraft:dust", "minecraft:block"],
+    "distribution_max_count": 1000,
+    "validation_order": [
+      "params_and_scalars",
+      "count_policy",
+      "particle_shape",
+      "spec_top_level_and_id",
+      "particle_id_resolution",
+      "data_shape_and_schema",
+      "receiver_and_self_player",
+      "permission_and_build_range",
+      "work_admission",
+      "chunk_preparation",
+      "particle_builder_spawn"
+    ],
+    "cases": [
+      {
+        "id": "B8-P01",
+        "name": "legacy_data_free_string",
+        "params": [1, 2, 3, 0, 0, 0, "minecraft:flame", 0, 4],
+        "effective_receiver": "world",
+        "effective_force": true,
+        "result": 4
+      },
+      {
+        "id": "B8-P02",
+        "name": "object_defaults_to_world_without_data",
+        "params": [1, 2, 3, 0, 0, 0, { "particle_id": "minecraft:flame" }, 0, 4],
+        "effective_receiver": "world",
+        "result": 4
+      },
+      {
+        "id": "B8-P03",
+        "name": "self_preserves_explicit_force",
+        "params": [1, 2, 3, 0, 0, 0, { "particle_id": "minecraft:flame", "receiver": "self" }, 0, 4, false],
+        "receiver_count": 1,
+        "builder_force": false,
+        "result": 4
+      },
+      {
+        "id": "B8-P04",
+        "name": "dust_lower_color_and_size_bounds",
+        "params": [
+          1,
+          2,
+          3,
+          0,
+          0,
+          0,
+          { "particle_id": "minecraft:dust", "data": { "color": [0, 0, 0], "size": 0.01 } },
+          0,
+          1
+        ],
+        "result": 1
+      },
+      {
+        "id": "B8-P05",
+        "name": "dust_upper_color_and_size_bounds",
+        "params": [
+          1,
+          2,
+          3,
+          0,
+          0,
+          0,
+          { "particle_id": "minecraft:dust", "data": { "color": [255, 255, 255], "size": 4 } },
+          0,
+          1
+        ],
+        "result": 1
+      },
+      {
+        "id": "B8-P06",
+        "name": "dust_size_below_min",
+        "particle": {
+          "particle_id": "minecraft:dust",
+          "data": { "color": [255, 80, 0], "size": 0.009 },
+          "receiver": "self"
+        },
+        "self_authenticated": false,
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P07",
+        "name": "dust_size_above_max",
+        "particle": { "particle_id": "minecraft:dust", "data": { "color": [255, 80, 0], "size": 4.001 } },
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P08",
+        "name": "dust_color_below_min",
+        "particle": { "particle_id": "minecraft:dust", "data": { "color": [-1, 0, 0], "size": 1 } },
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P09",
+        "name": "dust_color_above_max",
+        "particle": { "particle_id": "minecraft:dust", "data": { "color": [256, 0, 0], "size": 1 } },
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P10",
+        "name": "dust_color_must_be_integer_triplet",
+        "particle": { "particle_id": "minecraft:dust", "data": { "color": [1, 2.5, 3], "size": 1 } },
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P11",
+        "name": "dust_rejects_extra_field",
+        "particle": { "particle_id": "minecraft:dust", "data": { "color": [1, 2, 3], "size": 1, "alpha": 255 } },
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P12",
+        "name": "block_reuses_exact_block_spec",
+        "params": [
+          1,
+          2,
+          3,
+          0,
+          0,
+          0,
+          { "particle_id": "minecraft:block", "data": { "block_id": "minecraft:stone", "state": {} } },
+          0,
+          1
+        ],
+        "result": 1
+      },
+      {
+        "id": "B8-P13",
+        "name": "block_rejects_extra_field",
+        "particle": {
+          "particle_id": "minecraft:block",
+          "data": { "block_id": "minecraft:stone", "state": {}, "legacy": true }
+        },
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P14",
+        "name": "block_preserves_unknown_block_reason",
+        "particle": {
+          "particle_id": "minecraft:block",
+          "data": { "block_id": "minecraft:no_such_block", "state": {} }
+        },
+        "reason": "unknown_block"
+      },
+      {
+        "id": "B8-P15",
+        "name": "explicit_null_data",
+        "particle": { "particle_id": "minecraft:flame", "data": null },
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P16",
+        "name": "missing_dust_data",
+        "particle": { "particle_id": "minecraft:dust" },
+        "reason": "particle_data_required"
+      },
+      {
+        "id": "B8-P17",
+        "name": "legacy_typed_string_requires_data",
+        "particle": "minecraft:dust",
+        "reason": "particle_data_required"
+      },
+      {
+        "id": "B8-P18",
+        "name": "registered_unsupported_typed_data",
+        "registered_particle_id": "minecraft:dust_color_transition",
+        "particle": { "particle_id": "minecraft:dust_color_transition", "data": { "color": [1, 2, 3], "size": 1 } },
+        "reason": "particle_data_unsupported"
+      },
+      {
+        "id": "B8-P19",
+        "name": "unknown_particle_precedes_unauthenticated_self",
+        "particle": { "particle_id": "minecraft:no_such_particle", "receiver": "self" },
+        "self_authenticated": false,
+        "reason": "unknown_particle"
+      },
+      {
+        "id": "B8-P20",
+        "name": "bad_data_precedes_unauthenticated_self",
+        "particle": {
+          "particle_id": "minecraft:dust",
+          "data": { "color": [256, 0, 0], "size": 1 },
+          "receiver": "self"
+        },
+        "self_authenticated": false,
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P21",
+        "name": "valid_data_then_unauthenticated_self",
+        "particle": {
+          "particle_id": "minecraft:dust",
+          "data": { "color": [255, 80, 0], "size": 1 },
+          "receiver": "self"
+        },
+        "self_authenticated": false,
+        "reason": "auth_required"
+      },
+      {
+        "id": "B8-P22",
+        "name": "unknown_spec_field",
+        "particle": { "particle_id": "minecraft:flame", "receiver": "world", "legacy": true },
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P23",
+        "name": "data_on_data_free_particle",
+        "particle": { "particle_id": "minecraft:flame", "data": { "color": [1, 2, 3], "size": 1 } },
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P24",
+        "name": "unsupported_receiver",
+        "particle": { "particle_id": "minecraft:flame", "receiver": "all" },
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-P25",
+        "name": "chunk_failure_does_not_refund_work",
+        "particle": { "particle_id": "minecraft:flame" },
+        "chunk_preparation": "failed",
+        "reason": "backpressure",
+        "work_refunded": false
+      },
+      {
+        "id": "B8-P26",
+        "name": "spawn_failure_does_not_refund_work",
+        "particle": { "particle_id": "minecraft:flame" },
+        "builder_spawn": "failed",
+        "reason": "internal_error",
+        "work_refunded": false
+      }
+    ]
+  }
+}

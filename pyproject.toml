@@ -1,6 +1,6 @@
 [project]
 name = "minecraft-remote-api"
-version = "2301.0.0b7.post3"
+version = "2320.0.0b8"
 description = "Python Client-API for Minecraft Remote or mc-remote"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,9 +17,10 @@ classifiers = [
 authors = [
     { name = "Naohiro2g", email = "587586+Naohiro2g@users.noreply.github.com" }
 ]
-dependencies = [
-    "pygame-ce>=2.5.7,<3",
-]
+dependencies = []
+
+[project.optional-dependencies]
+pygame = ["pygame-ce>=2.5"]
 
 [project.scripts]
 mcremote = "mc_remote.cli:main"
@@ -28,7 +29,7 @@ mcremote = "mc_remote.cli:main"
 Homepage = "https://github.com/Naohiro2g/minecraft-remote-api"
 Repository = "https://github.com/Naohiro2g/minecraft-remote-api"
 Documentation = "https://github.com/Naohiro2g/minecraft-remote-api/blob/main/README.md"
-"WireScope Source" = "https://github.com/Naohiro2g/scratch-editor/tree/0be46fcfaca409a5ede10f592520d93e7c59ba15/mc-remote/live"
+"WireScope Source" = "https://github.com/Naohiro2g/scratch-editor/tree/5aaa9c59acc393cd0a0de5cb45a5e619a5e87abe/mc-remote/live"
 
 [build-system]
 requires = ["uv_build>=0.11.7,<0.12.0"]
