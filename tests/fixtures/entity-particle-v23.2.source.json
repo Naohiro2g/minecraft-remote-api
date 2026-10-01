@@ -1,13 +1,21 @@
 {
   "repository": "Naohiro2g/scratch-editor",
-  "commit": "0735a9c957d069f719bee9c91e8be0f9322f4920",
+  "commit": "054a3af017f1abb8cc01cf85b3bc83181e648e19",
   "path": "mc-remote/protocol/test/fixtures/entity-particle-v23.2.json",
-  "sha256": "09c1565bf81d33c92d6282e6e20d926559168cb9d780c07d30ad2f9f5895640e",
-  "knowledge_commit": "fc208b8b2a8a259447f2be65ce140c1af29ddf99",
+  "sha256": "ca636b4a2685ea67f24d8e7931e3d30a84e7cec872bb5c5d2eadd178cdac39f2",
+  "knowledge_commit": "fd29db757c07f993155842ecc88b1c39558611a9",
   "knowledge_contract": {
-    "commit": "b853078bb0af1bc5cacb4b4ce08ffe7227190f60",
+    "commit": "0318332a2b3395a5d74b46d7da6946030a2fc172",
     "path": "10-protocol/wire-format-design_ja.md",
-    "section": "5.8.3",
-    "decision": "2026-09-30-01"
-  }
+    "sections": [
+      "5.0.2",
+      "5.8.3"
+    ],
+    "decisions": [
+      "2026-09-30-01",
+      "2026-09-30-02",
+      "2026-09-30-06"
+    ]
+  },
+  "bytes": 36481
 }

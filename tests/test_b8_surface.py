@@ -23,22 +23,41 @@ def release_observer_aliases():
 
 
 @pytest.mark.parametrize("mode", list(BuildMode))
-@pytest.mark.parametrize("options", ["omitted", {}, None, {"volume": 0, "pitch": 0.5}, {"volume": 1, "pitch": 2}, {"note": 0, "receiver": "self"}, {"note": 12}, {"note": 24}])
+@pytest.mark.parametrize("options", [{}, {"volume": None, "pitch": None, "note": None}, {"receiver": None}, {"volume": 0, "pitch": 0.5}, {"volume": 1, "pitch": 2}, {"note": 0, "receiver": "self"}, {"note": 12}, {"note": 24}])
 @pytest.mark.parametrize("method,identifier,position", [("playSound", "entity.cow.ambient", [1.23456, -2.34567, 3.45678]), ("playBlockSound", "hit", [1, -2, 3])])
-def test_sound_wire_preserves_defaults_numbers_and_null(mode, options, method, identifier, position):
+def test_sound_keywords_preserve_defaults_numbers_and_omit_none(mode, options, method, identifier, position):
     conn = FakeConn(None)
     args = [*position, identifier]
-    if options != "omitted":
-        args.append(options)
-    assert getattr(Minecraft(conn, build_mode=mode), method)(*args) is None
+    controls = {"receiver": "world", **options}
+    controls = {key: value for key, value in controls.items() if value is not None}
+    assert getattr(Minecraft(conn, build_mode=mode), method)(*args, **options) is None
+    if controls:
+        args.append(controls)
     assert conn.calls == [("world." + method, args)]
 
 
 @pytest.mark.parametrize("kind", ["place", "hit", "break", "step", "fall"])
 def test_block_sound_kind_is_sent_without_scene_pitch_correction(kind):
     conn = FakeConn(None)
-    Minecraft(conn).playBlockSound(1.0, 2, 3, kind, {"note": 12})
-    assert conn.calls == [("world.playBlockSound", [1, 2, 3, kind, {"note": 12}])]
+    Minecraft(conn).playBlockSound(1.0, 2, 3, kind, note=12)
+    assert conn.calls == [("world.playBlockSound", [1, 2, 3, kind, {"note": 12, "receiver": "world"}])]
+
+
+@pytest.mark.parametrize("method", ["playSound", "playBlockSound"])
+@pytest.mark.parametrize("pitch,note", [(1, 12), (0.5, 0), (0, 0)])
+def test_sound_rejects_both_pitch_and_note_before_rpc(method, pitch, note):
+    conn = FakeConn(None)
+    with pytest.raises(ValueError, match="pitch and note"):
+        getattr(Minecraft(conn), method)(0, 0, 0, "hit", pitch=pitch, note=note)
+    assert conn.calls == []
+
+
+@pytest.mark.parametrize("method", ["playSound", "playBlockSound"])
+def test_sound_controls_require_keyword_arguments(method):
+    conn = FakeConn(None)
+    with pytest.raises(TypeError):
+        getattr(Minecraft(conn), method)(0, 0, 0, "hit", {"pitch": 1})
+    assert conn.calls == []
 
 
 @pytest.mark.parametrize("method,position", [("playSound", [math.nan, 0, 0]), ("playSound", [True, 0, 0]), ("playBlockSound", [0.1, 0, 0]), ("playBlockSound", [math.inf, 0, 0])])
@@ -54,19 +73,19 @@ def test_sound_invalid_position_is_not_rounded_or_sent(method, position):
 def test_sound_server_error_propagates_once_without_retry(method, identifier, reason):
     error = McRpcError(-32000, reason, {"reason": reason})
     conn = FakeConn(error)
-    options = {"receiver": "self", "pitch": 1, "note": 12}
+    options = {"receiver": "self", "note": 12}
     with pytest.raises(McRpcError) as caught:
-        getattr(Minecraft(conn), method)(0, 0, 0, identifier, options)
+        getattr(Minecraft(conn), method)(0, 0, 0, identifier, **options)
     assert caught.value is error
     assert conn.calls == [("world." + method, [0, 0, 0, identifier, options])]
 
 
 @pytest.mark.parametrize("method,identifier", [("playSound", "entity.cow.ambient"), ("playBlockSound", "hit")])
-def test_sound_copies_options_and_rejects_non_null_success(method, identifier):
+def test_sound_projects_keywords_and_rejects_non_null_success(method, identifier):
     conn = FakeConn(True)
     options = MappingProxyType({"note": 12})
     with pytest.raises(McRemoteError):
-        getattr(Minecraft(conn), method)(0, 0, 0, identifier, options)
+        getattr(Minecraft(conn), method)(0, 0, 0, identifier, **options)
     assert type(conn.calls[0][1][-1]) is dict
 
 

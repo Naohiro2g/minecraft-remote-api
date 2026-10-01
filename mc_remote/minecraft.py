@@ -5,7 +5,7 @@ import threading
 import warnings
 from collections.abc import Mapping
 from enum import Enum
-from typing import TypeVar, overload
+from typing import Literal, TypeVar, overload
 
 from .connection import (
     Connection,
@@ -76,7 +76,6 @@ from .b5_values import (
 _StateT = TypeVar("_StateT")
 _TRACE_DELAY_UNSET = object()
 _FORCE_UNSET = object()
-_SOUND_OPTIONS_UNSET = object()
 
 
 class BuildMode(str, Enum):
@@ -583,31 +582,48 @@ class Minecraft:
         except ValueError as exc:
             raise McRemoteError(f"invalid world.spawnEntity result: {exc}") from exc
 
-    def playSound(self, x, y, z, sound_id: str, options: SoundOptions = _SOUND_OPTIONS_UNSET) -> None:
+    def playSound(
+        self, x, y, z, sound_id: str, *,
+        volume: int | float | None = None,
+        pitch: int | float | None = None,
+        note: int | None = None,
+        receiver: Literal["world", "self"] | None = "world",
+    ) -> None:
         """Play a registry sound at an origin-relative continuous position.
 
         Options: volume 0..1, pitch 0.5..2 OR note 0..24, receiver world/self.
-        Missing options use server defaults. Server errors propagate unchanged.
+        None omits a control. With neither pitch nor note, the server uses
+        pitch 1.0. Specifying both raises ValueError before sending a request.
+        Server errors propagate unchanged.
         """
         params = _finite_values("world.playSound position", x, y, z)
         params.append(resource_id(sound_id, "sound_id"))
-        if options is not _SOUND_OPTIONS_UNSET:
-            params.append(sound_options(options))
+        options = sound_options(volume=volume, pitch=pitch, note=note, receiver=receiver)
+        if options:
+            params.append(options)
         if self.conn.rpc("world.playSound", params) is not None:
             raise McRemoteError("world.playSound result must be null")
 
-    def playBlockSound(self, x, y, z, kind: str, options: SoundOptions = _SOUND_OPTIONS_UNSET) -> None:
+    def playBlockSound(
+        self, x, y, z, kind: str, *,
+        volume: int | float | None = None,
+        pitch: int | float | None = None,
+        note: int | None = None,
+        receiver: Literal["world", "self"] | None = "world",
+    ) -> None:
         """Play place/hit/break/step/fall for a block at integer coordinates.
 
         Omitted fields use that block's raw SoundGroup volume/pitch. Explicit
-        pitch or note replaces the group pitch. An air block yields no_block.
+        pitch or note replaces the group pitch. None omits a control; both
+        pitch and note raise ValueError before RPC. An air block yields no_block.
         """
         params = _integer_values("world.playBlockSound position", x, y, z)
         if not isinstance(kind, str):
             raise TypeError("block sound kind must be a string")
         params.append(kind)
-        if options is not _SOUND_OPTIONS_UNSET:
-            params.append(sound_options(options))
+        options = sound_options(volume=volume, pitch=pitch, note=note, receiver=receiver)
+        if options:
+            params.append(options)
         if self.conn.rpc("world.playBlockSound", params) is not None:
             raise McRemoteError("world.playBlockSound result must be null")
 

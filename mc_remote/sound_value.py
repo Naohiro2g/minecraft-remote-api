@@ -1,6 +1,5 @@
 """Optional sound controls; defaults and error priority belong to the server."""
 
-from collections.abc import Mapping
 from typing import Literal, TypedDict
 
 from .particle_value import _json_copy
@@ -13,12 +12,12 @@ class SoundOptions(TypedDict, total=False):
     receiver: Literal["world", "self"]
 
 
-def sound_options(value):
-    # Explicit null is deliberately distinct from omission, as on the wire.
-    if value is None:
-        return None
-    if not isinstance(value, Mapping):
-        raise TypeError("sound options must be a mapping")
-    if set(value) - {"volume", "pitch", "note", "receiver"}:
-        raise ValueError("sound options allow only volume, pitch, note, and receiver")
-    return _json_copy(value, context="sound")
+def sound_options(*, volume=None, pitch=None, note=None, receiver="world"):
+    """Project named controls, retaining server defaults for omitted fields."""
+    if pitch is not None and note is not None:
+        raise ValueError("pitch and note cannot both be specified")
+    values = {"volume": volume, "pitch": pitch, "note": note, "receiver": receiver}
+    return _json_copy(
+        {key: value for key, value in values.items() if value is not None},
+        context="sound",
+    )

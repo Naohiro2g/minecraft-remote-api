@@ -2,23 +2,35 @@
   "schema": "mcremote.entity-particle.v23.2",
   "protocol": "23.2.0",
   "knowledge_contract": {
-    "commit": "b853078bb0af1bc5cacb4b4ce08ffe7227190f60",
+    "commit": "0318332a2b3395a5d74b46d7da6946030a2fc172",
     "path": "10-protocol/wire-format-design_ja.md",
-    "section": "5.8.3",
-    "decision": "2026-09-30-01"
+    "sections": ["5.0.2", "5.8.3"],
+    "decisions": ["2026-09-30-01", "2026-09-30-02", "2026-09-30-06"]
   },
   "methods": {
     "nearby": "world.getNearbyEntities",
     "get_pose": "entity.getPose",
     "set_pose": "entity.setPose",
     "remove": "entity.remove",
-    "particle": "world.spawnParticle"
+    "particle": "world.spawnParticle",
+    "sound": "world.playSound",
+    "block_sound": "world.playBlockSound"
   },
   "nearby": {
     "stream_dimension": "minecraft:overworld",
     "params_order": ["x", "y", "z", "radius", "max_entities"],
-    "protocol_caps": { "radius_min": 0, "radius_max": 64, "max_entities_min": 1, "max_entities_max": 64 },
-    "distribution_policy": { "max_radius": 64, "max_entities": 64, "may_lower": true, "may_raise": false },
+    "protocol_caps": {
+      "radius_min": 0,
+      "radius_max": 64,
+      "max_entities_min": 1,
+      "max_entities_max": 64
+    },
+    "distribution_policy": {
+      "max_radius": 64,
+      "max_entities": 64,
+      "may_lower": true,
+      "may_raise": false
+    },
     "result_fields": ["handle", "type", "pos"],
     "filter_order": ["player", "dimension", "validity", "uuid_dedup", "sphere", "sort", "truncate", "issue_all"],
     "sort_keys": ["unrounded_absolute_squared_distance", "canonical_lowercase_uuid_unicode_code_points"],
@@ -44,9 +56,21 @@
         "origin": [0, 0, 0],
         "params": [0, 0, 0, 0, 1],
         "candidates": [
-          { "uuid": "00000000-0000-0000-0000-000000000001", "absolute_pos": [0, 0, 0], "type": "minecraft:cow" },
-          { "uuid": "00000000-0000-0000-0000-000000000002", "absolute_pos": [0, 0, 0], "player": true },
-          { "uuid": "00000000-0000-0000-0000-000000000003", "absolute_pos": [0.0001, 0, 0], "type": "minecraft:pig" }
+          {
+            "uuid": "00000000-0000-0000-0000-000000000001",
+            "absolute_pos": [0, 0, 0],
+            "type": "minecraft:cow"
+          },
+          {
+            "uuid": "00000000-0000-0000-0000-000000000002",
+            "absolute_pos": [0, 0, 0],
+            "player": true
+          },
+          {
+            "uuid": "00000000-0000-0000-0000-000000000003",
+            "absolute_pos": [0.0001, 0, 0],
+            "type": "minecraft:pig"
+          }
         ],
         "selected_uuids": ["00000000-0000-0000-0000-000000000001"],
         "chunk_columns": 1,
@@ -58,22 +82,40 @@
         "origin": [200, 0, 200],
         "params": [0, 0, 0, 5, 2],
         "candidates": [
-          { "uuid": "00000000-0000-0000-0000-000000000010", "absolute_pos": [203, 4, 200], "type": "minecraft:cow" },
+          {
+            "uuid": "00000000-0000-0000-0000-000000000010",
+            "absolute_pos": [203, 4, 200],
+            "type": "minecraft:cow"
+          },
           {
             "uuid": "00000000-0000-0000-0000-000000000011",
             "absolute_pos": [205.0001, 0, 200],
             "type": "minecraft:pig"
           },
-          { "uuid": "00000000-0000-0000-0000-000000000012", "absolute_pos": [200, 0, 200], "player": true },
+          {
+            "uuid": "00000000-0000-0000-0000-000000000012",
+            "absolute_pos": [200, 0, 200],
+            "player": true
+          },
           {
             "uuid": "00000000-0000-0000-0000-000000000013",
             "absolute_pos": [200, 0, 200],
             "dimension": "minecraft:the_nether"
           },
-          { "uuid": "00000000-0000-0000-0000-000000000014", "absolute_pos": [200, 0, 200], "valid": false }
+          {
+            "uuid": "00000000-0000-0000-0000-000000000014",
+            "absolute_pos": [200, 0, 200],
+            "valid": false
+          }
         ],
         "selected_uuids": ["00000000-0000-0000-0000-000000000010"],
-        "result": [{ "handle": "mcr_eh_cow", "type": "minecraft:cow", "pos": [3, 4, 0] }],
+        "result": [
+          {
+            "handle": "mcr_eh_cow",
+            "type": "minecraft:cow",
+            "pos": [3, 4, 0]
+          }
+        ],
         "boundary_squared_distance": 25
       },
       {
@@ -81,8 +123,16 @@
         "name": "unrounded_distance_orders_equal_wire_positions",
         "params": [0, 0, 0, 2, 2],
         "candidates": [
-          { "uuid": "00000000-0000-0000-0000-000000000021", "absolute_pos": [1.00049, 0, 0], "wire_pos": [1, 0, 0] },
-          { "uuid": "00000000-0000-0000-0000-000000000022", "absolute_pos": [1.0004, 0, 0], "wire_pos": [1, 0, 0] }
+          {
+            "uuid": "00000000-0000-0000-0000-000000000021",
+            "absolute_pos": [1.00049, 0, 0],
+            "wire_pos": [1, 0, 0]
+          },
+          {
+            "uuid": "00000000-0000-0000-0000-000000000022",
+            "absolute_pos": [1.0004, 0, 0],
+            "wire_pos": [1, 0, 0]
+          }
         ],
         "selected_uuids": ["00000000-0000-0000-0000-000000000022", "00000000-0000-0000-0000-000000000021"]
       },
@@ -91,9 +141,18 @@
         "name": "equal_distance_uses_lowercase_uuid_code_point_order_and_dedup",
         "params": [0, 0, 0, 1, 2],
         "candidates": [
-          { "uuid": "00000000-0000-0000-0000-00000000000b", "absolute_pos": [1, 0, 0] },
-          { "uuid": "00000000-0000-0000-0000-00000000000a", "absolute_pos": [-1, 0, 0] },
-          { "uuid": "00000000-0000-0000-0000-00000000000a", "absolute_pos": [-1, 0, 0] }
+          {
+            "uuid": "00000000-0000-0000-0000-00000000000b",
+            "absolute_pos": [1, 0, 0]
+          },
+          {
+            "uuid": "00000000-0000-0000-0000-00000000000a",
+            "absolute_pos": [-1, 0, 0]
+          },
+          {
+            "uuid": "00000000-0000-0000-0000-00000000000a",
+            "absolute_pos": [-1, 0, 0]
+          }
         ],
         "selected_uuids": ["00000000-0000-0000-0000-00000000000a", "00000000-0000-0000-0000-00000000000b"]
       },
@@ -150,7 +209,10 @@
       {
         "id": "B8-N11",
         "name": "lower_runtime_radius_cap",
-        "policy": { "max_radius": 32, "max_entities": 64 },
+        "policy": {
+          "max_radius": 32,
+          "max_entities": 64
+        },
         "params": [0, 0, 0, 33, 1],
         "reason": "invalid_params",
         "candidate_search_calls": 0
@@ -158,7 +220,10 @@
       {
         "id": "B8-N12",
         "name": "lower_runtime_entity_cap",
-        "policy": { "max_radius": 64, "max_entities": 32 },
+        "policy": {
+          "max_radius": 64,
+          "max_entities": 32
+        },
         "params": [0, 0, 0, 1, 33],
         "reason": "invalid_params",
         "candidate_search_calls": 0
@@ -174,7 +239,7 @@
       {
         "id": "B8-N14",
         "name": "chunk_index_unrepresentable",
-        "params": [1e20, 0, 0, 1, 1],
+        "params": [100000000000000000000, 0, 0, 1, 1],
         "reason": "invalid_params",
         "candidate_search_calls": 0
       },
@@ -321,7 +386,12 @@
         "name": "get_pose_is_read_only",
         "method": "entity.getPose",
         "params": ["mcr_eh_pose"],
-        "result": { "dimension": "minecraft:overworld", "pos": [1.235, 64.556, 3], "yaw": -170, "pitch": 45.36 },
+        "result": {
+          "dimension": "minecraft:overworld",
+          "pos": [1.235, 64.556, 3],
+          "yaw": -170,
+          "pitch": 45.36
+        },
         "work_cost": 0
       },
       {
@@ -335,7 +405,12 @@
           "yaw": 190,
           "pitch": 45.36
         },
-        "result": { "dimension": "minecraft:the_nether", "pos": [1.235, 64.556, 3], "yaw": -170, "pitch": 45.36 },
+        "result": {
+          "dimension": "minecraft:the_nether",
+          "pos": [1.235, 64.556, 3],
+          "yaw": -170,
+          "pitch": 45.36
+        },
         "teleport_calls": 1,
         "work_cost": 1,
         "issued_dimension_after_success": "minecraft:the_nether"
@@ -434,14 +509,40 @@
       {
         "id": "B8-P02",
         "name": "object_defaults_to_world_without_data",
-        "params": [1, 2, 3, 0, 0, 0, { "particle_id": "minecraft:flame" }, 0, 4],
+        "params": [
+          1,
+          2,
+          3,
+          0,
+          0,
+          0,
+          {
+            "particle_id": "minecraft:flame"
+          },
+          0,
+          4
+        ],
         "effective_receiver": "world",
         "result": 4
       },
       {
         "id": "B8-P03",
         "name": "self_preserves_explicit_force",
-        "params": [1, 2, 3, 0, 0, 0, { "particle_id": "minecraft:flame", "receiver": "self" }, 0, 4, false],
+        "params": [
+          1,
+          2,
+          3,
+          0,
+          0,
+          0,
+          {
+            "particle_id": "minecraft:flame",
+            "receiver": "self"
+          },
+          0,
+          4,
+          false
+        ],
         "receiver_count": 1,
         "builder_force": false,
         "result": 4
@@ -456,7 +557,13 @@
           0,
           0,
           0,
-          { "particle_id": "minecraft:dust", "data": { "color": [0, 0, 0], "size": 0.01 } },
+          {
+            "particle_id": "minecraft:dust",
+            "data": {
+              "color": [0, 0, 0],
+              "size": 0.01
+            }
+          },
           0,
           1
         ],
@@ -472,7 +579,13 @@
           0,
           0,
           0,
-          { "particle_id": "minecraft:dust", "data": { "color": [255, 255, 255], "size": 4 } },
+          {
+            "particle_id": "minecraft:dust",
+            "data": {
+              "color": [255, 255, 255],
+              "size": 4
+            }
+          },
           0,
           1
         ],
@@ -483,7 +596,10 @@
         "name": "dust_size_below_min",
         "particle": {
           "particle_id": "minecraft:dust",
-          "data": { "color": [255, 80, 0], "size": 0.009 },
+          "data": {
+            "color": [255, 80, 0],
+            "size": 0.009
+          },
           "receiver": "self"
         },
         "self_authenticated": false,
@@ -492,31 +608,62 @@
       {
         "id": "B8-P07",
         "name": "dust_size_above_max",
-        "particle": { "particle_id": "minecraft:dust", "data": { "color": [255, 80, 0], "size": 4.001 } },
+        "particle": {
+          "particle_id": "minecraft:dust",
+          "data": {
+            "color": [255, 80, 0],
+            "size": 4.001
+          }
+        },
         "reason": "invalid_params"
       },
       {
         "id": "B8-P08",
         "name": "dust_color_below_min",
-        "particle": { "particle_id": "minecraft:dust", "data": { "color": [-1, 0, 0], "size": 1 } },
+        "particle": {
+          "particle_id": "minecraft:dust",
+          "data": {
+            "color": [-1, 0, 0],
+            "size": 1
+          }
+        },
         "reason": "invalid_params"
       },
       {
         "id": "B8-P09",
         "name": "dust_color_above_max",
-        "particle": { "particle_id": "minecraft:dust", "data": { "color": [256, 0, 0], "size": 1 } },
+        "particle": {
+          "particle_id": "minecraft:dust",
+          "data": {
+            "color": [256, 0, 0],
+            "size": 1
+          }
+        },
         "reason": "invalid_params"
       },
       {
         "id": "B8-P10",
         "name": "dust_color_must_be_integer_triplet",
-        "particle": { "particle_id": "minecraft:dust", "data": { "color": [1, 2.5, 3], "size": 1 } },
+        "particle": {
+          "particle_id": "minecraft:dust",
+          "data": {
+            "color": [1, 2.5, 3],
+            "size": 1
+          }
+        },
         "reason": "invalid_params"
       },
       {
         "id": "B8-P11",
         "name": "dust_rejects_extra_field",
-        "particle": { "particle_id": "minecraft:dust", "data": { "color": [1, 2, 3], "size": 1, "alpha": 255 } },
+        "particle": {
+          "particle_id": "minecraft:dust",
+          "data": {
+            "color": [1, 2, 3],
+            "size": 1,
+            "alpha": 255
+          }
+        },
         "reason": "invalid_params"
       },
       {
@@ -529,7 +676,13 @@
           0,
           0,
           0,
-          { "particle_id": "minecraft:block", "data": { "block_id": "minecraft:stone", "state": {} } },
+          {
+            "particle_id": "minecraft:block",
+            "data": {
+              "block_id": "minecraft:stone",
+              "state": {}
+            }
+          },
           0,
           1
         ],
@@ -540,7 +693,11 @@
         "name": "block_rejects_extra_field",
         "particle": {
           "particle_id": "minecraft:block",
-          "data": { "block_id": "minecraft:stone", "state": {}, "legacy": true }
+          "data": {
+            "block_id": "minecraft:stone",
+            "state": {},
+            "legacy": true
+          }
         },
         "reason": "invalid_params"
       },
@@ -549,20 +706,28 @@
         "name": "block_preserves_unknown_block_reason",
         "particle": {
           "particle_id": "minecraft:block",
-          "data": { "block_id": "minecraft:no_such_block", "state": {} }
+          "data": {
+            "block_id": "minecraft:no_such_block",
+            "state": {}
+          }
         },
         "reason": "unknown_block"
       },
       {
         "id": "B8-P15",
         "name": "explicit_null_data",
-        "particle": { "particle_id": "minecraft:flame", "data": null },
+        "particle": {
+          "particle_id": "minecraft:flame",
+          "data": null
+        },
         "reason": "invalid_params"
       },
       {
         "id": "B8-P16",
         "name": "missing_dust_data",
-        "particle": { "particle_id": "minecraft:dust" },
+        "particle": {
+          "particle_id": "minecraft:dust"
+        },
         "reason": "particle_data_required"
       },
       {
@@ -575,13 +740,22 @@
         "id": "B8-P18",
         "name": "registered_unsupported_typed_data",
         "registered_particle_id": "minecraft:dust_color_transition",
-        "particle": { "particle_id": "minecraft:dust_color_transition", "data": { "color": [1, 2, 3], "size": 1 } },
+        "particle": {
+          "particle_id": "minecraft:dust_color_transition",
+          "data": {
+            "color": [1, 2, 3],
+            "size": 1
+          }
+        },
         "reason": "particle_data_unsupported"
       },
       {
         "id": "B8-P19",
         "name": "unknown_particle_precedes_unauthenticated_self",
-        "particle": { "particle_id": "minecraft:no_such_particle", "receiver": "self" },
+        "particle": {
+          "particle_id": "minecraft:no_such_particle",
+          "receiver": "self"
+        },
         "self_authenticated": false,
         "reason": "unknown_particle"
       },
@@ -590,7 +764,10 @@
         "name": "bad_data_precedes_unauthenticated_self",
         "particle": {
           "particle_id": "minecraft:dust",
-          "data": { "color": [256, 0, 0], "size": 1 },
+          "data": {
+            "color": [256, 0, 0],
+            "size": 1
+          },
           "receiver": "self"
         },
         "self_authenticated": false,
@@ -601,7 +778,10 @@
         "name": "valid_data_then_unauthenticated_self",
         "particle": {
           "particle_id": "minecraft:dust",
-          "data": { "color": [255, 80, 0], "size": 1 },
+          "data": {
+            "color": [255, 80, 0],
+            "size": 1
+          },
           "receiver": "self"
         },
         "self_authenticated": false,
@@ -610,25 +790,40 @@
       {
         "id": "B8-P22",
         "name": "unknown_spec_field",
-        "particle": { "particle_id": "minecraft:flame", "receiver": "world", "legacy": true },
+        "particle": {
+          "particle_id": "minecraft:flame",
+          "receiver": "world",
+          "legacy": true
+        },
         "reason": "invalid_params"
       },
       {
         "id": "B8-P23",
         "name": "data_on_data_free_particle",
-        "particle": { "particle_id": "minecraft:flame", "data": { "color": [1, 2, 3], "size": 1 } },
+        "particle": {
+          "particle_id": "minecraft:flame",
+          "data": {
+            "color": [1, 2, 3],
+            "size": 1
+          }
+        },
         "reason": "invalid_params"
       },
       {
         "id": "B8-P24",
         "name": "unsupported_receiver",
-        "particle": { "particle_id": "minecraft:flame", "receiver": "all" },
+        "particle": {
+          "particle_id": "minecraft:flame",
+          "receiver": "all"
+        },
         "reason": "invalid_params"
       },
       {
         "id": "B8-P25",
         "name": "chunk_failure_does_not_refund_work",
-        "particle": { "particle_id": "minecraft:flame" },
+        "particle": {
+          "particle_id": "minecraft:flame"
+        },
         "chunk_preparation": "failed",
         "reason": "backpressure",
         "work_refunded": false
@@ -636,10 +831,614 @@
       {
         "id": "B8-P26",
         "name": "spawn_failure_does_not_refund_work",
-        "particle": { "particle_id": "minecraft:flame" },
+        "particle": {
+          "particle_id": "minecraft:flame"
+        },
         "builder_spawn": "failed",
         "reason": "internal_error",
         "work_refunded": false
+      }
+    ]
+  },
+  "sound": {
+    "params_order": {
+      "sound": ["x", "y", "z", "sound_id", "options?"],
+      "block_sound": ["x", "y", "z", "kind", "options?"]
+    },
+    "validation_order": {
+      "sound": [
+        "params_and_options",
+        "sound_resolution",
+        "self_binding",
+        "self_online",
+        "permission",
+        "build_range",
+        "per_tick_cap",
+        "work_admission",
+        "play"
+      ],
+      "block_sound": [
+        "params_and_options",
+        "self_binding",
+        "self_online",
+        "permission",
+        "build_range",
+        "per_tick_cap",
+        "work_admission",
+        "chunk_preparation",
+        "non_air_block",
+        "play"
+      ]
+    },
+    "result": null,
+    "work_cost": 1,
+    "notification_allowed": true,
+    "options": {
+      "allowed_fields": ["volume", "pitch", "note", "receiver"],
+      "receiver_default": "world",
+      "volume_range": [0, 1],
+      "pitch_range": [0.5, 2],
+      "note_range": [0, 24],
+      "pitch_note_exclusive": true,
+      "empty_object_equals_omitted": true,
+      "play_sound_defaults": { "volume": 1, "pitch": 1, "source": "master" },
+      "play_block_sound_defaults": {
+        "volume": "SoundGroup.getVolume",
+        "pitch": "SoundGroup.getPitch",
+        "source": "block"
+      }
+    },
+    "cases": [
+      {
+        "id": "B8-S01",
+        "method": "world.playSound",
+        "params": [0.25, 64.5, -3, "entity.cow.ambient"],
+        "result": null,
+        "work_cost": 1
+      },
+      {
+        "id": "B8-S02",
+        "method": "world.playSound",
+        "params": [0, 64, 0, "minecraft:entity.cow.ambient", {}],
+        "result": null
+      },
+      {
+        "id": "B8-S03",
+        "method": "world.playSound",
+        "params": [
+          0,
+          64,
+          0,
+          "block.note_block.harp",
+          {
+            "volume": 0,
+            "pitch": 0.5,
+            "receiver": "self"
+          }
+        ],
+        "result": null
+      },
+      {
+        "id": "B8-S04",
+        "method": "world.playSound",
+        "params": [
+          0,
+          64,
+          0,
+          "minecraft:block.note_block.harp",
+          {
+            "volume": 1,
+            "note": 24,
+            "receiver": "world"
+          }
+        ],
+        "result": null
+      },
+      {
+        "id": "B8-S05",
+        "method": "world.playSound",
+        "params": [
+          0,
+          64,
+          0,
+          "minecraft:entity.cow.ambient",
+          {
+            "pitch": 2
+          }
+        ],
+        "result": null
+      },
+      {
+        "id": "B8-S06",
+        "method": "world.playBlockSound",
+        "params": [1, 2, -3, "place"],
+        "result": null,
+        "work_cost": 1
+      },
+      {
+        "id": "B8-S07",
+        "method": "world.playBlockSound",
+        "params": [1, 2, 3, "hit", {}],
+        "result": null
+      },
+      {
+        "id": "B8-S08",
+        "method": "world.playBlockSound",
+        "params": [
+          1,
+          2,
+          3,
+          "break",
+          {
+            "note": 0
+          }
+        ],
+        "result": null
+      },
+      {
+        "id": "B8-S09",
+        "method": "world.playBlockSound",
+        "params": [
+          1,
+          2,
+          3,
+          "step",
+          {
+            "receiver": "self"
+          }
+        ],
+        "result": null
+      },
+      {
+        "id": "B8-S10",
+        "method": "world.playBlockSound",
+        "params": [1, 2, 3, "fall"],
+        "result": null
+      },
+      {
+        "id": "B8-S11",
+        "method": "world.playSound",
+        "params": [0, 0, 0, "Minecraft:entity.cow.ambient"],
+        "reason": "unknown_sound",
+        "code": -32602
+      },
+      {
+        "id": "B8-S12",
+        "method": "world.playSound",
+        "params": [0, 0, 0, "minecraft:missing.sound"],
+        "reason": "unknown_sound",
+        "code": -32602
+      },
+      {
+        "id": "B8-S13",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "volume": 1.01
+          }
+        ],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S14",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "pitch": 1,
+            "note": 12
+          }
+        ],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S15",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "note": 1.5
+          }
+        ],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S16",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "volume": null
+          }
+        ],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S17",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "source": "master"
+          }
+        ],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S18",
+        "method": "world.playBlockSound",
+        "params": [1.5, 2, 3, "place"],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S19",
+        "method": "world.playBlockSound",
+        "params": [1, 2, 3, "open"],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S20",
+        "method": "world.playBlockSound",
+        "params": [1, 2, 3, "place"],
+        "scenario": "target_is_air",
+        "reason": "no_block",
+        "code": -32000
+      },
+      {
+        "id": "B8-S21",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "receiver": "self"
+          }
+        ],
+        "scenario": "bound_player_offline",
+        "reason": "player_offline",
+        "code": -32000
+      },
+      {
+        "id": "B8-S22",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "receiver": "self"
+          }
+        ],
+        "scenario": "no_bound_player",
+        "reason": "auth_required",
+        "code": -32000
+      },
+      {
+        "id": "B8-S23",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "minecraft:missing.sound",
+          {
+            "receiver": "self"
+          }
+        ],
+        "scenario": "no_bound_player",
+        "reason": "unknown_sound",
+        "code": -32602,
+        "precedence": ["unknown_sound", "auth_required"]
+      },
+      {
+        "id": "B8-S24",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "volume": 2,
+            "receiver": "self"
+          }
+        ],
+        "scenario": "no_bound_player",
+        "reason": "invalid_params",
+        "code": -32602,
+        "precedence": ["invalid_params", "auth_required"]
+      },
+      {
+        "id": "B8-S25",
+        "method": "world.playBlockSound",
+        "params": [
+          1,
+          2,
+          3,
+          "place",
+          {
+            "receiver": "self",
+            "volume": -1
+          }
+        ],
+        "scenario": "no_bound_player_and_target_is_air",
+        "reason": "invalid_params",
+        "code": -32602,
+        "precedence": ["invalid_params", "auth_required", "no_block"]
+      },
+      {
+        "id": "B8-S26",
+        "method": "world.playBlockSound",
+        "params": [
+          1,
+          2,
+          3,
+          "place",
+          {
+            "receiver": "self"
+          }
+        ],
+        "scenario": "no_bound_player_and_target_is_air",
+        "reason": "auth_required",
+        "code": -32000,
+        "precedence": ["auth_required", "no_block"]
+      },
+      {
+        "id": "B8-S27",
+        "method": "world.playBlockSound",
+        "params": [1, 2, 3, "place"],
+        "scenario": "permission_denied_and_target_is_air",
+        "reason": "permission_denied",
+        "code": -32000,
+        "precedence": ["permission_denied", "no_block"]
+      },
+      {
+        "id": "B8-S28",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "pitch": 0.49
+          }
+        ],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S29",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "note": 25
+          }
+        ],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S30",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "volume": -0.01
+          }
+        ],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S31",
+        "method": "world.playSound",
+        "params": [0, 0, 0, "entity.cow.ambient", null],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S32",
+        "method": "world.playSound",
+        "params": [
+          0,
+          0,
+          0,
+          "entity.cow.ambient",
+          {
+            "receiver": "all"
+          }
+        ],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S33",
+        "method": "world.playBlockSound",
+        "params": [
+          1,
+          2,
+          3,
+          "place",
+          {
+            "legacy": true
+          }
+        ],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S34",
+        "method": "world.playSound",
+        "params": [0, 0, 0, 42],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S35",
+        "method": "world.playSound",
+        "params": [0, 0, 0],
+        "reason": "invalid_params",
+        "code": -32602
+      },
+      {
+        "id": "B8-S36",
+        "method": "world.playBlockSound",
+        "params": [
+          1,
+          2,
+          3,
+          "place",
+          {
+            "receiver": "self"
+          }
+        ],
+        "scenario": "bound_player_offline",
+        "reason": "player_offline",
+        "code": -32000
+      },
+      {
+        "id": "B8-S37",
+        "method": "world.playBlockSound",
+        "params": [
+          1,
+          2,
+          3,
+          "place",
+          {
+            "pitch": 2
+          }
+        ],
+        "result": null
+      }
+    ]
+  },
+  "resource_ids": {
+    "input_short_namespace": "minecraft",
+    "output": "canonical_fully_qualified",
+    "cases": [
+      {
+        "id": "B8-R01",
+        "kind": "block",
+        "input": "stone",
+        "canonical": "minecraft:stone"
+      },
+      {
+        "id": "B8-R02",
+        "kind": "block",
+        "input": "minecraft:stone",
+        "canonical": "minecraft:stone"
+      },
+      {
+        "id": "B8-R03",
+        "kind": "block",
+        "input": "Stone",
+        "reason": "unknown_block"
+      },
+      {
+        "id": "B8-R04",
+        "kind": "dimension",
+        "input": "overworld",
+        "canonical": "minecraft:overworld"
+      },
+      {
+        "id": "B8-R05",
+        "kind": "dimension",
+        "input": "minecraft:overworld",
+        "canonical": "minecraft:overworld"
+      },
+      {
+        "id": "B8-R06",
+        "kind": "dimension",
+        "input": "minecraft::overworld",
+        "reason": "invalid_params"
+      },
+      {
+        "id": "B8-R07",
+        "kind": "particle",
+        "input": "flame",
+        "canonical": "minecraft:flame"
+      },
+      {
+        "id": "B8-R08",
+        "kind": "particle",
+        "input": "minecraft:flame",
+        "canonical": "minecraft:flame"
+      },
+      {
+        "id": "B8-R09",
+        "kind": "particle",
+        "input": " flame",
+        "reason": "unknown_particle"
+      },
+      {
+        "id": "B8-R10",
+        "kind": "entity",
+        "input": "cow",
+        "canonical": "minecraft:cow"
+      },
+      {
+        "id": "B8-R11",
+        "kind": "entity",
+        "input": "minecraft:cow",
+        "canonical": "minecraft:cow"
+      },
+      {
+        "id": "B8-R12",
+        "kind": "entity",
+        "input": "COW",
+        "reason": "unknown_entity"
+      },
+      {
+        "id": "B8-R13",
+        "kind": "sound",
+        "input": "entity.cow.ambient",
+        "canonical": "minecraft:entity.cow.ambient"
+      },
+      {
+        "id": "B8-R14",
+        "kind": "sound",
+        "input": "minecraft:entity.cow.ambient",
+        "canonical": "minecraft:entity.cow.ambient"
+      },
+      {
+        "id": "B8-R15",
+        "kind": "sound",
+        "input": "minecraft:",
+        "reason": "unknown_sound"
       }
     ]
   }

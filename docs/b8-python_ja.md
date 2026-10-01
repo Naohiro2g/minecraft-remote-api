@@ -2,7 +2,7 @@
 
 開発中の `2320.0.0b8` は protocol `23.2.0` 対応のMcRemoteへ接続します。
 公開済みの導入手順は [README](../README.md) を参照してください。
-引数・error・数値規則の正本は [wire §5.0.2／§5.8.3](https://github.com/Naohiro2g/mc-remote-knowledge/blob/16668c5e5152d593c4b184939c9a9e723529d6e9/10-protocol/wire-format-design_ja.md) です。
+引数・error・数値規則の正本は [wire §5.0.2／§5.8.3](https://github.com/Naohiro2g/mc-remote-knowledge/blob/fd29db757c07f993155842ecc88b1c39558611a9/10-protocol/wire-format-design_ja.md) です。
 
 ## Importとpygame
 
@@ -27,22 +27,23 @@ block、particle、entity、soundは `stone`、`flame`、`pig`、`entity.cow.amb
 
 ```python
 mc.playSound(0.25, 3, 0.5, "entity.cow.ambient")
-mc.playSound(0, 3, 0, "block.note_block.harp", {
-    "volume": 0.5, "note": 12, "receiver": "self",
-})
-mc.playBlockSound(0, 0, 0, "hit", {"receiver": "self"})
+mc.playSound(0, 3, 0, "block.note_block.harp", volume=0.5, note=12, receiver="self")
+mc.playBlockSound(0, 0, 0, "hit", receiver="self")
 ```
 
 `playSound()` は連続座標、`playBlockSound()` は整数のblock座標で、どちらも建築原点からの相対位置です。
-kindは `place`／`hit`／`break`／`step`／`fall`。optionsはdictで、volumeは0〜1、
-pitchは0.5〜2、noteは整数0〜24（12は倍率1）。pitchとnoteは同時に指定できません。
+kindは `place`／`hit`／`break`／`step`／`fall`。volume、pitch、note、receiverはキーワード専用引数です。volumeは0〜1、
+pitchは0.5〜2、noteは整数0〜24（12は倍率1）。pitchとnoteの両方を指定すると、送信前に `ValueError` になります。
 receiverは省略時 `world`、`self` はpairingしたplayerだけです。
 
-options省略と空dictはserverの既定を使います。blockの音は省略した項目ごとに
+volume、pitch、noteの既定値は `None` で、その項目を送らずserverの既定を使います。
+通常の音はvolume／pitchとも1.0です。blockの音は省略した項目ごとに
 SoundGroupの元のvolume／pitchを使い、pitch／noteの指定はその高さを置き換えます。
 座標に0.5を足す処理や音の高さの補正はPythonでは行いません。
-明示した `None` はそのまま送り、serverの `invalid_params` になります。
-optionsの範囲・排他とselfの認証はserverが判定します。
+`None` は省略として扱い、`note=0` や `volume=0` はそのまま送ります。
+音名（ドレミ、C4など）はユーザーコードでnoteへ換算します。
+dictを第5位置引数で渡す旧candidateの形は使えません。変数のdictから渡すときは `**controls` と書きます。
+数値の範囲とselfの認証はserverが判定します。
 結果は `None`。`unknown_sound`、`no_block`、`backpressure` などは `McRpcError.reason` で確認できます。
 自動再試行は行いません。
 
@@ -121,8 +122,10 @@ uv run python examples/particle_graph.py
 ## 実装検証の境界
 
 Python API／observer adapterの決定論的検証と、protocol ownerの共有fixture・共通WireScope appの検証は
-別です。B8 ownerの共有fixture（59ケース）をexact bytesで取り込み、Pythonの投影範囲を54テストで検証しています。
-対応する共通WireScope appもownerの固定sourceからbuildして同梱しています。
-現fixtureと同梱appにはサウンドとresource IDの追加caseがありません。Scratchがsuccessorを発行した後に取り込みます。
+別です。B8 ownerの共有fixture successor（111ケース）をexact bytesで取り込み、
+Pythonの引数・応答・error投影とobserverのraw wire投影を143テストで検証しています。
+server内部の検索・WorkAdmission・handle transactionの検証は行いません。
+wireの `null` とPythonキーワードの `None`（省略）は区別して検証します。
+サウンドとresource IDに対応した共通WireScope appを、coordinator指定の固定sourceからbuildして同梱しています。
 実plugin往復、2-playerのself配送・dust／block描画・音、1.21.11、Windowsでの確認は実機検証に残ります。
 VS Code／Jupyterでの補完表示も人間の確認に残ります。

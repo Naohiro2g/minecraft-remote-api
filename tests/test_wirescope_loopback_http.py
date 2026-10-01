@@ -20,7 +20,7 @@ import mc_remote.wirescope as wirescope
 
 
 SOURCE_COMMIT = "192d1e3ccd213fb5012b92655e51b779270e15be"
-BUNDLED_APP_SOURCE_COMMIT = "5aaa9c59acc393cd0a0de5cb45a5e619a5e87abe"
+BUNDLED_APP_SOURCE_COMMIT = "df34849d2502a498a06c5fe07a91d03e925124eb"
 HELLO = {
     "protocol": "22.0.0",
     "mc_version": "1.21.11",
