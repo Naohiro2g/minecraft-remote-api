@@ -3,6 +3,7 @@
 公開済みの [`2320.0.0b8`](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2320.0.0b8) は
 protocol `23.2.0` 対応のMcRemoteへ接続します。Minecraft Java版 `1.21.11` の通常dev環境で実機確認済みです。
 公開済みの導入手順は [README](../README.md) を参照してください。
+Pythonの呼び出し方・引数・戻り値を探すには [クライアントAPI一覧（ドラフト）](python-api-reference_ja.md) を参照してください。
 公開APIの全体像は [Protocol API一覧](https://mc-remote.com/api/) から確認できます。掲載対象のreleaseはページ冒頭に表示されています。
 一覧は通信上の名前・引数・応答を載せています。Pythonの `mc.playSound()` などの書き方は、このガイドの作例を参照してください。
 引数・error・数値規則の正本は [wire §5.0.2／§5.8.3](https://github.com/Naohiro2g/mc-remote-knowledge/blob/fd29db757c07f993155842ecc88b1c39558611a9/10-protocol/wire-format-design_ja.md) です。

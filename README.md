@@ -142,6 +142,7 @@ uv run python hello.py
 B8では `from mc_remote import Minecraft` が使え、pygameは必要なときに `uv add pygame-ce` で追加します。
 パッケージ側のoptional extraは `pygame` です。導入試験には [Windows 11の入口手順](docs/windows-b8-entry_ja.md) を用意しています。
 
+Pythonの呼び出し方・引数・戻り値は [PythonクライアントAPI一覧（ドラフト）](docs/python-api-reference_ja.md) で用途別に探せます。
 サーバーの操作と、WireScopeで見える通信の引数・応答は [Protocol API一覧](https://mc-remote.com/api/) で確認できます。
 Pythonの `mc.playSound(...)` は一覧の `world.playSound` に対応します。Pythonでの引数の渡し方は各作例を参照してください。
 

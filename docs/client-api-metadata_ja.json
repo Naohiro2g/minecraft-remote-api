@@ -1,0 +1,616 @@
+{
+  "schema_version": 1,
+  "introduction": [
+    "Minecraftクラスの公開メソッド・読み取り専用propertyと、よく使う入力・戻り値の型、例外をまとめています。",
+    "初めて使うときは [READMEの導入手順](../README.md) を進めてください。[APIの作例](b8-python_ja.md) も参照できます。",
+    "サーバーが受け取る名前・引数・応答は [Protocol API一覧](https://mc-remote.com/api/) で確認できます。掲載対象のreleaseはページ冒頭に表示されます。たとえばPythonのmc.playSound()は通信上のworld.playSoundに対応します。"
+  ],
+  "conventions": [
+    "- ブロック座標は整数、プレイヤー・エンティティ・パーティクル・playSound()の位置は小数も使えます。playBlockSound()は整数のブロック座標です。建築原点を設定するsetBuildOrigin()の座標は絶対位置で、それ以外の操作の位置は建築原点から相対です。",
+    "- dimensionはoverworldのような無印、またはminecraft:overworldのような完全修飾IDを渡せます。返るdimensionは完全修飾です。",
+    "- block・particle・entity・soundのIDはminecraft:を省略できます。Pythonは入力をそのまま送り、サーバーが補います。",
+    "- シグネチャの * より後はキーワード専用引数です。型の書き分けにはoverloadを表示します。型注釈がない引数・戻り値は実装の表記を保ち、説明で補います。",
+    "- getBlock()の結果は [BlockValue](#type-BlockValue) なのでvalue.block_idやvalue.stateで読みます。getPos()やgetPose()の結果はdictなのでresult[\"pos\"]で読みます。",
+    "- worldを変える操作の効果はサーバー上に残ります。作例ではブロックの復元やエンティティの削除も示します。パーティクルは自然に消えます。",
+    "- 通常のAPI操作は自動再試行しません。接続時のpairing処理と、手動でAPIをもう一度呼ぶ操作は各項目を参照してください。"
+  ],
+  "groups": [
+    {"id": "connection", "title": "接続と終了"},
+    {"id": "build", "title": "建築原点・次元・実行モード"},
+    {"id": "block", "title": "ブロック"},
+    {"id": "player", "title": "プレイヤー"},
+    {"id": "entity", "title": "エンティティ"},
+    {"id": "sign", "title": "看板"},
+    {"id": "effect", "title": "パーティクル・音・雷"},
+    {"id": "events", "title": "チャットとイベント"},
+    {"id": "catalog", "title": "カタログと補完"},
+    {"id": "advanced", "title": "接続処理を組み立てるとき"}
+  ],
+  "methods": {
+    "create": {
+      "group": "connection",
+      "purpose": "サーバーへ接続し、認証と必要なpairing、カタログ同期を進める",
+      "returns": "接続したMinecraftオブジェクト。",
+      "protocol": [
+        {"method": "hello", "section": "connection"},
+        {"method": "auth.pairBegin", "section": "auth"},
+        {"method": "auth.pairPoll", "section": "auth"},
+        {"method": "catalog.get", "section": "catalog"}
+      ],
+      "notes": [
+        "from mc_remote import Minecraftでimportできます。Minecraft.create()が通常の入口です。",
+        "保存済みtokenでhelloを試し、認証に必要なときだけpairing commandを表示してMinecraft内の承認を待ちます。pair=Falseはこの待機を行わず、必要ならPairingRequiredErrorを返します。",
+        "sync_catalog=Trueでは接続後に補完を生成します。生成が失敗した場合はCatalogProjectionWarningを出し、接続したオブジェクトを返します。",
+        "wirescope=Trueは同梱WireScopeをlocalhostで開く設定です。WireScopeStation.local()も渡せます。NoneまたはFalseで無効です。",
+        "handshake=Falseは接続処理を自分で組み立てる用途です。sandboxはローカルtoken保存先のkeyを指定する互換引数です。"
+      ]
+    },
+    "close": {
+      "group": "connection",
+      "purpose": "先行するFAST commandの完了を待ち、接続を閉じる",
+      "returns": "正常終了時はTrue。完了を確認できない場合は例外。",
+      "protocol": [{"method": "connection.flush", "section": "connection"}],
+      "notes": [
+        "with Minecraft.create(...) as mc:のブロックを抜けるとclose()が呼ばれます。明示的にclose()を呼ぶこともできます。",
+        "正常に閉じたあとにもう一度呼んでもTrueを返します。同梱WireScopeの実行状態も閉じます。"
+      ]
+    },
+    "flush": {
+      "group": "connection",
+      "purpose": "この接続で先に送ったcommandの完了を確認する",
+      "returns": "None。",
+      "protocol": [{"method": "connection.flush", "section": "connection"}],
+      "notes": [
+        "ブロックの現在値を読む操作はgetBlock()/getBlocks()で行います。",
+        "タイムアウトした場合はRequestTimeoutErrorになり、接続を閉じます。先行操作の完了は不明なので、自動再試行しません。"
+      ]
+    },
+    "setDimension": {
+      "group": "build",
+      "purpose": "この接続で建築する次元を変える",
+      "returns": "dimensionとoriginを含むdict。",
+      "protocol": [{"method": "build.setDimension", "section": "build"}],
+      "notes": ["プレイヤーを次元間で移動する操作はsetPos()/setPose()で行います。"]
+    },
+    "setBuildOrigin": {
+      "group": "build",
+      "purpose": "この接続の建築座標の原点を設定する",
+      "returns": "dimensionとoriginを含むdict。",
+      "protocol": [{"method": "build.setOrigin", "section": "build"}],
+      "notes": ["x・y・zは絶対位置の整数です。以後の位置はこの原点から相対になります。Yにも同じ加算を使います。"]
+    },
+    "setBuildMode": {
+      "group": "build",
+      "purpose": "ブロック設置の実行モードとTRACEの待ち時間を変える",
+      "returns": "None。",
+      "protocol": [{"method": "connection.flush", "section": "connection"}],
+      "notes": [
+        "modeは [BuildMode](#type-BuildMode) の値です。変更時は先行commandをflushしてから切り替えます。",
+        "trace_delayは0〜2秒です。省略すると現在の値を保ちます。",
+        "FASTがnotificationになるのはsetBlock()/setBlocks()です。spawnParticle()などは各モードでも応答を待ちます。"
+      ]
+    },
+    "build_mode": {
+      "group": "build",
+      "purpose": "現在のブロック設置モードを読む",
+      "returns": "BuildMode。読み取り専用property。",
+      "protocol": [],
+      "notes": ["変更はsetBuildMode()で行います。"]
+    },
+    "trace_delay": {
+      "group": "build",
+      "purpose": "現在のTRACEの待ち時間を読む",
+      "returns": "秒を表すfloat。読み取り専用property。",
+      "protocol": [],
+      "notes": ["変更はsetBuildMode(..., trace_delay=...)で行います。"]
+    },
+    "setBlock": {
+      "group": "block",
+      "purpose": "ブロックを1つ置く",
+      "returns": "None。",
+      "protocol": [{"method": "world.setBlock", "section": "block"}],
+      "notes": [
+        "block_idはID文字列、stateはpropertyのmappingです。stateはキーワード専用で、Noneは空のstateに変換します。指定しないpropertyはMinecraftの既定値になります。",
+        "mc_constantsの型付きIDでは、対応するstateの型をoverloadで補完できます。BlockIdと_StateTはこの型の対応を表します。",
+        "設置後の値はgetBlock()で確認します。"
+      ]
+    },
+    "getBlock": {
+      "group": "block",
+      "purpose": "ブロックを1つ調べる",
+      "returns": "[BlockValue](#type-BlockValue)。block_idとstateは属性で読みます。",
+      "protocol": [{"method": "world.getBlock", "section": "block"}]
+    },
+    "setBlocks": {
+      "group": "block",
+      "purpose": "直方体の範囲を同じブロックで埋める",
+      "returns": "None。",
+      "protocol": [{"method": "world.setBlocks", "section": "block"}],
+      "notes": ["両端を含む範囲です。block_idとstateの扱いはsetBlock()と同じです。範囲と作業量の上限はサーバーが判定します。"]
+    },
+    "getBlocks": {
+      "group": "block",
+      "purpose": "直方体の範囲のブロックをまとめて調べる",
+      "returns": "BlockValueのtuple。",
+      "protocol": [{"method": "world.getBlocks", "section": "block"}],
+      "notes": [
+        "各軸は入力の大小からmin/maxを決め、両端を含みます。結果はZが最も速く変わり、次にY、最後にXの順です。",
+        "tupleと各BlockValueは取得時点の変更不能なsnapshotです。"
+      ]
+    },
+    "getHeight": {
+      "group": "block",
+      "purpose": "X/Z位置のいちばん上の地面の高さを調べる",
+      "returns": "建築原点から相対のYを表すint。",
+      "protocol": [{"method": "world.getHeight", "section": "block"}],
+      "notes": ["max_yを指定すると、その高さを含む範囲まで調べます。"]
+    },
+    "getPos": {
+      "group": "player",
+      "purpose": "pairingしたプレイヤーの位置を調べる",
+      "returns": "dimensionとposを含むdict。posは[x, y, z]のlist。",
+      "protocol": [{"method": "player.getPos", "section": "player"}],
+      "notes": ["posは建築原点から相対です。プレイヤー名は渡しません。"]
+    },
+    "setPos": {
+      "group": "player",
+      "purpose": "pairingしたプレイヤーを移動させる",
+      "returns": "移動後のdimensionとposを含むdict。",
+      "protocol": [{"method": "player.setPos", "section": "player"}],
+      "notes": ["dimensionを明示します。x・y・zは建築原点から相対で、小数も使えます。"]
+    },
+    "getPose": {
+      "group": "player",
+      "purpose": "pairingしたプレイヤーの位置と角度を調べる",
+      "returns": "dimension・pos・yaw・pitchを含むdict。",
+      "protocol": [{"method": "player.getPose", "section": "player"}],
+      "notes": ["posは[x, y, z]のlistで、建築原点から相対です。yaw・pitchは角度です。"]
+    },
+    "setPose": {
+      "group": "player",
+      "purpose": "pairingしたプレイヤーの位置と角度をまとめて変える",
+      "returns": "移動後のdimension・pos・yaw・pitchを含むdict。",
+      "protocol": [{"method": "player.setPose", "section": "player"}],
+      "notes": ["dimensionを明示します。yaw・pitchは角度で、数値の検証と正準化はサーバーが行います。"]
+    },
+    "getDirection": {
+      "group": "player",
+      "purpose": "pairingしたプレイヤーの視線方向を調べる",
+      "returns": "[DirectionValue](#type-DirectionValue)。X/Y/Z成分のtuple。",
+      "protocol": [{"method": "player.getDirection", "section": "player"}]
+    },
+    "setDirection": {
+      "group": "player",
+      "purpose": "pairingしたプレイヤーの向きだけを変える",
+      "returns": "変更後のDirectionValue。",
+      "protocol": [{"method": "player.setDirection", "section": "player"}],
+      "notes": ["有限な方向ベクトルを渡します。サーバーが正規化し、Pythonは入力の大きさや精度を変えず送ります。"]
+    },
+    "spawnEntity": {
+      "group": "entity",
+      "purpose": "エンティティを出し、操作するためのhandleを受け取る",
+      "returns": "[EntityHandle](#type-EntityHandle)。文字列のsubclass。",
+      "protocol": [{"method": "world.spawnEntity", "section": "entity"}],
+      "notes": ["entityはcowなどのID文字列です。handleは取得した接続で使い、再接続後は取り直します。"]
+    },
+    "getNearbyEntities": {
+      "group": "entity",
+      "purpose": "指定位置の近くのエンティティを一覧で受け取る",
+      "returns": "[NearbyEntity](#type-NearbyEntity) のtuple。距離の近い順。",
+      "protocol": [{"method": "world.getNearbyEntities", "section": "entity"}],
+      "notes": [
+        "radiusとmax_entitiesは必須引数です。半径は0〜64、件数は1〜64で、サーバーがさらに小さい上限を設定している場合があります。",
+        "プレイヤーは含みません。検索でchunkをloadせず、結果のposは建築原点から相対です。取得後にエンティティが消える場合があります。"
+      ]
+    },
+    "getEntityPose": {
+      "group": "entity",
+      "purpose": "handleで指定したエンティティの位置と角度を調べる",
+      "returns": "[PoseValue](#type-PoseValue)。dimension・pos・yaw・pitchを含むdict。",
+      "protocol": [{"method": "entity.getPose", "section": "entity"}]
+    },
+    "setEntityPose": {
+      "group": "entity",
+      "purpose": "handleで指定したエンティティの位置と角度をまとめて変える",
+      "returns": "移動後のPoseValue。",
+      "protocol": [{"method": "entity.setPose", "section": "entity"}],
+      "notes": ["次元を移動しても成功時は同じhandleを使えます。この接続の建築次元・原点は変わりません。"]
+    },
+    "getEntityDirection": {
+      "group": "entity",
+      "purpose": "handleで指定したエンティティの向きを調べる",
+      "returns": "DirectionValue。",
+      "protocol": [{"method": "entity.getDirection", "section": "entity"}]
+    },
+    "setEntityDirection": {
+      "group": "entity",
+      "purpose": "handleで指定したエンティティの向きだけを変える",
+      "returns": "変更後のDirectionValue。",
+      "protocol": [{"method": "entity.setDirection", "section": "entity"}]
+    },
+    "removeEntity": {
+      "group": "entity",
+      "purpose": "handleで指定したエンティティを削除する",
+      "returns": "None。",
+      "protocol": [{"method": "entity.remove", "section": "entity"}],
+      "notes": ["削除したhandleは即時失効します。"]
+    },
+    "getSign": {
+      "group": "sign",
+      "purpose": "看板の両面の文字とwaxed状態を読む",
+      "returns": "[SignValue](#type-SignValue)。各面はLineValueの4要素tuple。",
+      "protocol": [{"method": "world.getSign", "section": "sign"}],
+      "notes": ["指定位置に看板が必要です。waxedな看板も読めます。"]
+    },
+    "setSign": {
+      "group": "sign",
+      "purpose": "看板の指定した面の4行をまとめて書き換える",
+      "returns": "None。",
+      "protocol": [{"method": "world.setSign", "section": "sign"}],
+      "notes": [
+        "frontまたはbackの少なくとも片方を、4行のsequenceで指定します。省略した面は保ち、指定した面の4行はすべて置き換えます。",
+        "各行は文字列、またはtext・color・decorationsを持つmappingです。waxedな看板への変更はsign_waxedになります。"
+      ]
+    },
+    "updateSignLine": {
+      "group": "sign",
+      "purpose": "看板の指定した面の1行だけを書き換える",
+      "returns": "None。",
+      "protocol": [{"method": "world.updateSignLine", "section": "sign"}],
+      "notes": ["faceはfront/back、line_indexは0〜3です。lineは文字列、またはtext・color・decorationsのmappingです。"]
+    },
+    "spawnParticle": {
+      "group": "effect",
+      "purpose": "指定位置にパーティクルを出す",
+      "returns": "サーバーが返した生成数のint。",
+      "protocol": [{"method": "world.spawnParticle", "section": "effect"}],
+      "notes": [
+        "particleはID文字列または [ParticleSpec](#type-ParticleSpec) のdictです。色や大きさ、表示先を指定できます。offset_x/y/zとspeedは0以上、countは0以上の整数です。",
+        "forceを省略すると項目を送らず、サーバーの既定trueを使います。明示するときはboolを渡します。",
+        "受け取った生成数と、Minecraft画面で実際に見える粒子数は別です。描画はクライアントの距離・設定にも依存します。",
+        "FASTでも応答を待つrequestです。[3Dグラフの作例](../examples/particle_graph.py)も参照できます。"
+      ]
+    },
+    "playSound": {
+      "group": "effect",
+      "purpose": "指定位置から登録された音を鳴らす",
+      "returns": "None。",
+      "protocol": [{"method": "world.playSound", "section": "effect"}],
+      "notes": [
+        "sound_idはblock.note_block.harpなどのIDです。volume・pitch・note・receiverはキーワード専用引数です。",
+        "volumeは0〜1、pitchは0.5〜2、noteは整数0〜24です。pitchとnoteを両方指定すると送信前にValueErrorになります。note=12は倍率1です。",
+        "Noneはその項目を送らず、volume/pitchはサーバーの既定1.0を使います。note=0やvolume=0は省略になりません。",
+        "receiverのworldは近くのプレイヤー向け、selfはpairingしたプレイヤー向けです。",
+        "辞書の設定は **controls の形で渡せます。音名からnoteへの換算はユーザーコードで行います。"
+      ]
+    },
+    "playBlockSound": {
+      "group": "effect",
+      "purpose": "その位置のブロックの音を鳴らす",
+      "returns": "None。",
+      "protocol": [{"method": "world.playBlockSound", "section": "effect"}],
+      "notes": [
+        "座標はブロック位置の整数です。kindはplace/hit/break/step/fallです。ブロックの設置や破壊は行いません。",
+        "省略したvolume/pitchは、そのブロックのSoundGroupの値を使います。pitchまたはnoteを指定すると元の高さを置き換えます。",
+        "None・pitch/note・receiverの渡し方はplaySound()と同じです。airの位置ではno_blockになります。"
+      ]
+    },
+    "strikeLightning": {
+      "group": "effect",
+      "purpose": "指定位置に雷を落とす",
+      "returns": "None。",
+      "protocol": [{"method": "world.strikeLightning", "section": "effect"}],
+      "notes": ["worldにdamage・発火などの効果を与える操作です。自動再試行しません。"]
+    },
+    "postToChat": {
+      "group": "events",
+      "purpose": "Minecraftのチャットにメッセージを送る",
+      "returns": "サーバーのresultをそのまま返します。",
+      "protocol": [{"method": "chat.post", "section": "chat"}]
+    },
+    "pollEvents": {
+      "group": "events",
+      "purpose": "この接続の未取得のイベントを受け取る",
+      "returns": "[EventBatch](#type-EventBatch)。eventsはEventValueのtuple。",
+      "protocol": [{"method": "events.poll", "section": "event"}],
+      "notes": [
+        "Pythonが取得位置のカーソルを管理し、正常な応答を確認したあとに進めます。再接続時はカーソルをリセットします。",
+        "max_eventsは正の整数、省略するとサーバーの取得件数を使います。",
+        "各イベントは発生時のdimensionとoriginを持ちます。位置を建築に使う前にassertEventContext()で現在の原点と合うかを確認できます。"
+      ]
+    },
+    "assertEventContext": {
+      "group": "events",
+      "purpose": "イベントの座標系が現在の建築原点・次元と一致するか確認する",
+      "returns": "一致時はNone。不一致時はEventContextMismatchError。",
+      "protocol": [],
+      "notes": ["ローカルで確認し、イベントを捨てたり建築状態を変更したりしません。"]
+    },
+    "getCatalog": {
+      "group": "catalog",
+      "purpose": "接続先のブロック・エンティティ・パーティクルのカタログを取得する",
+      "returns": "サーバーのカタログを含むdict。",
+      "protocol": [{"method": "catalog.get", "section": "catalog"}],
+      "notes": ["別の短命な認証済み接続を使います。補完ファイルを生成する場合はsync_constants()を使います。"]
+    },
+    "sync_constants": {
+      "group": "catalog",
+      "purpose": "カタログをcacheし、現在のプロジェクトの補完ファイルを生成する",
+      "returns": "生成したmc_constants.pyのpath文字列。同期できるcatalog hashが無い場合はNone。",
+      "protocol": [{"method": "catalog.get", "section": "catalog"}],
+      "notes": [
+        "target_dirの省略時は現在の作業ディレクトリです。mc_constants.py・mc_constants.pyi・manifestを生成します。force=Trueではcacheがあっても取り直します。",
+        "Git管理下では生成物をignoreする設定が必要です。mcremote initで設定できます。",
+        "明示的に呼んだときの失敗はCatalogProjectionErrorです。create()内の自動同期では警告になります。"
+      ]
+    },
+    "hello": {
+      "group": "advanced",
+      "purpose": "接続の最初のhelloを送り、応答をこのオブジェクトに保持する",
+      "returns": "hello応答のdict。",
+      "protocol": [{"method": "hello", "section": "connection"}],
+      "notes": ["通常はcreate()が行います。1接続に1回のhandshakeです。auth_tokenは保存済みcredentialを自分で扱う用途です。"]
+    },
+    "authenticate": {
+      "group": "advanced",
+      "purpose": "ローカルtoken保存先のkeyを使い、helloと必要なpairingを進める",
+      "returns": "認証後のhello応答のdict。",
+      "protocol": [
+        {"method": "hello", "section": "connection"},
+        {"method": "auth.pairBegin", "section": "auth"},
+        {"method": "auth.pairPoll", "section": "auth"}
+      ],
+      "notes": ["通常はcreate()が行います。server_keyはローカル保存先のkeyで、接続先アドレスを変更する引数ではありません。"]
+    }
+  },
+  "values": [
+    {
+      "name": "BuildMode", "source": "mc_remote/minecraft.py", "import": "mc_remote.minecraft",
+      "purpose": "setBlock()/setBlocks()の実行方法を選ぶEnumです。",
+      "notes": ["DEBUGは応答を待つrequest、TRACEはrequest後に待ち時間を入れるモード、FASTはnotificationで送るモードです。FASTの完了はflush()/close()で確認します。"]
+    },
+    {
+      "name": "BlockValue", "source": "mc_remote/block_value.py", "import": "mc_remote.minecraft",
+      "purpose": "取得したブロックの変更不能なデータクラスです。",
+      "notes": ["block_idは完全修飾、stateは完全なpropertyのmappingです。復元はmc.setBlock(x, y, z, value.block_id, state=value.state)で行えます。"]
+    },
+    {
+      "name": "BlockId", "source": "mc_remote/block_value.py", "import": "mc_remote.block_value",
+      "purpose": "生成したblock IDと、そのstateの型を結びつける型補完用のマーカーです。",
+      "notes": ["mc_constantsの定数は実行時には通常の文字列です。学習者がBlockIdを生成して渡す必要はありません。"]
+    },
+    {
+      "name": "StateScalar", "source": "mc_remote/block_value.py", "import": "mc_remote.block_value",
+      "purpose": "ブロックのstateの値に使うscalarの型です。"
+    },
+    {
+      "name": "DirectionValue", "source": "mc_remote/direction_value.py", "import": "mc_remote.minecraft",
+      "purpose": "向きのX/Y/Z成分の変更不能なtupleです。",
+      "notes": ["サーバーが正規化した値を受け取ります。Pythonは再roundしません。"]
+    },
+    {
+      "name": "EntityHandle", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft",
+      "purpose": "エンティティを操作するための不透明な文字列です。",
+      "notes": ["spawnEntity()/getNearbyEntities()で得た値を使います。取得した接続でのみ有効で、再接続後は取り直します。"]
+    },
+    {
+      "name": "NearbyEntity", "source": "mc_remote/entity_value.py", "import": "mc_remote.minecraft",
+      "purpose": "近傍検索で取得したエンティティの変更不能なデータクラスです。",
+      "notes": ["typeは完全修飾のentity ID、posは建築原点から相対です。"]
+    },
+    {
+      "name": "PoseValue", "source": "mc_remote/entity_value.py", "import": "mc_remote.minecraft",
+      "purpose": "エンティティの姿勢を返すTypedDictです。実行時はdictです。",
+      "notes": ["posは建築原点から相対の[x, y, z]、yaw・pitchは角度です。playerのgetPose()も同じkeyを持つdictを返します。"]
+    },
+    {
+      "name": "ParticleSpec", "source": "mc_remote/particle_value.py", "import": "mc_remote.minecraft",
+      "purpose": "パーティクルのID、表示先、dataを指定するTypedDictです。実行時はdictです。",
+      "notes": ["receiverの省略時はworld、selfはpairingしたプレイヤー向けです。data省略とdata=Noneは異なり、NoneはJSON nullとして送りサーバーが拒否します。"]
+    },
+    {
+      "name": "DustData", "source": "mc_remote/particle_value.py", "import": "mc_remote.minecraft",
+      "purpose": "dustの色と大きさを指定するTypedDictです。",
+      "notes": ["colorはRGBの0〜255の整数3個、sizeは0.01〜4.0です。"]
+    },
+    {
+      "name": "BlockParticleData", "source": "mc_remote/particle_value.py", "import": "mc_remote.minecraft",
+      "purpose": "block系パーティクルのブロックIDとstateを指定するTypedDictです。"
+    },
+    {
+      "name": "SoundOptions", "source": "mc_remote/sound_value.py", "import": "mc_remote.minecraft",
+      "purpose": "音のキーワード引数を変数のdictにまとめるためのTypedDictです。",
+      "notes": ["mc.playSound(..., **controls)の形で渡します。pitchとnoteは片方だけを指定します。"]
+    },
+    {
+      "name": "LineValue", "source": "mc_remote/sign_value.py", "import": "mc_remote.minecraft",
+      "purpose": "看板から読んだ1行の変更不能なデータクラスです。"
+    },
+    {
+      "name": "SignValue", "source": "mc_remote/sign_value.py", "import": "mc_remote.minecraft",
+      "purpose": "看板の両面とwaxed状態の変更不能なデータクラスです。",
+      "notes": ["front/backはそれぞれ4行のLineValueのtupleです。"]
+    },
+    {
+      "name": "EventBatch", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft",
+      "purpose": "pollEvents()で取得したイベントと取得位置・欠落統計の変更不能なデータクラスです。",
+      "notes": ["eventsを反復して各EventValueを読みます。loss_totals propertyはoverflow/capacity/explicitly_discardedの変更不能なmappingを返します。"]
+    },
+    {
+      "name": "EventValue", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft",
+      "purpose": "受け取るイベントの型のunionです。",
+      "notes": ["event.typeでイベントの種類を判断し、対応する属性を読みます。"]
+    },
+    {
+      "name": "PickaxePokeEvent", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft",
+      "purpose": "ツルハシでブロックを叩いたイベントです。",
+      "notes": ["posは発生時のoriginから相対、blockはその時点のBlockValueです。"]
+    },
+    {
+      "name": "ChatPostedEvent", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft",
+      "purpose": "チャットに投稿されたイベントです。"
+    },
+    {
+      "name": "ProjectileHitEvent", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft",
+      "purpose": "投射物が当たったイベントです。",
+      "notes": ["target.kindで当たった対象の種類を判断します。"]
+    },
+    {
+      "name": "ProjectileTarget", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft",
+      "purpose": "投射物が当たった対象の型のunionです。"
+    },
+    {
+      "name": "BlockTarget", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft",
+      "purpose": "投射物が当たったブロックを表すデータクラスです。"
+    },
+    {
+      "name": "PlayerTarget", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft",
+      "purpose": "投射物がプレイヤーに当たったことを表すデータクラスです。"
+    },
+    {
+      "name": "EntityTarget", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft",
+      "purpose": "投射物が当たったエンティティのhandleを持つデータクラスです。"
+    },
+    {
+      "name": "WireScopeStation", "source": "mc_remote/wirescope.py", "import": "mc_remote.wirescope",
+      "purpose": "WireScopeの表示方法を選ぶ設定オブジェクトです。",
+      "notes": ["WireScopeStation.local()で作り、Minecraft.create(wirescope=...)に渡します。wirescope=Trueも同じ設定の簡単な入口です。"]
+    }
+  ],
+  "error_notes": [
+    "サーバーの拒否はMcRpcErrorです。reason・code・message・dataを読めます。処理を分けるときはreasonを使います。[Protocolのerror一覧](https://mc-remote.com/api/#errors)も参照してください。",
+    "Python内の引数チェックではValueError/TypeErrorも発生します。通信の完了が不明なRequestTimeoutErrorは、操作が実行されなかったことを意味しません。"
+  ],
+  "errors": [
+    {"name": "McRemoteError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "クライアント例外の基底"},
+    {"name": "McRpcError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "サーバーのJSON-RPC error。reasonで理由を読む"},
+    {"name": "ConnectionLostError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "接続が失われた"},
+    {"name": "RequestTimeoutError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "送信後のタイムアウト。完了は不明"},
+    {"name": "RequestFailedError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "McRpcErrorの互換用基底"},
+    {"name": "PairingRequiredError", "source": "mc_remote/auth.py", "import": "mc_remote.minecraft", "purpose": "pair=Falseで認証にpairingが必要"},
+    {"name": "EventContextMismatchError", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft", "purpose": "イベントと現在の建築座標系が違う"},
+    {"name": "CatalogProjectionError", "source": "mc_remote/projection.py", "import": "mc_remote.minecraft", "purpose": "明示的な補完生成の失敗。stageで段階を読む"},
+    {"name": "CatalogProjectionWarning", "source": "mc_remote/projection.py", "import": "mc_remote.minecraft", "purpose": "create()での自動補完生成の失敗"},
+    {"name": "WireScopeWarning", "source": "mc_remote/wirescope.py", "import": "mc_remote.minecraft", "purpose": "WireScopeの起動・観測の警告"}
+  ],
+  "example_notes": [
+    "以下は接続方法と、接続済みのmcで行う操作の例です。localhostは同じPCの対応サーバーを指します。別のPCへ接続する場合はaddressを置き換えてください。",
+    "APIの作例はMinecraftへログインし、pairingと接続を済ませてから実行します。ブロックやエンティティを変更する例では復元・削除も行います。"
+  ],
+  "examples": [
+    {
+      "title": "接続してチャットを送る",
+      "description": "必要ならターミナルに表示されたpair commandをMinecraft内で実行します。withを抜けると接続を閉じます。",
+      "code": [
+        "from mc_remote import Minecraft",
+        "",
+        "with Minecraft.create(address=\"localhost\", port=25575) as mc:",
+        "    mc.postToChat(\"Hello, Minecraft!\")"
+      ]
+    },
+    {
+      "title": "プレイヤーの位置を読む",
+      "description": "以後の例のmcは接続済みのMinecraftオブジェクトです。posは現在の建築原点から相対です。",
+      "code": [
+        "location = mc.getPos()",
+        "print(location[\"dimension\"], location[\"pos\"])"
+      ]
+    },
+    {
+      "title": "ブロックを置き、取得した値から戻す",
+      "description": "原点のブロックを一時的にoak_logへ変えます。元のIDとstateを保存し、最後に戻します。",
+      "code": [
+        "before = mc.getBlock(0, 0, 0)",
+        "try:",
+        "    mc.setBlock(0, 0, 0, \"oak_log\", state={\"axis\": \"y\"})",
+        "    value = mc.getBlock(0, 0, 0)",
+        "    print(value.block_id, dict(value.state))",
+        "finally:",
+        "    mc.setBlock(0, 0, 0, before.block_id, state=before.state)"
+      ]
+    },
+    {
+      "title": "エンティティを出し、poseを読んで削除する",
+      "description": "牛を一時的に出します。handleを保存して操作し、最後に削除します。",
+      "code": [
+        "handle = mc.spawnEntity(0, 2, 0, \"cow\")",
+        "try:",
+        "    pose = mc.getEntityPose(handle)",
+        "    print(pose[\"dimension\"], pose[\"pos\"])",
+        "finally:",
+        "    mc.removeEntity(handle)"
+      ]
+    },
+    {
+      "title": "青いdustを自分だけに見せる",
+      "description": "ブロックを変更せず、建築原点の3ブロック上へパーティクルを出します。粒子は自然に消えます。",
+      "code": [
+        "from mc_remote.minecraft import ParticleSpec",
+        "",
+        "dust: ParticleSpec = {",
+        "    \"particle_id\": \"dust\",",
+        "    \"receiver\": \"self\",",
+        "    \"data\": {\"color\": [64, 160, 255], \"size\": 1.0},",
+        "}",
+        "count = mc.spawnParticle(0, 3, 0, 0, 0, 0, dust, 0, 8)",
+        "print(count)"
+      ]
+    },
+    {
+      "title": "音の高さをnoteで指定する",
+      "description": "pairingした自分向けに鳴らします。辞書にまとめた設定はキーワード引数へ展開します。",
+      "code": [
+        "from mc_remote.minecraft import SoundOptions",
+        "",
+        "controls: SoundOptions = {\"volume\": 0.5, \"note\": 12, \"receiver\": \"self\"}",
+        "mc.playSound(0, 1, 0, \"block.note_block.harp\", **controls)"
+      ]
+    },
+    {
+      "title": "ブロックの音とサーバーの拒否理由",
+      "description": "指定位置のブロックを変えず、hitの音を自分向けに鳴らします。airなどの場合はreasonで理由を確認します。",
+      "code": [
+        "from mc_remote.minecraft import McRpcError",
+        "",
+        "try:",
+        "    mc.playBlockSound(0, 0, 0, \"hit\", receiver=\"self\")",
+        "except McRpcError as error:",
+        "    print(error.reason)"
+      ]
+    },
+    {
+      "title": "イベントを取得して読む",
+      "description": "取得したイベントのtypeに応じて属性を読みます。pokeの位置を使う前には座標系の一致を確認します。",
+      "code": [
+        "batch = mc.pollEvents(max_events=16)",
+        "for event in batch.events:",
+        "    if event.type == \"pickaxe_poke\":",
+        "        mc.assertEventContext(event)",
+        "        print(event.pos, event.block.block_id)",
+        "    elif event.type == \"chat_posted\":",
+        "        print(event.message)",
+        "    elif event.type == \"projectile_hit\":",
+        "        print(event.pos, event.target.kind)"
+      ]
+    },
+    {
+      "title": "ブロック設置のモードを変える",
+      "description": "TRACEへ切り替え、現在のモードと待ち時間を読みます。",
+      "code": [
+        "from mc_remote.minecraft import BuildMode",
+        "",
+        "mc.setBuildMode(BuildMode.TRACE, trace_delay=0.1)",
+        "print(mc.build_mode, mc.trace_delay)"
+      ]
+    },
+    {
+      "title": "補完ファイルを更新する",
+      "description": "現在のプロジェクトへ補完を生成します。Git管理下では先にmcremote initでignoreを設定します。",
+      "code": [
+        "path = mc.sync_constants()",
+        "if path is not None:",
+        "    print(path)"
+      ]
+    }
+  ]
+}

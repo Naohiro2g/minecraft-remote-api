@@ -46,6 +46,9 @@ jobs:
           python-version: "3.13"
           enable-cache: true
 
+      - name: Check client API reference draft
+        run: uv run --frozen python scripts/build_client_api_reference.py --check
+
       - run: uv build
 
       - run: uv run python scripts/check_wirescope_wheel.py dist/*.whl
