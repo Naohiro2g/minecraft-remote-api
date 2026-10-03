@@ -1,9 +1,8 @@
 # Windows 11からB8を導入する
 
 クリーンインストールのWindows 11で、Gitを入れずにuv、B8のwheel、JupyterLabまで導入する手順です。
-実行担当はknowledge coordinatorが指定します。この手順のWindows実機検証は未実施です。
-試験開始前に、coordinatorから凍結したRelease wheelのURLと版を受け取ってください。
-URLがまだない場合は、手順3で止めます。
+対象は公開済みの `2320.0.0b8` です。実行担当はhuman owner（プロジェクトオーナー）です。
+Windows実機での結果はまだ記録されていません。以下の確定したRelease wheelのURLで進めます。
 
 ## 1. uvを入れる
 
@@ -35,12 +34,12 @@ uv init --python 3.13
 
 同名のフォルダがある場合は別名にします。Pythonのdownloadを求められた場合は完了を待ちます。
 
-## 3. 凍結したwheelを追加する
+## 3. 公開済みのB8 wheelを追加する
 
-下の山括弧を含む文字列全体を、受け取ったHTTPSのwheel URLに置き換えます。
+次をそのまま実行します。
 
 ```powershell
-$b8WheelUrl = '<coordinatorから受け取ったRelease wheelのURL>'
+$b8WheelUrl = 'https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v2320.0.0b8/minecraft_remote_api-2320.0.0b8-py3-none-any.whl'
 uv add $b8WheelUrl
 ```
 
@@ -53,7 +52,7 @@ uv add $b8WheelUrl
 uv run python -c "from mc_remote import Minecraft; from importlib.metadata import version; print(version('minecraft-remote-api')); print(Minecraft.__name__)"
 ```
 
-指定されたB8の版と `Minecraft` が出れば成功です。この操作でMinecraftのserverには接続しません。
+`2320.0.0b8` と `Minecraft` が出れば成功です。この操作でMinecraftのserverには接続しません。
 
 ## 5. JupyterLabを追加して開く
 
@@ -72,7 +71,7 @@ print(version("minecraft-remote-api"))
 print(Minecraft.__name__)
 ```
 
-指定版と `Minecraft` が表示されたら完了です。終了時はNotebookを保存し、PowerShellでCtrl+Cを押して
+`2320.0.0b8` と `Minecraft` が表示されたら完了です。終了時はNotebookを保存し、PowerShellでCtrl+Cを押して
 JupyterLabを止めます。[uv公式のJupyter案内](https://docs.astral.sh/uv/guides/integration/jupyter/)も参照できます。
 
 ## 途中で止まった場合

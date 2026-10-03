@@ -1,7 +1,10 @@
 # B8 Python API の利用例
 
-開発中の `2320.0.0b8` は protocol `23.2.0` 対応のMcRemoteへ接続します。
+公開済みの [`2320.0.0b8`](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2320.0.0b8) は
+protocol `23.2.0` 対応のMcRemoteへ接続します。Minecraft Java版 `1.21.11` の通常dev環境で実機確認済みです。
 公開済みの導入手順は [README](../README.md) を参照してください。
+公開APIの全体像は [Protocol API一覧](https://mc-remote.com/api/) から確認できます。掲載対象のreleaseはページ冒頭に表示されています。
+一覧は通信上の名前・引数・応答を載せています。Pythonの `mc.playSound()` などの書き方は、このガイドの作例を参照してください。
 引数・error・数値規則の正本は [wire §5.0.2／§5.8.3](https://github.com/Naohiro2g/mc-remote-knowledge/blob/fd29db757c07f993155842ecc88b1c39558611a9/10-protocol/wire-format-design_ja.md) です。
 
 ## Importとpygame
@@ -127,5 +130,12 @@ Pythonの引数・応答・error投影とobserverのraw wire投影を143テス�
 server内部の検索・WorkAdmission・handle transactionの検証は行いません。
 wireの `null` とPythonキーワードの `None`（省略）は区別して検証します。
 サウンドとresource IDに対応した共通WireScope appを、coordinator指定の固定sourceからbuildして同梱しています。
-実plugin往復、2-playerのself配送・dust／block描画・音、1.21.11、Windowsでの確認は実機検証に残ります。
-VS Code／Jupyterでの補完表示も人間の確認に残ります。
+
+2026-10-03の [正式なb8実機記録](https://github.com/Naohiro2g/mc-remote-knowledge/blob/e3812c25768a8c69b54e3c336eb7b1cdeb3243fc/14-evidence/records/2026-10-03-b8-dev-live_ja.md) では、
+保存tokenのb7→b8継続、entity lifecycle、ParticleSpec、サウンド2 method、block取得と復元、
+3D graphの81往復、WireScopeのframe表示を通常devのMinecraft `1.21.11` で確認しました。
+2-playerの `self`／`world` 配送、dust／block描画、音の定位・noteの音階、graph描画もhuman ownerが確認しています。
+Java版とiPad（Bedrock、Geyser経由）の組合せでは、iPadのdustの大きさが変わらない制限が記録されています。
+
+この結果は記録にある環境での確認です。正確な可聴距離・減衰曲線・音高の測定、全resource IDの描画・聴取、
+capacity／soak／rollback、Windows実機、Paper 26.x、VS Code／Jupyterでの補完表示は未確認です。

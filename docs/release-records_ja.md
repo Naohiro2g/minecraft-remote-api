@@ -1,6 +1,6 @@
-# リリースごとの確認記録（b3〜b7）
+# リリースごとの確認記録
 
-旧 `PUBLISHING.md` に置いていた、release ごとの確認手順と成果物の記録です。内容は当時のまま移しました。
+リリースごとの成果物と確認結果を記録します。
 現行の公開手順は [`PUBLISHING.md`](../PUBLISHING.md) を見てください。
 
 ## b3 GitHub pre-release 確認
@@ -118,3 +118,53 @@ damage／fire／rod／copper／entity変化、visual／audio、event cancellatio
 deterministic client testからlive PASSを導かない。b7 live gateはcoordinator指定のexact setで
 完了しており、記録済み結果を別serverへ一般化しない。
 
+## b8 / protocol 23.2 GitHub prerelease 確認（released）
+
+`2320.0.0b8`は2026-10-03に公開したprotocol `23.2.0`のGitHub prereleaseです。
+entity lifecycle、ParticleSpec、サウンド2 method、短いimport、`pygame` extraを追加しました。
+TestPyPIにも公開済みで、PyPI.orgには公開していません。
+
+- release: [`v2320.0.0b8`](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2320.0.0b8)
+- tag target: `52d35f5304e62f465c1f47ab47c00fe9bcf62470`（公開時に`main`へfast-forward統合）
+- prerelease=true、draft=false、Latest非対象
+- exact compatibility set: `b8-integrated-artifact-set-1`
+- 対応Minecraft: Java版 `1.21.11`。実機確認は通常devのPaper `1.21.11-132`で実施
+
+公開Release asset:
+
+| file | bytes | SHA-256 |
+| --- | ---: | --- |
+| `minecraft_remote_api-2320.0.0b8-py3-none-any.whl` | 195,068 | `dcedff010feac0d5df24ff85dd84b321fb819f78563c39431ac32d9d75bc0180` |
+| `minecraft_remote_api-2320.0.0b8.tar.gz` | 188,775 | `9d56d92b10936787e1eebc1cf85a521ea19aa2e57b391f474eb695b0ba3fad32` |
+| `manifest.json` | 681 | `7aa2868f1d9fc75b414cb37ac8d0886d390691d7b169f060def99248e29d9fc0` |
+
+- [公開前CI run `37113256520`](https://github.com/Naohiro2g/minecraft-remote-api/actions/runs/37113256520)はPython 3.10〜3.13とbuildがsuccess。
+  wheel／sdistが凍結したcandidateのbytes／SHA-256に一致してから公開しました。
+- [release workflow `37113530599`](https://github.com/Naohiro2g/minecraft-remote-api/actions/runs/37113530599)の
+  `promote`／`publish-testpypi`がsuccess。公開後にRelease assetを実downloadし、bytes／SHA-256を再照合しました。
+- [TestPyPI `2320.0.0b8`](https://test.pypi.org/project/minecraft-remote-api/2320.0.0b8/)のwheel／sdistも同じbytes／SHA-256、yanked=falseを確認。
+- 公開manifestはschema `mc-remote.release-manifest` v1、release tag／source commitは上記identity。
+  `bundled_wirescope_source_commit`は`df34849d2502a498a06c5fe07a91d03e925124eb`です。
+- 同梱WireScopeはScratchのこのsourceから生成し、ZIPは83,746 bytes／
+  `4cb349894b71d61d7ca143d8362a5b79deb1810e1d7a9e31ad30e29bfe370a07`、manifestは2,321 bytes／
+  `45d56d5012c2c0b21631597e160363d93bcf3e736b74cc0b8a1041afc8101413`に一致。
+- owner fixture: `scratch-editor@054a3af017f1abb8cc01cf85b3bc83181e648e19`の
+  `mc-remote/protocol/test/fixtures/entity-particle-v23.2.json`、36,481 bytes、111 case、
+  SHA-256 `ca636b4a2685ea67f24d8e7931e3d30a84e7cec872bb5c5d2eadd178cdac39f2`。
+- exact compatible McRemote: [`v1.21.11-2320.0.0b8`](https://github.com/Naohiro2g/McRemote/releases/tag/v1.21.11-2320.0.0b8)@`8f13b2f4dc14798899ab5153a0a647c2dea7aa18`
+- exact compatible Scratch: [`v2320.0.0b8`](https://github.com/Naohiro2g/scratch-editor/releases/tag/v2320.0.0b8)@`691576f60b7f0824e1753bd6823901d01fbe2422`。
+  Python同梱WireScopeは、coordinatorが同じZIP bytesを確認した上記`df34849`由来のままです。
+
+正式な [b8 dev live record](https://github.com/Naohiro2g/mc-remote-knowledge/blob/e3812c25768a8c69b54e3c336eb7b1cdeb3243fc/14-evidence/records/2026-10-03-b8-dev-live_ja.md) に、
+b7からb8への実token継続、Python代表往復、WireScope表示、2-playerの描画とサウンドの確認を記録しています。
+Python segmentではentity lifecycle、ParticleSpec、`playSound`、`getBlock`と復元、`playBlockSound`の5 kind、
+3D graphの81往復、無印resource ID、短いimportを確認しました。
+
+knowledgeの [b8 gate close記録](https://github.com/Naohiro2g/mc-remote-knowledge/blob/e3812c25768a8c69b54e3c336eb7b1cdeb3243fc/00-hub/release-gate-notes_ja.md)
+（2026-09-30節）では、human ownerの判断で2026-10-03にCLOSEDです。
+搬送素材は [正式artifact一覧](https://github.com/Naohiro2g/mc-remote-knowledge/blob/e3812c25768a8c69b54e3c336eb7b1cdeb3243fc/14-evidence/artifacts/2026-10-03-b8-dev-live/INVENTORY_ja.md) に収容し、
+Python原本は`d0e4e085fafba41177e0ed19a82b4d1e1915d49a`での全文・SHA-256一致を確認して整理しました。
+
+Windows実機、Paper 26.x、capacity／soak／rollback、正確な可聴距離・減衰曲線・音高の測定は未確認です。
+Bedrock（Geyser経由）ではdustの大きさが変わらない制限があります。
+Windowsの入口ルートは [公開wheelを使う手順](windows-b8-entry_ja.md) をhuman ownerが確認し、結果をb9へ引き継ぎます。
