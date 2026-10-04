@@ -65,6 +65,7 @@ uv lock --check
 ## 3. 候補 artifact（`ci.yml`）
 
 `main` への push で `ci.yml` が動きます。
+共有fixtureと同梱WireScopeを更新する場合は、[toolingからの取り込み手順](docs/tooling-consumption_ja.md) で取得元とbytesを確認します。
 
 - `test` job：Python 3.10／3.11／3.12／3.13 の matrix で `uv lock --check` と pytest。
 - `build-candidate` job：`uv build`、WireScope 同梱の検査、`manifest.json` 生成、workflow artifact `minecraft-remote-api-dist`（保持 90 日）として保存。
@@ -257,7 +258,7 @@ Trusted Publisherの登録値、GitHub environment、実行と確認の具体的
   "schema_version": 1,
   "release_tag": "v<version>",
   "source_commit": "<このrepoのcommit>",
-  "bundled_wirescope_source_commit": "<同梱WireScopeの由来commit（scratch-editor）>",
+  "bundled_wirescope_source_commit": "<同梱WireScopeの由来commit（minecraft-remote-tooling）>",
   "artifacts": [
     { "role": "wheel", "kind": "https-file", "file": "...", "sha256": "..." },
     { "role": "sdist", "kind": "https-file", "file": "...", "sha256": "..." }

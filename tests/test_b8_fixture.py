@@ -26,7 +26,9 @@ SOURCE = json.loads((ROOT / "entity-particle-v23.2.source.json").read_text())
 def test_owner_fixture_exact_identity_and_111_case_inventory():
     assert hashlib.sha256(FIXTURE_PATH.read_bytes()).hexdigest() == SOURCE["sha256"]
     assert len(FIXTURE_PATH.read_bytes()) == SOURCE["bytes"] == 36481
-    assert SOURCE["commit"] == "054a3af017f1abb8cc01cf85b3bc83181e648e19"
+    assert SOURCE["repository"] == "Naohiro2g/minecraft-remote-tooling"
+    assert SOURCE["commit"] == "dc1ab834183e29f2eb03059b07e99d2b463776ee"
+    assert SOURCE["path"] == "packages/protocol/test/fixtures/entity-particle-v23.2.json"
     assert FIXTURE["protocol"] == PROTOCOL == "23.2.0"
     assert FIXTURE["knowledge_contract"] == SOURCE["knowledge_contract"]
     assert FIXTURE["knowledge_contract"]["decisions"] == ["2026-09-30-01", "2026-09-30-02", "2026-09-30-06"]

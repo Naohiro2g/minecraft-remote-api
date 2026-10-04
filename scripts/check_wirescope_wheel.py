@@ -20,12 +20,12 @@ MANIFEST_PATH = PurePosixPath(
 )
 EXPECTED_FILES = {
     ARCHIVE_PATH: (
-        83746,
-        "4cb349894b71d61d7ca143d8362a5b79deb1810e1d7a9e31ad30e29bfe370a07",
+        83854,
+        "da3da0b6cf4d05265bc0c11abaa4913208c7cfc3600b0c3e78c93a356fc431ad",
     ),
     MANIFEST_PATH: (
-        2321,
-        "45d56d5012c2c0b21631597e160363d93bcf3e736b74cc0b8a1041afc8101413",
+        2339,
+        "c654f7d1f0be2773d6737e889279b2587317088717f162b082c82be9cff910d7",
     ),
 }
 LICENSE_EXPRESSION = "MIT AND AGPL-3.0-only"
@@ -35,8 +35,8 @@ LICENSE_FILES = {
     "LICENSES/WireScope-NOTICE.txt",
 }
 SOURCE_URL = (
-    "https://github.com/Naohiro2g/scratch-editor/tree/"
-    "df34849d2502a498a06c5fe07a91d03e925124eb/mc-remote/live"
+    "https://github.com/Naohiro2g/minecraft-remote-tooling/tree/"
+    "dc1ab834183e29f2eb03059b07e99d2b463776ee/packages/live"
 )
 
 

@@ -52,9 +52,9 @@ def test_shared_fixture_identity_and_33_case_inventory():
     assert hashlib.sha256(body).hexdigest() == SOURCE["sha256"] == (
         "670b0a86df1956c0e44c6986a0a2598caab32c7328804f9c703190e62e9dd727"
     )
-    assert SOURCE["repository"] == "Naohiro2g/scratch-editor"
-    assert SOURCE["commit"] == "62e46fd156a55c57794227d370a72f3558aa43d8"
-    assert SOURCE["path"] == "mc-remote/protocol/test/fixtures/chat-event-compat-v23.2.json"
+    assert SOURCE["repository"] == "Naohiro2g/minecraft-remote-tooling"
+    assert SOURCE["commit"] == "dc1ab834183e29f2eb03059b07e99d2b463776ee"
+    assert SOURCE["path"] == "packages/protocol/test/fixtures/chat-event-compat-v23.2.json"
     assert FIXTURE["schema"] == "mcremote.chat-event-compat.v23.2"
     assert FIXTURE["protocol"] == PROTOCOL == "23.2.0"
     assert FIXTURE["knowledge_contract"] == SOURCE["knowledge_contract"]

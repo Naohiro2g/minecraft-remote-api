@@ -1,6 +1,6 @@
 """Local consumers of B9 contracts at knowledge 900f6f4.
 
-Shared successor fixtures will be consumed separately after owner publication.
+Additional owner-fixture consumers are in ``test_b9_fixture.py``.
 """
 
 import copy

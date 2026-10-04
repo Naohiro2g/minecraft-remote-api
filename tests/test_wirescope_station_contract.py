@@ -30,19 +30,21 @@ def contract_fixture():
     return json.loads(CONTRACT_FIXTURE.read_text(encoding="utf-8"))
 
 
-def test_station_fixture_has_fixed_scratch_and_knowledge_provenance():
+def test_station_fixture_has_fixed_tooling_and_knowledge_provenance():
     source = json.loads(CONTRACT_SOURCE.read_text(encoding="utf-8"))
     assert source == {
-        "repository": "Naohiro2g/scratch-editor",
-        "branch": "agent/wirescope-session-artifact",
-        "commit": "192d1e3ccd213fb5012b92655e51b779270e15be",
-        "path": "mc-remote/live/test/fixtures/station-attach-v1.json",
+        "repository": "Naohiro2g/minecraft-remote-tooling",
+        "branch": "main",
+        "commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+        "path": "packages/live/test/fixtures/station-attach-v1.json",
         "sha256": (
             "b50ce8e0cb8a6bb06f75d9bdad59b83"
             "006c92683bd73ced84a18223dde21fa81"
         ),
         "knowledge_commit": "c9cf761453d67d120ec54a1b246e8f5e80a6160c",
         "decision_id": "2026-08-12-01",
+        "bytes": 2437,
+        "migration_knowledge_commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100",
     }
     assert hashlib.sha256(CONTRACT_FIXTURE.read_bytes()).hexdigest() == source[
         "sha256"

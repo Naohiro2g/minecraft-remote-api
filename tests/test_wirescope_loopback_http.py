@@ -20,7 +20,7 @@ import mc_remote.wirescope as wirescope
 
 
 SOURCE_COMMIT = "192d1e3ccd213fb5012b92655e51b779270e15be"
-BUNDLED_APP_SOURCE_COMMIT = "df34849d2502a498a06c5fe07a91d03e925124eb"
+BUNDLED_APP_SOURCE_COMMIT = "dc1ab834183e29f2eb03059b07e99d2b463776ee"
 HELLO = {
     "protocol": "22.0.0",
     "mc_version": "1.21.11",
@@ -65,12 +65,12 @@ def app_fixture():
             "sha256": sha256(archive_bytes),
         },
         "source": {
-            "repository": "https://github.com/Naohiro2g/scratch-editor",
+            "repository": "https://github.com/Naohiro2g/minecraft-remote-tooling",
             "commit": SOURCE_COMMIT,
-            "subdirectory": "mc-remote/live",
+            "subdirectory": "packages/live",
             "corresponding_source_url": (
-                "https://github.com/Naohiro2g/scratch-editor/tree/"
-                f"{SOURCE_COMMIT}/mc-remote/live"
+                "https://github.com/Naohiro2g/minecraft-remote-tooling/tree/"
+                f"{SOURCE_COMMIT}/packages/live"
             ),
         },
         "build": {

@@ -150,20 +150,22 @@ def test_b5_python_source_emits_exactly_one_main_stream():
     assert [stream["kind"] for stream in snapshot["streams"]] == ["main"]
 
 
-def test_default_display_alias_generator_conforms_to_scratch_fixture(monkeypatch):
+def test_default_display_alias_generator_conforms_to_tooling_fixture(monkeypatch):
     contract = json.loads(ALIAS_FIXTURE.read_text(encoding="utf-8"))
     source_metadata = json.loads(ALIAS_SOURCE.read_text(encoding="utf-8"))
     assert source_metadata == {
-        "repository": "Naohiro2g/scratch-editor",
-        "branch": "develop",
-        "commit": "3b3d1f1c8a0dd66d265c5c6ea515cc5ac291209b",
-        "path": "mc-remote/live/test/fixtures/display-alias-v1.json",
+        "repository": "Naohiro2g/minecraft-remote-tooling",
+        "branch": "main",
+        "commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+        "path": "packages/live/test/fixtures/display-alias-v1.json",
         "sha256": (
             "85c8159a8b74788c0cf978078094d23a"
             "3cdae83c0be5e9aa9552bb820c8389ca"
         ),
         "knowledge_commit": "83f44dc5c3d309e080e3007a0d86a0c180b9fdb8",
         "decision_id": "2026-08-12-03",
+        "bytes": 322,
+        "migration_knowledge_commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100",
     }
     assert hashlib.sha256(ALIAS_FIXTURE.read_bytes()).hexdigest() == (
         source_metadata["sha256"]

@@ -1,6 +1,6 @@
 """Detached WireScope artifact parsing and integrity primitives.
 
-The shared Scratch generator owns the versioned manifest field names.  This
+The shared tooling generator owns the versioned manifest field names.  This
 module therefore implements only the consumer boundaries that are already
 stable across profiles: strict detached-JSON parsing, an externally pinned
 manifest digest, and archive-byte verification against the digest supplied by
@@ -25,8 +25,8 @@ MANIFEST_VERSION = 1
 ARCHIVE_FILENAME = "wirescope-app.zip"
 ARCHIVE_FORMAT = "zip"
 ARCHIVE_FORMAT_VERSION = 1
-SOURCE_REPOSITORY = "https://github.com/Naohiro2g/scratch-editor"
-SOURCE_SUBDIRECTORY = "mc-remote/live"
+SOURCE_REPOSITORY = "https://github.com/Naohiro2g/minecraft-remote-tooling"
+SOURCE_SUBDIRECTORY = "packages/live"
 LICENSE_EXPRESSION = "AGPL-3.0-only"
 JAVASCRIPT_MAX_SAFE_INTEGER = (1 << 53) - 1
 

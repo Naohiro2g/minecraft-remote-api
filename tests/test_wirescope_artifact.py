@@ -56,17 +56,17 @@ def artifact_fixture(*, manifest_update=None, asset_payloads=None):
             "sha256": sha256(archive_bytes),
         },
         "source": {
-            "repository": "https://github.com/Naohiro2g/scratch-editor",
+            "repository": "https://github.com/Naohiro2g/minecraft-remote-tooling",
             "commit": SOURCE_COMMIT,
-            "subdirectory": "mc-remote/live",
+            "subdirectory": "packages/live",
             "corresponding_source_url": (
-                "https://github.com/Naohiro2g/scratch-editor/tree/"
-                f"{SOURCE_COMMIT}/mc-remote/live"
+                "https://github.com/Naohiro2g/minecraft-remote-tooling/tree/"
+                f"{SOURCE_COMMIT}/packages/live"
             ),
         },
         "build": {
             "recipe": (
-                "npm ci && npm run build:artifact --workspace=@mc-remote/live"
+                "npm ci && npm run build:artifact --workspace=@packages/live"
                 f" -- --source-commit {SOURCE_COMMIT}"
             ),
             "toolchain": {

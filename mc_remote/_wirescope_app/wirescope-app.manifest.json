@@ -5,16 +5,16 @@
     "file": "wirescope-app.zip",
     "format": "zip",
     "format_version": 1,
-    "sha256": "4cb349894b71d61d7ca143d8362a5b79deb1810e1d7a9e31ad30e29bfe370a07"
+    "sha256": "da3da0b6cf4d05265bc0c11abaa4913208c7cfc3600b0c3e78c93a356fc431ad"
   },
   "source": {
-    "repository": "https://github.com/Naohiro2g/scratch-editor",
-    "commit": "df34849d2502a498a06c5fe07a91d03e925124eb",
-    "subdirectory": "mc-remote/live",
-    "corresponding_source_url": "https://github.com/Naohiro2g/scratch-editor/tree/df34849d2502a498a06c5fe07a91d03e925124eb/mc-remote/live"
+    "repository": "https://github.com/Naohiro2g/minecraft-remote-tooling",
+    "commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+    "subdirectory": "packages/live",
+    "corresponding_source_url": "https://github.com/Naohiro2g/minecraft-remote-tooling/tree/dc1ab834183e29f2eb03059b07e99d2b463776ee/packages/live"
   },
   "build": {
-    "recipe": "npm ci && npm run build:artifact --workspace=@mc-remote/live -- --source-commit df34849d2502a498a06c5fe07a91d03e925124eb",
+    "recipe": "npm ci && npm run build:artifact --workspace=@mc-remote/live -- --source-commit dc1ab834183e29f2eb03059b07e99d2b463776ee",
     "toolchain": {
       "node": "24.19.0",
       "rolldown-vite": "7.3.1",
@@ -22,9 +22,9 @@
       "jszip": "3.10.1"
     },
     "input_identity": {
-      "source_commit": "df34849d2502a498a06c5fe07a91d03e925124eb",
+      "source_commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
       "package_json_sha256": "84b74060253ef940952db82c24e1cee4d18d652ae11449ee601a92d1f72a6bbe",
-      "package_lock_sha256": "9756bf3b70d4c00390a75eb49b22b364f3409665f8c356e4e8c959ffda2c4f2b"
+      "package_lock_sha256": "7eacbd1836e00e6172fd7ef92b9abbd3fc8e5c41d29112ee123626a3cc0a1eea"
     }
   },
   "protocols": {
@@ -48,24 +48,24 @@
       "sha256": "a5a1f4e50ffa47063bc2cd9c903d167f6723db3bcf38c76007f7be6824bde8b0"
     },
     {
-      "path": "assets/index-BBrN1Qw3.js",
-      "bytes": 66205,
-      "sha256": "82f9ffa023c1fbfed216a2b7deb0c343acb31b3f815942c6fc35584562085aa4"
+      "path": "assets/index-Cyf0-Z5r.css",
+      "bytes": 9235,
+      "sha256": "7188a9e9ac2c001253b016567d02de343dd9a932eaf638e3eb73597c656b99df"
     },
     {
-      "path": "assets/index-BBrN1Qw3.js.map",
-      "bytes": 200640,
-      "sha256": "8f65f0d31fdd45191878b08e8a85f34cad80b50977cfa3800e10311ac613fd8e"
+      "path": "assets/index-l-OCrrUC.js",
+      "bytes": 66280,
+      "sha256": "77a897ac49b79f9cc1551d2241d90a2c03d937c6bddd62d53ae2bcc9a263a048"
     },
     {
-      "path": "assets/index-cdgTmXph.css",
-      "bytes": 9169,
-      "sha256": "0563b68d6abbb713b1728ee108f07bf936db81aea694ceef65af19b9a1c01462"
+      "path": "assets/index-l-OCrrUC.js.map",
+      "bytes": 200727,
+      "sha256": "13be23df5275321651a5c3f300cae8f278019fa79ca4f94e7a797b14fd1d11cb"
     },
     {
       "path": "index.html",
       "bytes": 674,
-      "sha256": "e4d516524769a1f230537a5762c96e2ff51ea29f7d85a385384ae0d1b445bd13"
+      "sha256": "b5b076dce86902b8780356ee79f146d610113d0e6f90e8bd40db437fe57adb8d"
     }
   ],
   "license_expression": "AGPL-3.0-only"

@@ -188,4 +188,5 @@ pyenv／pip／Poetryを使っていた方は [uvへの移行ガイド](https://g
 
 - Python クライアントコード本体: **MIT License**
 - 同梱 WireScope browser app (`@mc-remote/live`): **AGPL-3.0-only**
+  - sourceは [minecraft-remote-tooling](https://github.com/Naohiro2g/minecraft-remote-tooling/tree/main/packages/live) にあります。各配布物の対応commitは同梱manifestとpackage metadataの`WireScope Source`で確認できます。
   - ソースコード、ライセンス条項、アセットハッシュ値の検証データは [GitHub Releases](https://github.com/Naohiro2g/minecraft-remote-api/releases) および [`LICENSE`](https://github.com/Naohiro2g/minecraft-remote-api/blob/main/LICENSE) を参照してください。

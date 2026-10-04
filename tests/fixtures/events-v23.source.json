@@ -1,0 +1,9 @@
+{
+  "repository": "Naohiro2g/minecraft-remote-tooling",
+  "branch": "main",
+  "commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+  "path": "packages/protocol/test/fixtures/events-v23.json",
+  "bytes": 2112,
+  "sha256": "31760d267f3c2641042fbe8595fda9c259134a1c05423271a99cb74da1efa9aa",
+  "migration_knowledge_commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100"
+}

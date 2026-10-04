@@ -1,0 +1,9 @@
+{
+  "repository": "Naohiro2g/minecraft-remote-tooling",
+  "branch": "main",
+  "commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+  "path": "packages/protocol/test/fixtures/sign-v23.json",
+  "bytes": 5043,
+  "sha256": "7ffb63c264602cba56117eefff1f9604b955df04c5cc655e877772b8ff7cd30e",
+  "migration_knowledge_commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100"
+}

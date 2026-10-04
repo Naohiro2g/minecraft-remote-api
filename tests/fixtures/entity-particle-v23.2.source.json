@@ -1,7 +1,7 @@
 {
-  "repository": "Naohiro2g/scratch-editor",
-  "commit": "054a3af017f1abb8cc01cf85b3bc83181e648e19",
-  "path": "mc-remote/protocol/test/fixtures/entity-particle-v23.2.json",
+  "repository": "Naohiro2g/minecraft-remote-tooling",
+  "commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+  "path": "packages/protocol/test/fixtures/entity-particle-v23.2.json",
   "sha256": "ca636b4a2685ea67f24d8e7931e3d30a84e7cec872bb5c5d2eadd178cdac39f2",
   "knowledge_commit": "fd29db757c07f993155842ecc88b1c39558611a9",
   "knowledge_contract": {
@@ -17,5 +17,7 @@
       "2026-09-30-06"
     ]
   },
-  "bytes": 36481
+  "bytes": 36481,
+  "branch": "main",
+  "migration_knowledge_commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100"
 }

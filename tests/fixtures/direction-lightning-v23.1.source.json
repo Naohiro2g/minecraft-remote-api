@@ -1,0 +1,9 @@
+{
+  "repository": "Naohiro2g/minecraft-remote-tooling",
+  "branch": "main",
+  "commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+  "path": "packages/protocol/test/fixtures/direction-lightning-v23.1.json",
+  "bytes": 20367,
+  "sha256": "586d24bf40136eec31f1827f23ef5b317f15100a17a635d7fe9f165e0af40dce",
+  "migration_knowledge_commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100"
+}

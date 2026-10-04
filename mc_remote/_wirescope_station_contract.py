@@ -1,7 +1,7 @@
 """WireScope same-origin station attach protocol v1 primitives.
 
-The constants and shapes in this module conform to the shared Scratch fixture
-``mc-remote/live/test/fixtures/station-attach-v1.json``.  This is a transport
+The constants and shapes in this module conform to the shared tooling fixture
+``packages/live/test/fixtures/station-attach-v1.json``.  This is a transport
 contract layer; it does not start an HTTP server or synthesize the browser's
 local ``transport-lost`` state.
 """
