@@ -5,6 +5,7 @@
 source checkoutのrootで`uv sync --frozen`を済ませてから、このdirectoryで実行します。
 現行公開betaの取得から始める場合は、top-level [`README.md`](../README.md) の
 「3分で動かす（最短クイックスタート）」を使ってください。
+公開版の更新や元の版への復帰は、[更新手順](../docs/update-rollback_ja.md)を参照してください。
 
 source checkoutを使う場合は、coordinatorが指定した対応server candidateへ接続してください。
 公開版から始める場合はtop-level READMEの取得先と対応serverを使います。
@@ -56,7 +57,7 @@ uv run python with_completion.py
 この例はstarter座標`(6, 67, 5)`と`(7, 67, 5)`を変更したまま残します。観察後は、同じ
 接続／build originでそれぞれを`air`へ戻せます。
 
-## 5. 現行b6のsignを試す
+## 5. 看板の読み書きを試す
 
 ```bash
 uv run python b6_sign.py
@@ -74,7 +75,7 @@ Enterを押すか途中で中断すると、`finally`でその位置をairへ戻
 - 利用API: `setBuildOrigin()`、`setBlock()`、`setSign()`、`getSign()`
 - 成熟状態: 公開済みb6 APIのREADME隣接example
 
-## 6. b7 direction／full lightningを試す
+## 6. 方向の操作と雷を試す
 
 directionとlightningに対応するserverへ接続するよう、local
 `param_mc_remote.py`を設定してから実行します。

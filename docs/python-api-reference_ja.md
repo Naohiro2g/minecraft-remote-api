@@ -819,6 +819,7 @@ mc.pollEvents(max_events = None) -> EventBatch
 
 - Pythonが取得位置のカーソルを管理し、正常な応答を確認したあとに進めます。再接続時はカーソルをリセットします。
 - 未知のイベントは共通fieldと順序を検査してからeventsから省きます。through_sequenceとloss counterはサーバーの値を保持します。
+- 同じ接続でlatest_sequenceや累積loss counterが逆行した場合は応答を拒否し、取得位置を進めません。再接続時は前回値もリセットします。
 - max_eventsは正の整数、省略するとサーバーの取得件数を使います。
 - 各イベントは発生時のdimensionとoriginを持ちます。位置を建築に使う前にassertEventContext()で現在の原点と合うかを確認できます。
 

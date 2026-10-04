@@ -26,6 +26,7 @@ uv add https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v2320
 
 現在は、新プロトコル版がPyPIに未登録なので、GitHub.comのリリースに添付されたパッケージを使います。
 b9からPyPIへの公開を予定しています。公開前の準備状況と手順は [PyPI公開ガイド](docs/pypi-publication_ja.md) にまとめています。
+導入済み環境を変更する場合は [更新と元の版への復帰](docs/update-rollback_ja.md) を参照してください。
 
 ### Step 2: 最小コード（`hello.py`）を書く
 
