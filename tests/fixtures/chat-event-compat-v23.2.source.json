@@ -1,0 +1,21 @@
+{
+  "repository": "Naohiro2g/scratch-editor",
+  "commit": "62e46fd156a55c57794227d370a72f3558aa43d8",
+  "path": "mc-remote/protocol/test/fixtures/chat-event-compat-v23.2.json",
+  "bytes": 32382,
+  "sha256": "670b0a86df1956c0e44c6986a0a2598caab32c7328804f9c703190e62e9dd727",
+  "cases": 33,
+  "knowledge_commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100",
+  "knowledge_contract": {
+    "commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100",
+    "path": "10-protocol/wire-format-design_ja.md",
+    "sections": [
+      "4",
+      "5.4"
+    ],
+    "decisions": [
+      "2026-10-03-01",
+      "2026-10-03-02"
+    ]
+  }
+}

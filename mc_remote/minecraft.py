@@ -263,6 +263,7 @@ class Minecraft:
         self.permissions = None
         self._event_cursor = 0
         self._event_epoch = getattr(connection, "epoch", None)
+        self._last_event_batch = None
 
     def hello(self, auth_token=None):
         """Handshake. Declares this client's protocol (and, if held, its auth
@@ -692,6 +693,7 @@ class Minecraft:
         if epoch != self._event_epoch:
             self._event_cursor = 0
             self._event_epoch = epoch
+            self._last_event_batch = None
         after_sequence = self._event_cursor
         params = [after_sequence]
         if max_events is not None:
@@ -703,7 +705,17 @@ class Minecraft:
             params.append({"max_events": max_events_value})
         result = self.conn.rpc("events.poll", params)
         batch = decode_event_batch(result, after_sequence=after_sequence)
+        previous = self._last_event_batch
+        if previous is not None:
+            if batch.latest_sequence < previous.latest_sequence:
+                raise McRemoteError("events.poll latest_sequence moved backwards")
+            if any(
+                batch.loss_totals[key] < previous.loss_totals[key]
+                for key in previous.loss_totals
+            ):
+                raise McRemoteError("events.poll loss counter moved backwards")
         self._event_cursor = batch.through_sequence
+        self._last_event_batch = batch
         return batch
 
     def assertEventContext(self, event: EventValue) -> None:

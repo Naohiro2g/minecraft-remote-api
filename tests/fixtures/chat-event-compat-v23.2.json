@@ -1,0 +1,1152 @@
+{
+  "schema": "mcremote.chat-event-compat.v23.2",
+  "protocol": "23.2.0",
+  "knowledge_contract": {
+    "commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100",
+    "path": "10-protocol/wire-format-design_ja.md",
+    "sections": ["4", "5.4"],
+    "decisions": ["2026-10-03-01", "2026-10-03-02"]
+  },
+  "notes": [
+    "future_event and another_future_event are synthetic opaque types, not new server APIs.",
+    "event_batches are stateless shape cases; stateful_rejections additionally require a client cursor and previous loss counters.",
+    "chat_post cases constrain acknowledged success results; notifications produce no response and errors retain their existing envelope."
+  ],
+  "chat_post": {
+    "method": "chat.post",
+    "params": ["hello"],
+    "cases": [
+      {
+        "id": "B9-C01",
+        "result": null,
+        "accept": true
+      },
+      {
+        "id": "B9-C02",
+        "result": "hello",
+        "accept": false
+      },
+      {
+        "id": "B9-C03",
+        "result": true,
+        "accept": false
+      },
+      {
+        "id": "B9-C04",
+        "result": 0,
+        "accept": false
+      },
+      {
+        "id": "B9-C05",
+        "result": "",
+        "accept": false
+      },
+      {
+        "id": "B9-C06",
+        "result": {},
+        "accept": false
+      },
+      {
+        "id": "B9-C07",
+        "result": [],
+        "accept": false
+      }
+    ]
+  },
+  "event_batches": {
+    "method": "events.poll",
+    "cases": [
+      {
+        "id": "B9-E01",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "pickaxe_poke",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "pos": [1, 2, 3],
+              "face": "up",
+              "block": {
+                "block_id": "minecraft:stone",
+                "state": {}
+              },
+              "hand": "main",
+              "item": "minecraft:diamond_pickaxe"
+            },
+            {
+              "sequence": 2,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "payload": {
+                "future": true
+              }
+            },
+            {
+              "sequence": 3,
+              "type": "chat_posted",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "message": "hello"
+            }
+          ],
+          "through_sequence": 3,
+          "latest_sequence": 3,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": true,
+        "expected_client": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "pickaxe_poke",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "pos": [1, 2, 3],
+              "face": "up",
+              "block": {
+                "block_id": "minecraft:stone",
+                "state": {}
+              },
+              "hand": "main",
+              "item": "minecraft:diamond_pickaxe"
+            },
+            {
+              "sequence": 3,
+              "type": "chat_posted",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "message": "hello"
+            }
+          ],
+          "cursor": 3,
+          "status": {
+            "cursor": 3,
+            "latestSequence": 3,
+            "overflowDroppedTotal": 0,
+            "capacityDroppedTotal": 0,
+            "explicitlyDiscardedTotal": 0
+          },
+          "lossDelta": 0
+        },
+        "expected_observer": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "pickaxe_poke",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "pos": [1, 2, 3],
+              "face": "up",
+              "block": {
+                "block_id": "minecraft:stone",
+                "state": {}
+              },
+              "hand": "main",
+              "item": "minecraft:diamond_pickaxe"
+            },
+            {
+              "sequence": 2,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            },
+            {
+              "sequence": 3,
+              "type": "chat_posted",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "message": "hello"
+            }
+          ],
+          "through_sequence": 3,
+          "latest_sequence": 3,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        }
+      },
+      {
+        "id": "B9-E02",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "payload": {
+                "nested": [1, 2]
+              }
+            }
+          ],
+          "through_sequence": 1,
+          "latest_sequence": 1,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": true,
+        "expected_client": {
+          "events": [],
+          "cursor": 1,
+          "status": {
+            "cursor": 1,
+            "latestSequence": 1,
+            "overflowDroppedTotal": 0,
+            "capacityDroppedTotal": 0,
+            "explicitlyDiscardedTotal": 0
+          },
+          "lossDelta": 0
+        },
+        "expected_observer": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 1,
+          "latest_sequence": 1,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        }
+      },
+      {
+        "id": "B9-E03",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "pickaxe_poke",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "pos": [1, 2, 3],
+              "face": "up",
+              "block": {
+                "block_id": "minecraft:stone",
+                "state": {}
+              },
+              "hand": "main",
+              "item": "minecraft:diamond_pickaxe"
+            },
+            {
+              "sequence": 4,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 4,
+          "latest_sequence": 6,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": true,
+        "expected_client": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "pickaxe_poke",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "pos": [1, 2, 3],
+              "face": "up",
+              "block": {
+                "block_id": "minecraft:stone",
+                "state": {}
+              },
+              "hand": "main",
+              "item": "minecraft:diamond_pickaxe"
+            }
+          ],
+          "cursor": 4,
+          "status": {
+            "cursor": 4,
+            "latestSequence": 6,
+            "overflowDroppedTotal": 0,
+            "capacityDroppedTotal": 0,
+            "explicitlyDiscardedTotal": 0
+          },
+          "lossDelta": 0
+        },
+        "expected_observer": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "pickaxe_poke",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "pos": [1, 2, 3],
+              "face": "up",
+              "block": {
+                "block_id": "minecraft:stone",
+                "state": {}
+              },
+              "hand": "main",
+              "item": "minecraft:diamond_pickaxe"
+            },
+            {
+              "sequence": 4,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 4,
+          "latest_sequence": 6,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        }
+      },
+      {
+        "id": "B9-E04",
+        "after_sequence": 3,
+        "previous_status": {
+          "cursor": 3,
+          "latestSequence": 4,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 5,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 7,
+          "latest_sequence": 8,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": true,
+        "expected_client": {
+          "events": [],
+          "cursor": 7,
+          "status": {
+            "cursor": 7,
+            "latestSequence": 8,
+            "overflowDroppedTotal": 0,
+            "capacityDroppedTotal": 0,
+            "explicitlyDiscardedTotal": 0
+          },
+          "lossDelta": 0
+        },
+        "expected_observer": {
+          "events": [
+            {
+              "sequence": 5,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 7,
+          "latest_sequence": 8,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        }
+      },
+      {
+        "id": "B9-E05",
+        "after_sequence": 5,
+        "previous_status": {
+          "cursor": 5,
+          "latestSequence": 6,
+          "overflowDroppedTotal": 2,
+          "capacityDroppedTotal": 1,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 8,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 9,
+          "latest_sequence": 10,
+          "filtered_out": 0,
+          "overflow_dropped_total": 4,
+          "capacity_dropped_total": 3,
+          "explicitly_discarded_total": 0
+        },
+        "accept": true,
+        "expected_client": {
+          "events": [],
+          "cursor": 9,
+          "status": {
+            "cursor": 9,
+            "latestSequence": 10,
+            "overflowDroppedTotal": 4,
+            "capacityDroppedTotal": 3,
+            "explicitlyDiscardedTotal": 0
+          },
+          "lossDelta": 4
+        },
+        "expected_observer": {
+          "events": [
+            {
+              "sequence": 8,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 9,
+          "latest_sequence": 10,
+          "filtered_out": 0,
+          "overflow_dropped_total": 4,
+          "capacity_dropped_total": 3,
+          "explicitly_discarded_total": 0
+        }
+      },
+      {
+        "id": "B9-E06",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            },
+            {
+              "sequence": 2,
+              "type": "another_future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": true,
+        "expected_client": {
+          "events": [],
+          "cursor": 2,
+          "status": {
+            "cursor": 2,
+            "latestSequence": 2,
+            "overflowDroppedTotal": 0,
+            "capacityDroppedTotal": 0,
+            "explicitlyDiscardedTotal": 0
+          },
+          "lossDelta": 0
+        },
+        "expected_observer": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            },
+            {
+              "sequence": 2,
+              "type": "another_future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        }
+      },
+      {
+        "id": "B9-E07",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "token": "must-not-be-observed",
+              "future": {
+                "secret": "hidden"
+              }
+            }
+          ],
+          "through_sequence": 1,
+          "latest_sequence": 1,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": true,
+        "expected_client": {
+          "events": [],
+          "cursor": 1,
+          "status": {
+            "cursor": 1,
+            "latestSequence": 1,
+            "overflowDroppedTotal": 0,
+            "capacityDroppedTotal": 0,
+            "explicitlyDiscardedTotal": 0
+          },
+          "lossDelta": 0
+        },
+        "expected_observer": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 1,
+          "latest_sequence": 1,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        }
+      },
+      {
+        "id": "B9-E08",
+        "after_sequence": 5,
+        "previous_status": {
+          "cursor": 5,
+          "latestSequence": 5,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [],
+          "through_sequence": 6,
+          "latest_sequence": 7,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": true,
+        "expected_client": {
+          "events": [],
+          "cursor": 6,
+          "status": {
+            "cursor": 6,
+            "latestSequence": 7,
+            "overflowDroppedTotal": 0,
+            "capacityDroppedTotal": 0,
+            "explicitlyDiscardedTotal": 0
+          },
+          "lossDelta": 0
+        },
+        "expected_observer": {
+          "events": [],
+          "through_sequence": 6,
+          "latest_sequence": 7,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        }
+      },
+      {
+        "id": "B9-E09",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 0,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "invalid common sequence"
+      },
+      {
+        "id": "B9-E10",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1.5,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "invalid common sequence"
+      },
+      {
+        "id": "B9-E11",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "invalid common type"
+      },
+      {
+        "id": "B9-E12",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "invalid common dimension"
+      },
+      {
+        "id": "B9-E13",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0.5, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "invalid common origin"
+      },
+      {
+        "id": "B9-E14",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "invalid common origin"
+      },
+      {
+        "id": "B9-E15",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": null,
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "invalid common type"
+      },
+      {
+        "id": "B9-E16",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            },
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 1,
+          "latest_sequence": 1,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "duplicate sequence"
+      },
+      {
+        "id": "B9-E17",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 2,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            },
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "sequence order"
+      },
+      {
+        "id": "B9-E18",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 2,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 1,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "event beyond through_sequence"
+      },
+      {
+        "id": "B9-E19",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 1,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "through_sequence beyond latest_sequence"
+      },
+      {
+        "id": "B9-E20",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "chat_posted",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "message": 7
+            }
+          ],
+          "through_sequence": 1,
+          "latest_sequence": 1,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "invalid known payload"
+      },
+      {
+        "id": "B9-E21",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "chat_posted",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "message": "hello",
+              "future": true
+            }
+          ],
+          "through_sequence": 1,
+          "latest_sequence": 1,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "unknown field on known event"
+      },
+      {
+        "id": "B9-E22",
+        "after_sequence": 0,
+        "previous_status": {
+          "cursor": 0,
+          "latestSequence": 0,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 1,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 1,
+          "latest_sequence": 1,
+          "filtered_out": 0,
+          "overflow_dropped_total": -1,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "accept": false,
+        "rejection": "negative loss counter"
+      }
+    ],
+    "stateful_rejections": [
+      {
+        "id": "B9-E23",
+        "after_sequence": 3,
+        "previous_status": {
+          "cursor": 3,
+          "latestSequence": 3,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 3,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 4,
+          "latest_sequence": 4,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "rejection": "event at consumed cursor"
+      },
+      {
+        "id": "B9-E24",
+        "after_sequence": 3,
+        "previous_status": {
+          "cursor": 3,
+          "latestSequence": 3,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [],
+          "through_sequence": 2,
+          "latest_sequence": 3,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "rejection": "cursor moved backwards"
+      },
+      {
+        "id": "B9-E25",
+        "after_sequence": 1,
+        "previous_status": {
+          "cursor": 1,
+          "latestSequence": 4,
+          "overflowDroppedTotal": 0,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 2,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 3,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "rejection": "latest_sequence moved backwards"
+      },
+      {
+        "id": "B9-E26",
+        "after_sequence": 1,
+        "previous_status": {
+          "cursor": 1,
+          "latestSequence": 1,
+          "overflowDroppedTotal": 2,
+          "capacityDroppedTotal": 0,
+          "explicitlyDiscardedTotal": 0
+        },
+        "result": {
+          "events": [
+            {
+              "sequence": 2,
+              "type": "future_event",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200]
+            }
+          ],
+          "through_sequence": 2,
+          "latest_sequence": 2,
+          "filtered_out": 0,
+          "overflow_dropped_total": 0,
+          "capacity_dropped_total": 0,
+          "explicitly_discarded_total": 0
+        },
+        "rejection": "loss counter moved backwards"
+      }
+    ]
+  }
+}
