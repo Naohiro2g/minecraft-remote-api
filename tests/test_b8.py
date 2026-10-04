@@ -43,7 +43,7 @@ class FakeConn:
 def test_b8_protocol_and_package_fold():
     assert PROTOCOL == "23.2.0"
     project = (Path(__file__).parents[1] / "pyproject.toml").read_text()
-    assert 'version = "2320.0.0b8"' in project
+    assert 'version = "2320.' in project
 
 
 @pytest.mark.parametrize("radius,limit,result", [(0, 1, []), (64, 64, NEARBY), (2.34567, 2, NEARBY)])

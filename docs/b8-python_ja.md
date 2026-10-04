@@ -139,4 +139,6 @@ wireの `null` とPythonキーワードの `None`（省略）は区別して検�
 Java版とiPad（Bedrock、Geyser経由）の組合せでは、iPadのdustの大きさが変わらない制限が記録されています。
 
 この結果は記録にある環境での確認です。正確な可聴距離・減衰曲線・音高の測定、全resource IDの描画・聴取、
-capacity／soak／rollback、Windows実機、Paper 26.x、VS Code／Jupyterでの補完表示は未確認です。
+capacity／soak／rollback、WindowsでのMinecraft操作、Paper 26.x、VS Code／Jupyterでの補完表示は未確認です。
+Windows 11のGitなし導入とJupyterでのimportは、2026-10-05にhuman ownerから成功報告を受領しました。
+対象と手順は [Windows 11入口手順](windows-b8-entry_ja.md) を参照してください。

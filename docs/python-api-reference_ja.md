@@ -2,7 +2,7 @@
 # PythonクライアントAPI一覧（ドラフト）
 
 Pythonから使う操作を、用途別に探すための一覧です。
-対象実装: `minecraft-remote-api 2320.0.0b8` / Protocol `23.2.0`。
+対象実装: `minecraft-remote-api 2320.0.0b9` / Protocol `23.2.0`。
 
 Minecraftクラスの公開メソッド・読み取り専用propertyと、よく使う入力・戻り値の型、例外をまとめています。
 
@@ -79,7 +79,7 @@ Minecraft.create(
 - wirescope=Trueは同梱WireScopeをlocalhostで開く設定です。WireScopeStation.local()も渡せます。NoneまたはFalseで無効です。
 - handshake=Falseは接続処理を自分で組み立てる用途です。sandboxはローカルtoken保存先のkeyを指定する互換引数です。
 
-[実装を見る](../mc_remote/minecraft.py#L1186)
+[実装を見る](../mc_remote/minecraft.py#L1191)
 
 <a id="mc-close"></a>
 
@@ -96,7 +96,7 @@ mc.close()
 - with Minecraft.create(...) as mc:のブロックを抜けるとclose()が呼ばれます。明示的にclose()を呼ぶこともできます。
 - 正常に閉じたあとにもう一度呼んでもTrueを返します。同梱WireScopeの実行状態も閉じます。
 
-[実装を見る](../mc_remote/minecraft.py#L1106)
+[実装を見る](../mc_remote/minecraft.py#L1111)
 
 <a id="mc-flush"></a>
 
@@ -113,7 +113,7 @@ mc.flush() -> None
 - ブロックの現在値を読む操作はgetBlock()/getBlocks()で行います。
 - タイムアウトした場合はRequestTimeoutErrorになり、接続を閉じます。先行操作の完了は不明なので、自動再試行しません。
 
-[実装を見る](../mc_remote/minecraft.py#L848)
+[実装を見る](../mc_remote/minecraft.py#L851)
 
 <a id="build"></a>
 
@@ -141,7 +141,7 @@ mc.setDimension(dimension)
 
 プレイヤーを次元間で移動する操作はsetPos()/setPose()で行います。
 
-[実装を見る](../mc_remote/minecraft.py#L879)
+[実装を見る](../mc_remote/minecraft.py#L882)
 
 <a id="mc-setBuildOrigin"></a>
 
@@ -157,7 +157,7 @@ mc.setBuildOrigin(x, y, z)
 
 x・y・zは絶対位置の整数です。以後の位置はこの原点から相対になります。Yにも同じ加算を使います。
 
-[実装を見る](../mc_remote/minecraft.py#L893)
+[実装を見る](../mc_remote/minecraft.py#L896)
 
 <a id="mc-setBuildMode"></a>
 
@@ -179,7 +179,7 @@ mc.setBuildMode(mode: BuildMode, *, trace_delay: float) -> None
 - trace_delayは0〜2秒です。省略すると現在の値を保ちます。
 - FASTがnotificationになるのはsetBlock()/setBlocks()です。spawnParticle()などは各モードでも応答を待ちます。
 
-[実装を見る](../mc_remote/minecraft.py#L826)
+[実装を見る](../mc_remote/minecraft.py#L829)
 
 <a id="mc-build_mode"></a>
 
@@ -195,7 +195,7 @@ mc.build_mode: BuildMode
 
 変更はsetBuildMode()で行います。
 
-[実装を見る](../mc_remote/minecraft.py#L775)
+[実装を見る](../mc_remote/minecraft.py#L778)
 
 <a id="mc-trace_delay"></a>
 
@@ -211,7 +211,7 @@ mc.trace_delay: float
 
 変更はsetBuildMode(..., trace_delay=...)で行います。
 
-[実装を見る](../mc_remote/minecraft.py#L782)
+[実装を見る](../mc_remote/minecraft.py#L785)
 
 <a id="block"></a>
 
@@ -317,7 +317,7 @@ mc.setBlocks(
 
 </details>
 
-[実装を見る](../mc_remote/minecraft.py#L764)
+[実装を見る](../mc_remote/minecraft.py#L767)
 
 <a id="mc-getBlocks"></a>
 
@@ -392,7 +392,7 @@ mc.getPos()
 
 posは建築原点から相対です。プレイヤー名は渡しません。
 
-[実装を見る](../mc_remote/minecraft.py#L910)
+[実装を見る](../mc_remote/minecraft.py#L915)
 
 <a id="mc-setPos"></a>
 
@@ -408,7 +408,7 @@ mc.setPos(dimension, x, y, z)
 
 dimensionを明示します。x・y・zは建築原点から相対で、小数も使えます。
 
-[実装を見る](../mc_remote/minecraft.py#L920)
+[実装を見る](../mc_remote/minecraft.py#L925)
 
 <a id="mc-getPose"></a>
 
@@ -424,7 +424,7 @@ mc.getPose()
 
 posは[x, y, z]のlistで、建築原点から相対です。yaw・pitchは角度です。
 
-[実装を見る](../mc_remote/minecraft.py#L932)
+[実装を見る](../mc_remote/minecraft.py#L937)
 
 <a id="mc-setPose"></a>
 
@@ -440,7 +440,7 @@ mc.setPose(dimension, x, y, z, yaw, pitch)
 
 dimensionを明示します。yaw・pitchは角度で、数値の検証と正準化はサーバーが行います。
 
-[実装を見る](../mc_remote/minecraft.py#L942)
+[実装を見る](../mc_remote/minecraft.py#L947)
 
 <a id="mc-getDirection"></a>
 
@@ -787,7 +787,7 @@ worldにdamage・発火などの効果を与える操作です。自動再試行
 
 | Python | 用途 | 戻り値・値 | 対応するProtocol API |
 | --- | --- | --- | --- |
-| [`mc.postToChat()`](#mc-postToChat) | Minecraftのチャットにメッセージを送る | サーバーのresultをそのまま返します | [`chat.post`](https://mc-remote.com/api/#chat) |
+| [`mc.postToChat()`](#mc-postToChat) | Minecraftのチャットにメッセージを送る | `None` | [`chat.post`](https://mc-remote.com/api/#chat) |
 | [`mc.pollEvents()`](#mc-pollEvents) | この接続の未取得のイベントを受け取る | `EventBatch` | [`events.poll`](https://mc-remote.com/api/#event) |
 | [`mc.assertEventContext()`](#mc-assertEventContext) | イベントの座標系が現在の建築原点・次元と一致するか確認する | `None` | Python内の補助機能 |
 
@@ -798,12 +798,12 @@ worldにdamage・発火などの効果を与える操作です。自動再試行
 Minecraftのチャットにメッセージを送る。
 
 ```text
-mc.postToChat(message)
+mc.postToChat(message) -> None
 ```
 
-**戻り値・値:** サーバーのresultをそのまま返します。
+**戻り値・値:** None。成功resultはnull。
 
-[実装を見る](../mc_remote/minecraft.py#L906)
+[実装を見る](../mc_remote/minecraft.py#L909)
 
 <a id="mc-pollEvents"></a>
 
@@ -818,6 +818,7 @@ mc.pollEvents(max_events = None) -> EventBatch
 **戻り値・値:** [EventBatch](#type-EventBatch)。eventsはEventValueのtuple。
 
 - Pythonが取得位置のカーソルを管理し、正常な応答を確認したあとに進めます。再接続時はカーソルをリセットします。
+- 未知のイベントは共通fieldと順序を検査してからeventsから省きます。through_sequenceとloss counterはサーバーの値を保持します。
 - max_eventsは正の整数、省略するとサーバーの取得件数を使います。
 - 各イベントは発生時のdimensionとoriginを持ちます。位置を建築に使う前にassertEventContext()で現在の原点と合うかを確認できます。
 
@@ -837,7 +838,7 @@ mc.assertEventContext(event: EventValue) -> None
 
 ローカルで確認し、イベントを捨てたり建築状態を変更したりしません。
 
-[実装を見る](../mc_remote/minecraft.py#L706)
+[実装を見る](../mc_remote/minecraft.py#L709)
 
 <a id="catalog"></a>
 
@@ -862,7 +863,7 @@ mc.getCatalog()
 
 別の短命な認証済み接続を使います。補完ファイルを生成する場合はsync_constants()を使います。
 
-[実装を見る](../mc_remote/minecraft.py#L1014)
+[実装を見る](../mc_remote/minecraft.py#L1019)
 
 <a id="mc-sync_constants"></a>
 
@@ -880,7 +881,7 @@ mc.sync_constants(target_dir = None, force = False)
 - Git管理下では生成物をignoreする設定が必要です。mcremote initで設定できます。
 - 明示的に呼んだときの失敗はCatalogProjectionErrorです。create()内の自動同期では警告になります。
 
-[実装を見る](../mc_remote/minecraft.py#L1026)
+[実装を見る](../mc_remote/minecraft.py#L1031)
 
 <a id="advanced"></a>
 
@@ -921,7 +922,7 @@ mc.authenticate(server_key, token_type = 'session', pair = True)
 
 通常はcreate()が行います。server_keyはローカル保存先のkeyで、接続先アドレスを変更する引数ではありません。
 
-[実装を見る](../mc_remote/minecraft.py#L1153)
+[実装を見る](../mc_remote/minecraft.py#L1158)
 
 <a id="values"></a>
 

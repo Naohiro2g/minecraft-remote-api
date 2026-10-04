@@ -136,8 +136,8 @@ def test_b6_p01_poll_events_decodes_fixture_poll_result():
     assert projectile.target.pos == tuple(fixture_target["pos"])
 
 
-def test_b6_p02_rejects_fixture_legacy_block_right_click_event():
-    """B6-P02: protocol 23 does not decode the historical block_right_click."""
+def test_b6_p02_omits_fixture_legacy_block_right_click_event():
+    """The B6 fixture stays unchanged; B9 omits types outside EventValue."""
     legacy_event = EVENTS_FIXTURE["legacy_rejected_events"]["block_right_click"]
     result = {
         "events": [legacy_event],
@@ -149,12 +149,10 @@ def test_b6_p02_rejects_fixture_legacy_block_right_click_event():
         "explicitly_discarded_total": 0,
     }
     conn = FakeConn({"events.poll": result})
-    try:
-        Minecraft(conn).pollEvents()
-    except McRemoteError:
-        pass
-    else:
-        raise AssertionError("legacy block_right_click event was accepted")
+    mc = Minecraft(conn)
+    batch = mc.pollEvents()
+    assert batch.events == ()
+    assert batch.through_sequence == mc._event_cursor == 1
 
 
 # ---------------------------------------------------------------------------

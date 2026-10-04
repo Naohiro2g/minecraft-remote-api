@@ -16,8 +16,11 @@
 | チャンネル | 状態 | 経路 |
 | --- | --- | --- |
 | GitHub Release（pre-release） | 正式な配布先 | `release.yml` が候補 artifact を Release asset へ昇格 |
-| TestPyPI | **soak 中**（公開チャンネルの予行。DECISIONS `2026-09-26-03`） | `release.yml` の `publish-testpypi` job（Trusted Publishing） |
-| PyPI.org | 新プロトコル版は未公開。無指定の取得は旧 stable（`1214.x`）のまま | mature 判定後に追加する |
+| TestPyPI | 予行経路を維持。継続するかはb9 gateへ提案 | `release.yml` の `publish-testpypi` job（Trusted Publishing） |
+| PyPI.org | **mature**（`2026-10-05-03`）。b9から公開予定、jobは現在無効 | 公開承認後に `PYPI_PUBLISH_ENABLED=true` で有効化 |
+
+PyPI.orgのTrusted Publisher（`release.yml`／environment `pypi`）はhuman ownerが登録済みです（2026-10-05）。
+今回は準備までとし、b8をPyPI.orgへ公開しません。設定と実施手順は [PyPI.org公開ガイド](docs/pypi-publication_ja.md) を参照してください。
 
 API token による手作業の upload は正式経路にしません。
 
@@ -25,24 +28,28 @@ API token による手作業の upload は正式経路にしません。
 
 ## 1. 全体の流れ
 
-1. `pyproject.toml` の `version` を上げ、README の「現行バージョン」とインストール URL を合わせ、`uv lock` する。
-2. `main` へ push する。`ci.yml` が Python 3.10〜3.13 で test し、候補 artifact（wheel／sdist／`manifest.json`）を作る。
+1. `pyproject.toml` の `version` を上げ、`uv lock` する。READMEの取得先は公開済み版のままにし、新版の公開時に更新する。
+2. candidateをpushし、PRまたは`workflow_dispatch`で`ci.yml`を実行する。Python 3.10〜3.13のtestと候補 artifact（wheel／sdist／`manifest.json`）を確認し、公開承認後に`main`へ統合する。
 3. tag を作って push する。
 4. GitHub Release を作る（`--prerelease`、draft にしない）。
 5. `release.yml` が動く。
    - `promote`：候補 artifact を再 build せずに Release asset へ添付する。
-   - `publish-testpypi`：添付した asset と同じ bytes を TestPyPI へ publish する。
-6. TestPyPI と GitHub Release の両方を確認する（§5）。
+   - `prepare-publication`：Release assetのsource／version／SHA-256を検証し、両index用のartifactを共通に用意する。
+   - `publish-testpypi`：検証済みの同じ bytes を TestPyPI へ publish する。
+   - `publish-pypi`：`PYPI_PUBLISH_ENABLED=true` かつb9以降の場合、同じ bytes を PyPI.org へ publish し、bytes／SHA-256を照合する。
+6. GitHub Releaseと公開先indexを確認する（§5、§6）。
 
 ---
 
 ## 2. バージョンを上げる
 
-PyPI／TestPyPI は**同じバージョンを二度と upload できません**（削除しても番号は消費済み）。公開のたびに必ず上げます。
+PyPI／TestPyPIでは、**同じindexの既出file名を異なる内容でuploadできません**（削除しても再利用できません）。
+内容を変えて出し直す場合はversionを上げます。別indexに初めて公開する場合は、既存の検証済みwheel／sdistを同じ版で使えます。
+同じbytesの再実行は`--check-url`で既存fileを照合してskipします。
 
 ```toml
 [project]
-version = "2301.0.0b7.post3"   # ← ここを更新
+version = "2320.0.0b9"   # 例。実際の版はknowledgeの指示で決める
 ```
 
 - 採番は protocol 連動の新スキーム。fold 規則（protocol `X.Y.Z` → メジャー番号）と接尾辞（`bN`／`rcN`）は versioning-design が正本。
@@ -101,8 +108,9 @@ gh release create v<version> \
 5. `manifest.json` の `release_tag` だけを実際の tag 名へ更新する。
 6. wheel／sdist／`manifest.json` を Release へ添付する。
 
-`publish-testpypi` job は、Release asset を download し、`manifest.json` の `release_tag`／`source_commit`／sha256 と照合してから、
-`uv publish --trusted-publishing always` で TestPyPI へ出します。
+`prepare-publication` jobが、Release assetをdownloadし、`manifest.json`の`release_tag`／`source_commit`／SHA-256と
+wheelのversionを照合します。TestPyPIとPyPI.orgは、この共通の検証済みartifactをdownloadし、
+`uv publish --trusted-publishing always`で公開します。再buildしません。
 
 ### 注意：`release.yml` は tag が指す commit の内容で動く
 
@@ -115,18 +123,19 @@ gh release create v<version> \
 | --- | --- |
 | 一時的な失敗（network 等） | Actions の「Re-run failed jobs」。`--clobber` と `--check-url` により再実行は安全 |
 | `promote` の手順自体のバグ | `main` で修正し、次の版（`.postN` 等）で出し直す |
-| `publish-testpypi` の手順自体のバグ | `main` で修正し、`main` の `release.yml` を dispatch して既存 Release の asset を publish し直す（下記） |
+| asset検証／publishの手順自体のバグ | `main`で修正し、`main`の`release.yml`を対象channelでdispatchして既存Releaseのassetを送る（下記） |
 | 対応する `ci.yml` run が見つからない（90 日超過等） | その commit で `ci.yml` を再実行（`gh workflow run ci.yml --ref <branch>`）してから Release を作り直す |
 
 ```bash
 gh workflow run release.yml --ref main -f tag=v<version>
 ```
 
-dispatch では `promote` は動かず、`publish-testpypi` だけが動きます。
+dispatchではpromoteを行わず、`channel`で指定したindexに既存Releaseのassetを送ります。
+未指定／`testpypi`なら従来どおりTestPyPI、`pypi`なら有効化されたPyPI.org jobを使います（§6）。
 
 ---
 
-## 5. TestPyPI（soak）
+## 5. TestPyPI（予行）
 
 ### 5.1 Trusted Publisher の登録（human owner、初回のみ）
 
@@ -215,16 +224,26 @@ uv add "minecraft-remote-api==<version>" --refresh
 
 | 項目 | PyPI.org | TestPyPI |
 | --- | --- | --- |
-| project owner | （未記入） | （未記入） |
-| 2FA | （未記入） | 確認済み（2026-09-26） |
+| project owner | human ownerの管理権限を確認（2026-10-05。account名は未記載） | （未記入） |
+| 2FA | human owner確認済み（2026-10-05） | 確認済み（2026-09-26） |
 | 2人目の maintainer | （未記入） | （未記入） |
 
 ---
 
-## 6. PyPI.org（未実施）
+## 6. PyPI.org（準備済み・公開未実施）
 
-mature への移行は、soak の記録を見て human owner が判定します。移行後は `release.yml` に PyPI.org 向けの publish job
-（environment `pypi`、PyPI.org 側にも Trusted Publisher を登録）を足し、`bN`／`rcN` を pre-release として出します。
+matureへの移行はhuman ownerが承認済みです（`2026-10-05-03`）。b9からPyPI.orgへの公開を予定しています。
+`release.yml`のPyPI.org用jobとTrusted Publisherは準備済みです。repository variable
+`PYPI_PUBLISH_ENABLED`が未設定／falseの間は、Release公開時もdispatch時もPyPI jobをskipします。
+
+公開承認後に変数を`true`へ設定すると、通常の`release: published`からPyPI.orgへも同じassetを送ります。
+b8以前のbetaは有効化後もPyPI.orgの対象にしません。
+既存Releaseを指定する場合は、mainのworkflowを`channel=pypi`でdispatchします。
+jobはdraftを拒否し、Release assetとmanifestのsource／version／SHA-256を検証してからOIDCで公開します。
+公開後にもPyPI側のbytes／SHA-256を照合します。
+
+Trusted Publisherの登録値、GitHub environment、実行と確認の具体的な手順は
+[PyPI.org公開ガイド](docs/pypi-publication_ja.md)を参照してください。
 
 ---
 

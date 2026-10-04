@@ -165,6 +165,8 @@ knowledgeの [b8 gate close記録](https://github.com/Naohiro2g/mc-remote-knowle
 搬送素材は [正式artifact一覧](https://github.com/Naohiro2g/mc-remote-knowledge/blob/e3812c25768a8c69b54e3c336eb7b1cdeb3243fc/14-evidence/artifacts/2026-10-03-b8-dev-live/INVENTORY_ja.md) に収容し、
 Python原本は`d0e4e085fafba41177e0ed19a82b4d1e1915d49a`での全文・SHA-256一致を確認して整理しました。
 
-Windows実機、Paper 26.x、capacity／soak／rollback、正確な可聴距離・減衰曲線・音高の測定は未確認です。
+WindowsでのMinecraft操作、Paper 26.x、capacity／soak／rollback、正確な可聴距離・減衰曲線・音高の測定は未確認です。
 Bedrock（Geyser経由）ではdustの大きさが変わらない制限があります。
-Windowsの入口ルートは [公開wheelを使う手順](windows-b8-entry_ja.md) をhuman ownerが確認し、結果をb9へ引き継ぎます。
+公開後の2026-10-05に、Windows 11のGitなし入口ルート（uv `0.12.23`、B8 wheelの導入、Jupyterでのimport）を
+問題なく完了したとのhuman ownerの報告を受領しました。[公開wheelを使う手順](windows-b8-entry_ja.md) の結果を
+b9のPyPI遷移ゲート④のWindows検証材料へ引き継ぎます。mature判定はhuman ownerが行います。

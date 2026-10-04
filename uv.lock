@@ -4,7 +4,7 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "minecraft-remote-api"
-version = "2320.0.0b8"
+version = "2320.0.0b9"
 source = { editable = "." }
 
 [package.optional-dependencies]

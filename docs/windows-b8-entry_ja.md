@@ -2,7 +2,10 @@
 
 クリーンインストールのWindows 11で、Gitを入れずにuv、B8のwheel、JupyterLabまで導入する手順です。
 対象は公開済みの `2320.0.0b8` です。実行担当はhuman owner（プロジェクトオーナー）です。
-Windows実機での結果はまだ記録されていません。以下の確定したRelease wheelのURLで進めます。
+2026-10-05にhuman ownerから、この入口ルートを問題なく完了したとの報告を受領しました。
+環境はWindows 11、uv `0.12.23`（`46b84fd0b`、`x86_64-pc-windows-msvc`）です。
+Jupyterのimportと版表示、PowerShellでのpackage情報が報告されています。
+以下の確定したRelease wheelのURLで進めます。
 
 ## 1. uvを入れる
 

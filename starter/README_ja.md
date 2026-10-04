@@ -4,10 +4,10 @@
 
 source checkoutのrootで`uv sync --frozen`を済ませてから、このdirectoryで実行します。
 現行公開betaの取得から始める場合は、top-level [`README.md`](../README.md) の
-「Current beta quick start」を使ってください。
+「3分で動かす（最短クイックスタート）」を使ってください。
 
-このsource checkoutのpackage metadataが`2301.0.0b7`の場合、protocol `23.1.0`のexact
-server candidateが必要です。公開sandboxがprotocol `23.0.0`の間はb7 clientを接続しません。
+source checkoutを使う場合は、coordinatorが指定した対応server candidateへ接続してください。
+公開版から始める場合はtop-level READMEの取得先と対応serverを使います。
 
 ## 1. 環境設定を用意する
 
@@ -76,8 +76,8 @@ Enterを押すか途中で中断すると、`finally`でその位置をairへ戻
 
 ## 6. b7 direction／full lightningを試す
 
-coordinatorが指定したexact protocol `23.1.0` server candidateへ接続するよう、local
-`param_mc_remote.py`を設定してから実行します。公開b6 sandboxでは実行しません。
+directionとlightningに対応するserverへ接続するよう、local
+`param_mc_remote.py`を設定してから実行します。
 
 ```bash
 uv run python b7_direction_lightning.py
@@ -94,4 +94,4 @@ lightningを要求します。
 - lightning変更: damage、fire、copper、rod、entity変更が起こり得る
 - cleanup: directionは自動復元。lightning副作用の一般的なrollbackはない
 - 利用API: `getDirection()`、`setDirection()`、`strikeLightning()`
-- 成熟状態: 未公開b7 Python component candidateのREADME隣接example
+- 成熟状態: 公開済みAPIのREADME隣接example

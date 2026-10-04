@@ -159,9 +159,9 @@ def test_setblocks_payload():
 
 # postToChat maps to the chat.post wire method (params = [message]).
 def test_posttochat_payload():
-    conn = FakeConn({"chat.post": "ok"})
+    conn = FakeConn({"chat.post": None})
     mc = Minecraft(conn)
-    mc.postToChat("hi there")
+    assert mc.postToChat("hi there") is None
     assert conn.calls == [("chat.post", ["hi there"])]
 
 

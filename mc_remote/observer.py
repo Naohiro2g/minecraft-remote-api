@@ -167,9 +167,18 @@ def _dimension_ref(value, context):
 def _parse_event_batch(value):
     try:
         normalized = json.loads(json.dumps(value, allow_nan=False))
-        decode_event_batch(normalized, after_sequence=0)
+        batch = decode_event_batch(normalized, after_sequence=0)
     except (McRemoteError, TypeError, ValueError) as exc:
         raise ObserverValidationError(f"invalid events.poll result: {exc}") from exc
+    known_sequences = {event.sequence for event in batch.events}
+    # Future payload fields have not been approved for observation. Keep the
+    # common context so unknown events remain visible without exposing them.
+    normalized["events"] = [
+        event if event["sequence"] in known_sequences else {
+            key: event[key] for key in ("sequence", "type", "dimension", "origin")
+        }
+        for event in normalized["events"]
+    ]
     return normalized
 
 
@@ -840,6 +849,7 @@ def _parse_result(method, value):
     if method == "world.getNearbyEntities":
         return _parse_nearby_entities(value)
     if method in {
+        "chat.post",
         "world.setBlock",
         "world.setBlocks",
         "world.strikeLightning",
@@ -1358,6 +1368,7 @@ class PythonObserverSource:
             except ObserverValidationError:
                 allowed = None
         elif method in {
+            "chat.post",
             "world.setBlock",
             "world.setBlocks",
             "world.strikeLightning",

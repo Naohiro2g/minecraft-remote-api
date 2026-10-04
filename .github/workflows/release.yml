@@ -3,7 +3,7 @@ name: Release
 on:
   release:
     types: [published]
-  # 既存 Release の asset を TestPyPI へ出し直す復旧経路。main の本ファイルで実行されるため、
+  # 既存 Release の asset を指定indexへ公開する経路。main の本ファイルで実行されるため、
   # publish job の修正を tag の作り直しなしで適用できる（promote は実行しない）
   workflow_dispatch:
     inputs:
@@ -11,6 +11,14 @@ on:
         description: "publish する既存 Release の tag（例: v2301.0.0b7.post3）"
         required: true
         type: string
+      channel:
+        description: "既存Releaseの公開先"
+        required: true
+        type: choice
+        default: testpypi
+        options:
+          - testpypi
+          - pypi
 
 permissions:
   contents: write
@@ -121,37 +129,53 @@ jobs:
           gh release upload "$TAG_NAME" "$WHEEL" "$SDIST" manifest.json \
             --repo "${{ github.repository }}" --clobber
 
-  # soak（versioning-design §10.9）: Release asset と同じ bytes を TestPyPI へ出す。
-  # 再 build しない。Trusted Publishing（OIDC）で publish し、API token は使わない。
-  # TestPyPI の Trusted Publisher 登録値: workflow=release.yml, environment=testpypi
-  publish-testpypi:
+  # 両indexが同じ検証済みRelease assetを使う。buildは行わない。
+  prepare-publication:
     needs: promote
     if: >-
       ${{ !cancelled() && (needs.promote.result == 'success' ||
       (github.event_name == 'workflow_dispatch' && needs.promote.result == 'skipped')) }}
     runs-on: ubuntu-latest
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/p/minecraft-remote-api
     permissions:
       contents: read
-      id-token: write
+    outputs:
+      tag_name: ${{ steps.resolve.outputs.tag_name }}
+      pypi_eligible: ${{ steps.resolve.outputs.pypi_eligible }}
     steps:
-      - name: Resolve the tag to publish
+      - name: Resolve the published Release tag
+        id: resolve
         env:
           EVENT_TAG: ${{ github.event.release.tag_name }}
           INPUT_TAG: ${{ inputs.tag }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG_NAME="${EVENT_TAG:-$INPUT_TAG}"
+          export TAG_NAME="${EVENT_TAG:-$INPUT_TAG}"
           if ! [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+((b|rc)[0-9]+)?(\.post[0-9]+)?$ ]]; then
             echo "::error::tag '$TAG_NAME' は release tag の形式ではない"
             exit 1
           fi
           SOURCE_COMMIT=$(gh api "repos/${{ github.repository }}/commits/$TAG_NAME" -q .sha)
+          DRAFT=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG_NAME" -q .draft)
+          if [ "$DRAFT" != "false" ]; then
+            echo "::error::公開済みGitHub Releaseのassetだけをindexへ送る"
+            exit 1
+          fi
           echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
           echo "SOURCE_COMMIT=$SOURCE_COMMIT" >> "$GITHUB_ENV"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          # matureはb9から。過去のbetaをdispatchしてもPyPI.orgへは出さない。
+          python - <<'PYPI_FLOOR'
+          import os
+          import re
+          match = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)(?:(b|rc)(\d+))?(?:\.post\d+)?", os.environ["TAG_NAME"])
+          base = tuple(int(match[i]) for i in (1, 2, 3))
+          eligible = base > (2320, 0, 0) or (
+              base == (2320, 0, 0) and (match[4] != "b" or int(match[5]) >= 9)
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"pypi_eligible={str(eligible).lower()}\n")
+          PYPI_FLOOR
 
       - name: Download the Release assets
         env:
@@ -189,7 +213,34 @@ jobs:
             echo "::error::wheel の version '$VERSION' が tag '$TAG_NAME' と一致しない"
             exit 1
           fi
+          cp "$MANIFEST" dist/manifest.json
           ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-release-assets
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  # 予行経路は維持。継続するかはb9の確認票でcoordinatorへ提案する。
+  publish-testpypi:
+    needs: prepare-publication
+    if: >-
+      ${{ !cancelled() && needs.prepare-publication.result == 'success' &&
+      (github.event_name == 'release' || inputs.channel == 'testpypi' || inputs.channel == '') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/minecraft-remote-api
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-release-assets
+          path: release-assets
 
       - uses: astral-sh/setup-uv@v6
         with:
@@ -198,8 +249,73 @@ jobs:
       - name: Publish to TestPyPI (Trusted Publishing)
         run: |
           set -euo pipefail
-          # --check-url: 同じ file が既にあれば skip するので、再実行しても安全
           uv publish --trusted-publishing always \
             --publish-url https://test.pypi.org/legacy/ \
             --check-url https://test.pypi.org/simple/ \
-            dist/*
+            release-assets/*.whl release-assets/*.tar.gz
+
+  # matureはb9から。公開承認後にPYPI_PUBLISH_ENABLED=trueで有効化する。
+  # 未設定／falseならrelease／dispatchの両方で公開しない。
+  publish-pypi:
+    needs: prepare-publication
+    if: >-
+      ${{ vars.PYPI_PUBLISH_ENABLED == 'true' && !cancelled() &&
+      needs.prepare-publication.result == 'success' &&
+      needs.prepare-publication.outputs.pypi_eligible == 'true' &&
+      (github.event_name == 'release' || inputs.channel == 'pypi') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/minecraft-remote-api
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-release-assets
+          path: release-assets
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.7"
+
+      - name: Publish to PyPI.org (Trusted Publishing)
+        run: |
+          set -euo pipefail
+          uv publish --trusted-publishing always \
+            --publish-url https://upload.pypi.org/legacy/ \
+            --check-url https://pypi.org/simple/ \
+            release-assets/*.whl release-assets/*.tar.gz
+
+      - name: Verify the PyPI.org files match the Release assets
+        env:
+          TAG_NAME: ${{ needs.prepare-publication.outputs.tag_name }}
+        run: |
+          python - <<'PYPI'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import urllib.request
+
+          manifest = json.loads(Path("release-assets/manifest.json").read_text())
+          version = os.environ["TAG_NAME"][1:]
+          url = f"https://pypi.org/pypi/minecraft-remote-api/{version}/json"
+          with urllib.request.urlopen(url, timeout=30) as response:
+              published = json.load(response)
+          if published["info"]["version"] != version:
+              raise SystemExit("PyPI version does not match the release tag")
+          files = {entry["filename"]: entry for entry in published["urls"]}
+          for artifact in manifest["artifacts"]:
+              name = artifact["file"]
+              entry = files[name]
+              body = (Path("release-assets") / name).read_bytes()
+              expected = artifact["sha256"]
+              if (hashlib.sha256(body).hexdigest() != expected
+                      or entry["digests"]["sha256"] != expected
+                      or entry["size"] != len(body) or entry["yanked"]):
+                  raise SystemExit(f"PyPI artifact does not match the Release: {name}")
+              print(f"{name}: {entry['size']} bytes, SHA-256 {expected}")
+          print(f"https://pypi.org/project/minecraft-remote-api/{version}/")
+          PYPI

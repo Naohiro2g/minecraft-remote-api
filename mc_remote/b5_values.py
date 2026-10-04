@@ -223,9 +223,10 @@ def _target(value):
     raise McRemoteError("projectile target.kind is invalid")
 
 
-def decode_event(value) -> EventValue:
+def decode_event(value) -> EventValue | None:
+    """Decode known events; validate common fields and omit future types."""
     event = _object(value, "event")
-    event_type = event.get("type")
+    event_type = _string(event.get("type"), "event.type")
     common = {
         "sequence": _integer(event.get("sequence"), "event.sequence"),
         "dimension": require_dimension_key(
@@ -287,7 +288,7 @@ def decode_event(value) -> EventValue:
             pos=_number_tuple(event["pos"], "event.pos"),
             target=_target(event["target"]),
         )
-    raise McRemoteError("event.type is invalid")
+    return None
 
 
 def decode_event_batch(value, *, after_sequence) -> EventBatch:
@@ -312,15 +313,24 @@ def decode_event_batch(value, *, after_sequence) -> EventBatch:
     latest = counters["latest_sequence"]
     if through < after_sequence or through > latest:
         raise McRemoteError("events.poll result cursor bounds are invalid")
-    events = tuple(decode_event(item) for item in result["events"])
-    sequences = tuple(item.sequence for item in events)
-    if sequences != tuple(sorted(set(sequences))):
-        raise McRemoteError("events.poll result sequences are not strictly increasing")
-    if sequences and (sequences[0] <= after_sequence or sequences[-1] > through):
-        raise McRemoteError(
-            "events.poll result event sequence is outside cursor bounds"
-        )
-    return EventBatch(events=events, **counters)
+    events = []
+    previous_sequence = after_sequence
+    for item in result["events"]:
+        event = decode_event(item)
+        # Validate ordering and bounds before omitting an unknown type.
+        sequence = item["sequence"]
+        if sequence <= after_sequence or sequence > through:
+            raise McRemoteError(
+                "events.poll result event sequence is outside cursor bounds"
+            )
+        if sequence <= previous_sequence:
+            raise McRemoteError(
+                "events.poll result sequences are not strictly increasing"
+            )
+        previous_sequence = sequence
+        if event is not None:
+            events.append(event)
+    return EventBatch(events=tuple(events), **counters)
 
 
 __all__ = [

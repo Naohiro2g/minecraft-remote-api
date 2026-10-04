@@ -683,6 +683,9 @@ class Minecraft:
         response therefore retries from the same ``after_sequence``. Omitting
         ``max_events`` delegates the batch size to the server. An explicit
         value is a positive client-requested upper bound.
+
+        Unknown event types are omitted after validating their common fields.
+        The server's cursor and loss counters include these omitted events.
         """
 
         epoch = getattr(self.conn, "epoch", None)
@@ -903,9 +906,11 @@ class Minecraft:
             self._origin = canonical_origin
         return result
 
-    def postToChat(self, message):
-        """Post a chat message to the server (wire method ``chat.post``)."""
-        return self.conn.rpc("chat.post", [message])
+    def postToChat(self, message) -> None:
+        """Post a chat message; successful ``chat.post`` returns null."""
+        result = self.conn.rpc("chat.post", [message])
+        if result is not None:
+            raise McRemoteError("chat.post success result must be null")
 
     def getPos(self):
         """Get the paired player's current dimension and position.

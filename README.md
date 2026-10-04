@@ -25,6 +25,7 @@ uv add https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v2320
 ```
 
 現在は、新プロトコル版がPyPIに未登録なので、GitHub.comのリリースに添付されたパッケージを使います。
+b9からPyPIへの公開を予定しています。公開前の準備状況と手順は [PyPI公開ガイド](docs/pypi-publication_ja.md) にまとめています。
 
 ### Step 2: 最小コード（`hello.py`）を書く
 
@@ -151,7 +152,7 @@ Pythonの `mc.playSound(...)` は一覧の `world.playSound` に対応します�
 ## パッケージ情報 & 対応環境
 
 - **パッケージ名**: `minecraft-remote-api`（インポート名: `mc_remote`）
-- **現行バージョン**: `2320.0.0b8`（Protocol 23.2.0 準拠、GitHub prerelease公開済み）
+- **公開済みバージョン**: `2320.0.0b8`（Protocol 23.2.0 準拠、GitHub prerelease公開済み）。このbranchでは`2320.0.0b9`を準備中。
 - **対応Python**: 3.10〜3.13（標準は3.13）
 - **対応マインクラフト**: Java版 1.21.11（Paper 26.x対応準備中）
 - **接続先**:
