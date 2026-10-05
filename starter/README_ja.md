@@ -13,6 +13,7 @@ uv add "minecraft-remote-api==2320.0.0b9"
 ```
 
 このdirectoryの`.py`ファイルを作業用projectへコピーします。
+接続設定と補完用の生成物をGit管理外にするため、[`.gitignore`](.gitignore)のルールを作業用projectの`.gitignore`へ追加します。
 VS Codeで使う場合は`.vscode/`の設定もコピーできます。
 公開版の更新や元の版への復帰は、[更新手順](../docs/update-rollback_ja.md)を参照してください。
 
