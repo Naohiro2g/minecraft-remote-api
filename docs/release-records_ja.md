@@ -170,3 +170,36 @@ Bedrock（Geyser経由）ではdustの大きさが変わらない制限があり
 公開後の2026-10-05に、Windows 11のGitなし入口ルート（uv `0.12.23`、B8 wheelの導入、Jupyterでのimport）を
 問題なく完了したとのhuman ownerの報告を受領しました。[公開wheelを使う手順](windows-b8-entry_ja.md) の結果を
 b9のPyPI遷移ゲート④のWindows検証材料へ引き継ぎます。mature判定はhuman ownerが行います。
+
+<a id="b9-pypi"></a>
+
+## b9 / protocol 23.2 — GitHub・PyPI公開確認（2026-10-05）
+
+`2320.0.0b9`をGitHub prerelease、TestPyPI、PyPI.orgへ公開しました。
+human ownerのmature移行・公開承認に基づく公開です。sourceとartifactは凍結した
+`b9-integrated-artifact-set-1`のPython identityを維持しています。
+
+- [公開許可とsdist略記の訂正](https://github.com/Naohiro2g/mc-remote-knowledge/blob/6df2d14033a4646ce958737c06849725fcaee51e/00-hub/release-gate-notes_ja.md)（b9節）
+- main統合: `7981031765cfcc43acc23f03e86e97ba74bae494`から`b901c88fe41b67530ff353271683ece9fd453076`へfast-forward
+- tag: `v2320.0.0b9` → `b901c88fe41b67530ff353271683ece9fd453076`
+- [tag指定CI run `37267690375`](https://github.com/Naohiro2g/minecraft-remote-api/actions/runs/37267690375)はPython 3.10〜3.13とbuildがsuccess。
+  downloadしたwheel／sdistは凍結candidateとbyte単位で一致
+- [固定release workflow `37267882665`](https://github.com/Naohiro2g/minecraft-remote-api/actions/runs/37267882665)の
+  promote／prepare-publication／publish-testpypi／publish-pypiがsuccess。PyPI jobはhuman ownerのenvironment承認後に実行
+- [GitHub Release](https://github.com/Naohiro2g/minecraft-remote-api/releases/tag/v2320.0.0b9): prerelease=true、draft=false、Latest非対象（従来の`v1214.10.11`を維持）
+- [TestPyPI](https://test.pypi.org/project/minecraft-remote-api/2320.0.0b9/)／[PyPI.org](https://pypi.org/project/minecraft-remote-api/2320.0.0b9/): 両fileともnot yanked
+
+| Release asset | bytes | SHA-256 |
+| --- | ---: | --- |
+| wheel | 196,221 | `e166bc9c14c425b3859f9af6c7af52900b58d1769fc077a3524a5368d05638c6` |
+| sdist | 190,627 | `bd027b8b94ff775bfb7a3c02ada9716ad8785e5499180bb0cfb26f1da4afe479` |
+| manifest.json | 681 | `da9887d12e57d929a93531bbcffc7795895aa0bbc7eef1792e2d03cb4979e838` |
+
+GitHubは3 assetsを匿名downloadし、両indexはJSON metadataとwheel／sdistの実downloadを照合しました。
+manifestの`source_commit`と`release_tag`は上記identity、`bundled_wirescope_source_commit`は
+`dc1ab834183e29f2eb03059b07e99d2b463776ee`です。
+
+Linux／Python 3.13.13のfresh uv projectで、PyPI.orgから
+`uv add "minecraft-remote-api==2320.0.0b9"`を実行しました。lockのregistryは`https://pypi.org/simple`、
+wheel／sdistのhashは上表と一致。import確認の出力は`2320.0.0b9`と`Minecraft`でした。
+この公開後の取得確認はserverへ接続していません。Windowsでのb9取得・Minecraft操作の再試験は含めません。

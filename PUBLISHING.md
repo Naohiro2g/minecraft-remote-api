@@ -16,11 +16,11 @@
 | チャンネル | 状態 | 経路 |
 | --- | --- | --- |
 | GitHub Release（pre-release） | 正式な配布先 | `release.yml` が候補 artifact を Release asset へ昇格 |
-| TestPyPI | 予行経路を維持。継続するかはb9 gateへ提案 | `release.yml` の `publish-testpypi` job（Trusted Publishing） |
-| PyPI.org | **mature**（`2026-10-05-03`）。b9から公開予定、jobは現在無効 | 公開承認後に `PYPI_PUBLISH_ENABLED=true` で有効化 |
+| TestPyPI | b9では公開時に自動で予行。後続版で手動経路へ切り替える方針 | `release.yml` の `publish-testpypi` job（Trusted Publishing） |
+| PyPI.org | **mature**（`2026-10-05-03`）。b9からpre-release公開済み | `PYPI_PUBLISH_ENABLED=true`、environment `pypi`でhuman ownerが承認 |
 
 PyPI.orgのTrusted Publisher（`release.yml`／environment `pypi`）はhuman ownerが登録済みです（2026-10-05）。
-今回は準備までとし、b8をPyPI.orgへ公開しません。設定と実施手順は [PyPI.org公開ガイド](docs/pypi-publication_ja.md) を参照してください。
+b9の公開・取得確認は [リリース確認記録](docs/release-records_ja.md#b9-pypi) に記録しています。設定と実施手順は [PyPI.org公開ガイド](docs/pypi-publication_ja.md) を参照してください。
 
 API token による手作業の upload は正式経路にしません。
 
@@ -124,7 +124,7 @@ wheelのversionを照合します。TestPyPIとPyPI.orgは、この共通の検�
 | --- | --- |
 | 一時的な失敗（network 等） | Actions の「Re-run failed jobs」。`--clobber` と `--check-url` により再実行は安全 |
 | `promote` の手順自体のバグ | `main` で修正し、次の版（`.postN` 等）で出し直す |
-| asset検証／publishの手順自体のバグ | `main`で修正し、`main`の`release.yml`を対象channelでdispatchして既存Releaseのassetを送る（下記） |
+| asset検証／publishの手順自体のバグ | TestPyPIは`main`で修正してdispatch。PyPI.orgはtag限定のenvironment policyがあるため、[公開ガイド](docs/pypi-publication_ja.md#4-既存releaseを指定して公開する場合)の実行ref制限を確認する |
 | 対応する `ci.yml` run が見つからない（90 日超過等） | その commit で `ci.yml` を再実行（`gh workflow run ci.yml --ref <branch>`）してから Release を作り直す |
 
 ```bash
@@ -155,7 +155,15 @@ GitHub 側の environment `testpypi` は、最初の実行時に自動で作ら�
 
 pre-release は、無指定の取得では選ばれません。版を明示して取得します。
 
-**学習者（hello）**：GitHub Release に添付した wheel を直接指定します。git は不要です。
+**学習者（hello）**：PyPI公開済み版はexact-pinで取得します。gitは不要です。
+
+```bash
+uv init --python 3.13 mc-hello
+cd mc-hello
+uv add "minecraft-remote-api==2320.0.0b9"  # 公開済みb9を選ぶ例
+```
+
+PyPIに未公開の過去版や、Release assetを直接使う場合はwheel URLを指定します。
 
 ```bash
 uv init --python 3.13 mc-hello
@@ -231,15 +239,16 @@ uv add "minecraft-remote-api==<version>" --refresh
 
 ---
 
-## 6. PyPI.org（準備済み・公開未実施）
+## 6. PyPI.org
 
-matureへの移行はhuman ownerが承認済みです（`2026-10-05-03`）。b9からPyPI.orgへの公開を予定しています。
-`release.yml`のPyPI.org用jobとTrusted Publisherは準備済みです。repository variable
+matureへの移行はhuman ownerが承認済みです（`2026-10-05-03`）。b9をPyPI.orgへpre-releaseとして公開しました。
+`release.yml`のPyPI.org用jobはTrusted Publisherを使います。repository variable
 `PYPI_PUBLISH_ENABLED`が未設定／falseの間は、Release公開時もdispatch時もPyPI jobをskipします。
 
 公開承認後に変数を`true`へ設定すると、通常の`release: published`からPyPI.orgへも同じassetを送ります。
 b8以前のbetaは有効化後もPyPI.orgの対象にしません。
-既存Releaseを指定する場合は、mainのworkflowを`channel=pypi`でdispatchします。
+environment `pypi`はhuman ownerの承認とtag `v*`からの実行を要求します。
+既存Releaseを指定する場合は、公開済みtagのworkflowを`channel=pypi`でdispatchします。
 jobはdraftを拒否し、Release assetとmanifestのsource／version／SHA-256を検証してからOIDCで公開します。
 公開後にもPyPI側のbytes／SHA-256を照合します。
 

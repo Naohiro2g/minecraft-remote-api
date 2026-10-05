@@ -14,18 +14,17 @@
 ## 3分で動かす（最短クイックスタート）
 
 前提: [uv](https://docs.astral.sh/uv/getting-started/installation/) がインストールされていること。Python本体はuvが用意します。
-Minecraft側は、B8対応の [McRemote](https://github.com/Naohiro2g/McRemote/releases/tag/v1.21.11-2320.0.0b8) を使うサーバーへ接続します。
+Minecraft側は、このクライアントに対応する [McRemote](https://github.com/Naohiro2g/McRemote/releases) を導入したサーバーへ接続します。
 
 ### Step 1: プロジェクトを作り、モジュールを追加
 
 ```bash
 uv init --python 3.13 mc-hello
 cd mc-hello
-uv add https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v2320.0.0b8/minecraft_remote_api-2320.0.0b8-py3-none-any.whl
+uv add "minecraft-remote-api==2320.0.0b9"
 ```
 
-現在は、新プロトコル版がPyPIに未登録なので、GitHub.comのリリースに添付されたパッケージを使います。
-b9からPyPIへの公開を予定しています。公開前の準備状況と手順は [PyPI公開ガイド](docs/pypi-publication_ja.md) にまとめています。
+PyPIから公開betaの版を指定して取得します。無指定の取得では、従来のstableが選ばれます。
 導入済み環境を変更する場合は [更新と元の版への復帰](docs/update-rollback_ja.md) を参照してください。
 
 ### Step 2: 最小コード（`hello.py`）を書く
@@ -34,7 +33,7 @@ b9からPyPIへの公開を予定しています。公開前の準備状況と�
 
 ```python
 from mc_remote import Minecraft
-# 同じPCで動くB8対応サーバーに接続
+# 同じPCで動くMcRemoteサーバーに接続
 mc = Minecraft.create(address="localhost", port=25575)
 
 # 建築原点の設定
@@ -139,10 +138,10 @@ uv run python hello.py
 - **演出とイベント**: `mc.spawnParticle()`, `mc.strikeLightning()`, `mc.pollEvents()`（ツルハシで叩いた検知など）
 - **高速建築モード**: `DEBUG`（1行ずつ確認）、`TRACE`（動作を観察）、`FAST`（超高速建築）
 
-公開済みのB8ではentityの検索・pose操作、particleの色・表示先、サウンドを使えます。
-[B8 APIと3D graphの利用例](docs/b8-python_ja.md) を参照してください。
-B8では `from mc_remote import Minecraft` が使え、pygameは必要なときに `uv add pygame-ce` で追加します。
-パッケージ側のoptional extraは `pygame` です。導入試験には [Windows 11の入口手順](docs/windows-b8-entry_ja.md) を用意しています。
+entityの検索・pose操作、particleの色・表示先、サウンドを使えます。
+[entity・particle・サウンドと3D graphの利用例](docs/b8-python_ja.md) を参照してください。
+`from mc_remote import Minecraft` が使え、pygameは必要なときに `uv add pygame-ce` で追加します。
+パッケージ側のoptional extraは `pygame` です。[Windows 11の入口手順](docs/windows-b8-entry_ja.md) にはB8 wheelで検証した結果を残しています。
 
 Pythonの呼び出し方・引数・戻り値は [PythonクライアントAPI一覧（ドラフト）](docs/python-api-reference_ja.md) で用途別に探せます。
 サーバーの操作と、WireScopeで見える通信の引数・応答は [Protocol API一覧](https://mc-remote.com/api/) で確認できます。
@@ -153,7 +152,7 @@ Pythonの `mc.playSound(...)` は一覧の `world.playSound` に対応します�
 ## パッケージ情報 & 対応環境
 
 - **パッケージ名**: `minecraft-remote-api`（インポート名: `mc_remote`）
-- **公開済みバージョン**: `2320.0.0b8`（Protocol 23.2.0 準拠、GitHub prerelease公開済み）。このbranchでは`2320.0.0b9`を準備中。
+- **公開済みバージョン**: [`2320.0.0b9`](https://pypi.org/project/minecraft-remote-api/2320.0.0b9/)（Protocol 23.2.0 準拠、PyPI／GitHub prerelease公開済み）。
 - **対応Python**: 3.10〜3.13（標準は3.13）
 - **対応マインクラフト**: Java版 1.21.11（Paper 26.x対応準備中）
 - **接続先**:
