@@ -24,7 +24,7 @@ cd mc-hello
 uv add "minecraft-remote-api==2320.0.0b9"
 ```
 
-PyPIから公開betaの版を指定して取得します。無指定の取得では、従来のstableが選ばれます。
+PyPIから取得します。beta／rcは版を指定して導入してください。
 導入済み環境を変更する場合は [更新と元の版への復帰](docs/update-rollback_ja.md) を参照してください。
 
 ### Step 2: 最小コード（`hello.py`）を書く
@@ -115,15 +115,6 @@ import したモジュールは、カーネルの中にキャッシュされま�
 
 環境を安全に分離し、VS Code等のエディタで **ブロック名やアイテム名の自動補完（IntelliSense）** を獲得するための公式スターターキットが用意されています。
 
-```bash
-git clone https://github.com/Naohiro2g/minecraft-remote-api.git
-cd minecraft-remote-api
-uv sync --frozen
-cd starter
-cp param_mc_remote.template.py param_mc_remote.py
-uv run python hello.py
-```
-
 - **環境アダプター (`param_mc_remote.py`)**: サーバー接続先や建築原点をプログラム本体から分離します（Git管理外）。
 - **生きたカタログ補完 (`mc_constants`)**: 初回接続時に接続先サーバーのブロック定義を自動取得し、Pythonコード内で `block.SEA_LANTERN` のような正確な型補完が効くようになります。
 - 詳しい段階的学習法は [`starter/README_ja.md`](https://github.com/Naohiro2g/minecraft-remote-api/blob/main/starter/README_ja.md) をご覧ください。
@@ -139,9 +130,9 @@ uv run python hello.py
 - **高速建築モード**: `DEBUG`（1行ずつ確認）、`TRACE`（動作を観察）、`FAST`（超高速建築）
 
 entityの検索・pose操作、particleの色・表示先、サウンドを使えます。
-[entity・particle・サウンドと3D graphの利用例](docs/b8-python_ja.md) を参照してください。
+[entity・particle・サウンドと3D graphの利用例](docs/python-examples_ja.md) を参照してください。
 `from mc_remote import Minecraft` が使え、pygameは必要なときに `uv add pygame-ce` で追加します。
-パッケージ側のoptional extraは `pygame` です。[Windows 11の入口手順](docs/windows-b8-entry_ja.md) にはB8 wheelで検証した結果を残しています。
+パッケージ側のoptional extraは `pygame` です。[Windows 11からの導入手順](docs/windows-install_ja.md) では、GitなしでPyPIから取得し、JupyterLabまで進められます。
 
 Pythonの呼び出し方・引数・戻り値は [PythonクライアントAPI一覧（ドラフト）](docs/python-api-reference_ja.md) で用途別に探せます。
 サーバーの操作と、WireScopeで見える通信の引数・応答は [Protocol API一覧](https://mc-remote.com/api/) で確認できます。

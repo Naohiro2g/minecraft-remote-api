@@ -2,13 +2,19 @@
 
 この starter では、最初の接続によってブロック名の補完を獲得する変化を観察します。
 
-source checkoutのrootで`uv sync --frozen`を済ませてから、このdirectoryで実行します。
-現行公開betaの取得から始める場合は、top-level [`README.md`](../README.md) の
-「3分で動かす（最短クイックスタート）」を使ってください。
-公開版の更新や元の版への復帰は、[更新手順](../docs/update-rollback_ja.md)を参照してください。
+PyPIからパッケージを導入した作業用projectで、サンプルを実行します。
+導入する版と対応サーバーは、top-level [`README.md`](../README.md) で確認してください。
+公開betaを指定して作業用projectを作る例:
 
-source checkoutを使う場合は、coordinatorが指定した対応server candidateへ接続してください。
-公開版から始める場合はtop-level READMEの取得先と対応serverを使います。
+```bash
+uv init --python 3.13 mc-starter
+cd mc-starter
+uv add "minecraft-remote-api==2320.0.0b9"
+```
+
+このdirectoryの`.py`ファイルを作業用projectへコピーします。
+VS Codeで使う場合は`.vscode/`の設定もコピーできます。
+公開版の更新や元の版への復帰は、[更新手順](../docs/update-rollback_ja.md)を参照してください。
 
 ## 1. 環境設定を用意する
 
@@ -60,20 +66,18 @@ uv run python with_completion.py
 ## 5. 看板の読み書きを試す
 
 ```bash
-uv run python b6_sign.py
+uv run python sign.py
 ```
 
 このconcept sampleは`world.setBlock`、`world.setSign`、`world.getSign`を使います。
 starter座標`(8, 67, 5)`へstanding oak signを置き、front 4行を表示して読み返します。
 Enterを押すか途中で中断すると、`finally`でその位置をairへ戻します。
 
-- 最小version: protocol `23.0.0` / package `2300.0.0b6`
 - 実行mode: `DEBUG`（既定）
 - 出力先: `REAL`
 - world変更: 実行中だけsignを1個設置
 - cleanup: `finally`で自動実行
 - 利用API: `setBuildOrigin()`、`setBlock()`、`setSign()`、`getSign()`
-- 成熟状態: 公開済みb6 APIのREADME隣接example
 
 ## 6. 方向の操作と雷を試す
 
@@ -81,18 +85,16 @@ directionとlightningに対応するserverへ接続するよう、local
 `param_mc_remote.py`を設定してから実行します。
 
 ```bash
-uv run python b7_direction_lightning.py
+uv run python direction_lightning.py
 ```
 
 最初にpaired playerの現在方向を読み、`[1,2,3]`方向へ向けた後、元の方向を`finally`で
 復元します。続いて`STRIKE`と正確に入力した場合だけ、starter座標`(10, 67, 5)`へfull
 lightningを要求します。
 
-- 最小version: protocol `23.1.0` / package `2301.0.0b7`
 - 実行mode: 通常request
 - 出力先: `REAL`
 - direction変更: paired playerのrotationだけ。一時変更後に復元
 - lightning変更: damage、fire、copper、rod、entity変更が起こり得る
 - cleanup: directionは自動復元。lightning副作用の一般的なrollbackはない
 - 利用API: `getDirection()`、`setDirection()`、`strikeLightning()`
-- 成熟状態: 公開済みAPIのREADME隣接example

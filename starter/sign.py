@@ -1,8 +1,8 @@
-"""Place, observe, and clean up one protocol 23.0.0 b6 sign."""
+"""Place, observe, and clean up one sign."""
 
 import param_mc_remote as param
 from param_mc_remote import BUILD_ORIGIN as ORIGIN
-from mc_remote.minecraft import Minecraft
+from mc_remote import Minecraft
 
 
 SIGN_POS = (8, 67, 5)
@@ -16,8 +16,8 @@ with Minecraft.create(address=param.ADRS_MCR, port=param.PORT_MCR) as mc:
             *SIGN_POS,
             front=[
                 {"text": "McRemote", "color": "gold", "decorations": ["bold"]},
-                "protocol 23",
-                "Python b6",
+                "Hello, Minecraft",
+                "Python sign",
                 "Press Enter",
             ],
         )

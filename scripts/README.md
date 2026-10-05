@@ -1,25 +1,15 @@
-# scripts
+# 開発補助スクリプト
 
-Manual helper scripts live here.
+公開物の検査と手動の実機確認に使うスクリプトです。
 
-- `auth_smoke.py` - live hello/auth smoke with optional pairing, chat post,
-  `world.setBlock`, `player.getPos`, and `player.setPos`
-- `sync_catalog.py` - live `catalog.get` fetch + cache + `mc_constants.py` /
-  `mc_constants.pyi` projection. It generates from an actual server; the projection is
-  never bundled or committed, and this repo does not fabricate catalog content.
-- `check_wirescope_wheel.py` - verify the immutable WireScope pair, wheel
-  `RECORD`, distribution license inventory, and corresponding-source link
-- `b4_pose_wirescope_live.py` - run the paired-player pose contract carried
-  forward from b4, using protocol 22 DimensionKey fields, through an isolated
-  pairing session and WireScope app
-- `b7_wirescope_browser_e2e.py` - serve the exact bundled WireScope app over
-  the loopback station and emit successful and server-error exchanges for all
-  five b7 direction/lightning methods
-- `b5_build_modes_live.py` - exercise DEBUG/TRACE/FAST, explicit flush, automatic
-  close flush, and `getBlocks` against a real protocol 22 plugin; every touched
-  block is captured first and restoration is attempted in `finally`
+- `auth_smoke.py`: hello／認証、pairing、chat、ブロック設置、player位置の確認
+- `sync_catalog.py`: 実サーバーからcatalogを取得し、`mc_constants.py`と型補完を生成
+- `check_wirescope_wheel.py`: 同梱WireScope、wheelのRECORD、license、対応sourceリンクの検査
+- `b4_pose_wirescope_live.py`: pairingしたplayerのposeとWireScopeの確認
+- `b7_wirescope_browser_e2e.py`: 同梱WireScopeをloopback stationで表示し、direction／lightningの成功・error応答を確認
+- `b5_build_modes_live.py`: DEBUG／TRACE／FAST、flush、close、getBlocksの確認。変更するブロックを取得し、finallyで復元を試みる
 
-Run from the repo root, for example:
+repoのrootで実行します。実サーバーへ接続するものは、実施票の接続先と許可範囲に従ってください。
 
 ```bash
 uv run python scripts/auth_smoke.py --help

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "introduction": [
     "Minecraftクラスの公開メソッド・読み取り専用propertyと、よく使う入力・戻り値の型、例外をまとめています。",
-    "初めて使うときは [READMEの導入手順](../README.md) を進めてください。[APIの作例](b8-python_ja.md) も参照できます。",
+    "初めて使うときは [READMEの導入手順](../README.md) を進めてください。[APIの作例](python-examples_ja.md) も参照できます。",
     "サーバーが受け取る名前・引数・応答は [Protocol API一覧](https://mc-remote.com/api/) で確認できます。掲載対象のreleaseはページ冒頭に表示されます。たとえばPythonのmc.playSound()は通信上のworld.playSoundに対応します。"
   ],
   "conventions": [

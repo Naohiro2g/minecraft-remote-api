@@ -7,7 +7,7 @@ DECISIONS `2026-10-05-01/02`を参照してください。この文書はPython�
 ## 共有fixture
 
 `tests/fixtures/*.source.json`の`repository`、`commit`、`path`が取得元です。
-共有fixtureは次の7件です。`chat-event-compat-v23.2.json`はb9で追加したものです。
+共有fixtureは次の7件です。
 
 | Python側のfile | tooling側のpath |
 | --- | --- |
@@ -47,7 +47,7 @@ PythonのCIが生成する`manifest.json`の`bundled_wirescope_source_commit`は
 
 移管だけの比較では、移管直前の同じ機能を持つsourceから作ったZIPの内部file名と全asset bytesを比べます。
 source repository／commitが変わるdetached manifestは比較対象から外します。
-公開b8から契約修正や列幅変更が入った分と、移管による分は分けて記録します。
+機能変更による差分と、取得元の移管による差分は分けて記録します。
 
 ```bash
 uv lock --check

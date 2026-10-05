@@ -1,9 +1,9 @@
 # Pythonクライアントの更新と元の版への復帰
 
-PyPIの公開版やRelease wheelを使うuv project向けの手順です。
-更新先は[GitHub Releases](https://github.com/Naohiro2g/minecraft-remote-api/releases)と対応serverの案内で選び、
+PyPIから導入したuv project向けの手順です。
+更新先は[PyPI](https://pypi.org/project/minecraft-remote-api/)と対応serverの案内で選び、
 candidateやbranchの最新版を公開版の代わりに指定しないでください。
-PyPIからの取得は[PyPI案内](pypi-publication_ja.md)も参照してください。
+導入する版の案内は[README](../README.md)を参照してください。
 
 ## 1. 現在の環境を控える
 
@@ -25,19 +25,13 @@ Copy-Item uv.lock .mcr-before-update/uv.lock
 
 ## 2. 指定した公開版へ更新する
 
-PyPI公開済みの版は、版を指定して更新します。次は公開済みb9を選ぶ例です。
+PyPIの公開版を指定して更新します。次は`2320.0.0b9`を選ぶ例です。
 
 ```powershell
 uv add 'minecraft-remote-api==2320.0.0b9'
 ```
 
-Release wheelを直接使う場合は、AssetsからwheelのURLをコピーし、次の`<公開wheelのURL>`を置き換えます。
-
-```powershell
-uv add '<公開wheelのURL>'
-```
-
-どちらの取得方法でも、importして版を確認します。
+importして版を確認します。
 
 ```powershell
 uv run python -c "from mc_remote import Minecraft; from importlib.metadata import version; print(version('minecraft-remote-api')); print(Minecraft.__name__)"

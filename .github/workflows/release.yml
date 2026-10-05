@@ -3,12 +3,12 @@ name: Release
 on:
   release:
     types: [published]
-  # 既存 Release の asset を指定indexへ公開する経路。main の本ファイルで実行されるため、
-  # publish job の修正を tag の作り直しなしで適用できる（promote は実行しない）
+  # 選択した実行refのworkflowで、既存Releaseのassetを指定indexへ公開する。
+  # PyPI.orgはenvironmentのtag制限に従い、公開済みtagをrefに指定する（promoteは実行しない）。
   workflow_dispatch:
     inputs:
       tag:
-        description: "publish する既存 Release の tag（例: v2301.0.0b7.post3）"
+        description: "publish する既存 Release の tag（先頭のvを含む）"
         required: true
         type: string
       channel:
@@ -223,7 +223,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # 予行経路は維持。継続するかはb9の確認票でcoordinatorへ提案する。
+  # 現行の予行経路は公開時に自動実行する。手動のみに絞る変更は後続作業。
   publish-testpypi:
     needs: prepare-publication
     if: >-

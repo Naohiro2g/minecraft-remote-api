@@ -1,8 +1,8 @@
-"""Observe b7 direction and optionally request one full lightning strike."""
+"""Observe direction and optionally request one full lightning strike."""
 
 import param_mc_remote as param
 from param_mc_remote import BUILD_ORIGIN as ORIGIN
-from mc_remote.minecraft import Minecraft
+from mc_remote import Minecraft
 
 
 LIGHTNING_POS = (10, 67, 5)

@@ -4,8 +4,6 @@
 このガイドは、これまでpyenv、pip＋venv、Poetryを使っていた人が、手元の環境やプロジェクトをuvへ移すためのものです。
 
 uvは、Python本体の導入、仮想環境の作成、パッケージの追加、ロックファイルによる再現を1つのコマンドで扱います。
-python.orgがWindows用インストーラーを出さなくなったセキュリティ修正版（例：3.11.10以降）も、uvなら
-`uv python install` で入ります。
 
 ## 1. uvを入れる
 
@@ -52,8 +50,10 @@ pyenvは消さなくてかまいません。uvは自分で入れたPythonを優�
 ```bash
 uv init --python 3.13 mc-hello
 cd mc-hello
-uv add https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v2301.0.0b7.post3/minecraft_remote_api-2301.0.0b7.post3-py3-none-any.whl
+uv add "minecraft-remote-api==2320.0.0b9"
 ```
+
+これは公開betaを指定した例です。導入する版は [README](../README.md) で確認してください。
 
 古い `.venv` フォルダは削除してかまいません。uvが作り直します。
 

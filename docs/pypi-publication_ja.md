@@ -1,13 +1,10 @@
-# PyPI.org公開の実施
+# PyPI.orgへの公開
 
-## 現在の状態（2026-10-05）
+通常公開・再実行・公開結果の照合に使う手順です。
+公開の判断と対象identityはknowledgeの指示に従い、human ownerが承認します。
+実施済みの結果は [公開確認記録](release-records_ja.md) を参照してください。
 
-- human ownerがPyPI.orgの既存project `minecraft-remote-api` の管理権限と2FAを確認した。
-- 次のGitHub Trusted Publisherを登録済みと報告した。
-- Windows 11のGitなし入口（B8 wheel、uv、Jupyter）は成功報告を受領済み。
-- [b9をPyPI.orgへpre-release公開済み](https://pypi.org/project/minecraft-remote-api/2320.0.0b9/)。GitHub Releaseと同じwheel／sdistのbytesとSHA-256を照合し、freshなuv projectでexact-pin取得とimportを確認した。
-- repository variable `PYPI_PUBLISH_ENABLED=true`。公開jobはenvironment `pypi`のhuman owner承認を経て実行された。
-- matureへの移行はhuman ownerが承認済み（knowledge `2026-10-05-03`）。公開identityとworkflowは[リリース確認記録](release-records_ja.md#b9-pypi)を参照。
+## Trusted Publisher
 
 | Trusted Publisherの項目 | 登録値 |
 | --- | --- |
@@ -25,7 +22,7 @@ API tokenを作成したりGitHub Secretsへ保存したりする必要はない
 [repositoryのEnvironments](https://github.com/Naohiro2g/minecraft-remote-api/settings/environments)にenvironment `pypi` を作成済み。
 公開jobの `environment: pypi` は、PyPI側の登録値と一致させる。
 
-2026-10-05の公開時にprovider APIで次の保護を確認した。
+次の保護を設定します。
 
 - Required reviewer: human release owner（`Naohiro2g`）
 - Prevent self-review: OFF（本人が開始したworkflowを本人が承認できる）
@@ -37,7 +34,7 @@ API tokenを作成したりGitHub Secretsへ保存したりする必要はない
 
 ## 2. 公開承認後に有効化する
 
-公開承認後に有効化する。b9公開時はhuman ownerが設定済み。
+human ownerの公開承認後に有効化します。
 
 [Actions variables](https://github.com/Naohiro2g/minecraft-remote-api/settings/variables/actions)で、
 repository variableを次の値にする。
@@ -67,10 +64,10 @@ PyPIのjobが承認待ちになったら、human ownerが実行画面の **Revie
 新しい版の通常公開とは別に、公開済みtagのworkflowから既存Releaseのassetを送る経路がある。
 対象tagはhuman ownerが承認したものを指定する。
 
-例（対象版の公開が承認済みで、GitHub Releaseも存在する場合）:
+`<version>`を承認済みの対象版へ置き換えます。GitHub Releaseも存在することを確認してください。
 
 ```bash
-gh workflow run release.yml --repo Naohiro2g/minecraft-remote-api --ref v2320.0.0b9 -f tag=v2320.0.0b9 -f channel=pypi
+gh workflow run release.yml --repo Naohiro2g/minecraft-remote-api --ref v<version> -f tag=v<version> -f channel=pypi
 ```
 
 UIでは [Actions → Release](https://github.com/Naohiro2g/minecraft-remote-api/actions/workflows/release.yml) →
@@ -81,7 +78,7 @@ tagのworkflowを使うため、mainへ加えた修正はこの経路には反�
 workflowの修正が必要な場合は、次の公開版に取り込む扱いをcoordinatorと確認する。公開済みtagは動かさない。
 
 この経路ではpromoteとTestPyPI jobをskipし、PyPI.org jobだけを実行する。
-共通の`prepare-publication`は実行する。b8以前のbetaはPyPI.org jobの対象外。
+共通の`prepare-publication`は実行します。公開対象かどうかの判定はworkflowに従います。
 公開済みReleaseと照合し、manifestのsource／version／digestが合わなければupload前に停止する。
 有効化変数が未設定／falseならPyPI jobもskipする。その場合は公開成功ではない。
 
@@ -90,7 +87,7 @@ workflowの修正が必要な場合は、次の公開版に取り込む扱いを
 Actionsの **Publish to PyPI.org** と **Verify the PyPI.org files match the Release assets** がsuccessであることを確認する。
 後者はPyPI JSON APIでwheel／sdistのSHA-256とbytesをRelease assetへ照合し、yank状態も確認する。
 
-freshなuv projectで、公開した版を明示して取得する。以下は公開済みb9を検証する場合の例:
+freshなuv projectで、公開した版を明示して取得する。以下は公開beta `2320.0.0b9` を検証する例です:
 
 ```powershell
 uv init --python 3.13 mc-pypi-check
@@ -99,7 +96,7 @@ uv add "minecraft-remote-api==2320.0.0b9"
 uv run python -c "from mc_remote import Minecraft; from importlib.metadata import version; print(version('minecraft-remote-api')); print(Minecraft.__name__)"
 ```
 
-期待出力は `2320.0.0b9` と `Minecraft`。GitHub wheel URLやTestPyPIのindex設定を入れず、PyPI.orgから取得する。
+期待出力は指定した版と`Minecraft`です。取得先はPyPI.orgにします。
 
 betaはexact-pinで選ぶ。無指定の取得と区別する。
 公開後の退避はyank、修正の出し直しは新しい版番号を使う。詳細はPUBLISHING.md §5.3。

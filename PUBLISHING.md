@@ -15,12 +15,12 @@
 
 | チャンネル | 状態 | 経路 |
 | --- | --- | --- |
-| GitHub Release（pre-release） | 正式な配布先 | `release.yml` が候補 artifact を Release asset へ昇格 |
-| TestPyPI | b9では公開時に自動で予行。後続版で手動経路へ切り替える方針 | `release.yml` の `publish-testpypi` job（Trusted Publishing） |
-| PyPI.org | **mature**（`2026-10-05-03`）。b9からpre-release公開済み | `PYPI_PUBLISH_ENABLED=true`、environment `pypi`でhuman ownerが承認 |
+| PyPI.org | 利用者向けの標準配布先 | `publish-pypi` job、environment `pypi`でhuman ownerが承認 |
+| GitHub Release | 成果物とmanifestの配布・照合先 | 候補artifactを再buildせず添付 |
+| TestPyPI | 公開の予行用 | 現行workflowは公開時に自動実行。手動化は後続作業 |
 
 PyPI.orgのTrusted Publisher（`release.yml`／environment `pypi`）はhuman ownerが登録済みです（2026-10-05）。
-b9の公開・取得確認は [リリース確認記録](docs/release-records_ja.md#b9-pypi) に記録しています。設定と実施手順は [PyPI.org公開ガイド](docs/pypi-publication_ja.md) を参照してください。
+公開・取得確認は [公開確認記録](docs/release-records_ja.md) に記録しています。設定と実施手順は [PyPI.org公開ガイド](docs/pypi-publication_ja.md) を参照してください。
 
 API token による手作業の upload は正式経路にしません。
 
@@ -36,8 +36,8 @@ API token による手作業の upload は正式経路にしません。
    - `promote`：候補 artifact を再 build せずに Release asset へ添付する。
    - `prepare-publication`：Release assetのsource／version／SHA-256を検証し、両index用のartifactを共通に用意する。
    - `publish-testpypi`：検証済みの同じ bytes を TestPyPI へ publish する。
-   - `publish-pypi`：`PYPI_PUBLISH_ENABLED=true` かつb9以降の場合、同じ bytes を PyPI.org へ publish し、bytes／SHA-256を照合する。
-6. GitHub Releaseと公開先indexを確認する（§5、§6）。
+   - `publish-pypi`：公開対象のtagで`PYPI_PUBLISH_ENABLED=true`の場合、同じ bytes を PyPI.org へ publish し、bytes／SHA-256を照合する。
+6. PyPI.orgの公開結果とGitHub Releaseの成果物を確認する（§5）。
 
 ---
 
@@ -52,7 +52,7 @@ PyPI／TestPyPIでは、**同じindexの既出file名を異なる内容でupload
 version = "2320.0.0b9"   # 例。実際の版はknowledgeの指示で決める
 ```
 
-- 採番は protocol 連動の新スキーム。fold 規則（protocol `X.Y.Z` → メジャー番号）と接尾辞（`bN`／`rcN`）は versioning-design が正本。
+- 採番はprotocolに連動します。fold 規則（protocol `X.Y.Z` → メジャー番号）と接尾辞（`bN`／`rcN`）は versioning-design が正本。
 - コードを変えずに公開物だけ差し替える場合は `.postN`（ドット区切り）を使う（DECISIONS `2026-09-07-03`）。
 
 ```bash
@@ -83,12 +83,15 @@ unzip -p dist/minecraft_remote_api-*-py3-none-any.whl '*/METADATA' | grep -iE '^
 
 ## 4. tag と GitHub Release
 
+以下はbeta／rcを公開する例です。版と公開の扱いはknowledgeの指示に従います。
+
 ```bash
 git tag v<version>
 git push origin v<version>
 gh release create v<version> \
   --title "minecraft-remote-api <version>" \
   --generate-notes \
+  --latest=false \
   --prerelease            # bN／rcN（.postN を含む）のときのみ。stable では省略する
 ```
 
@@ -115,8 +118,8 @@ wheelのversionを照合します。TestPyPIとPyPI.orgは、この共通の検�
 
 ### 注意：`release.yml` は tag が指す commit の内容で動く
 
-`release: published` イベントは、`main` の最新ではなく **tag が指す commit にある `release.yml`** で実行されます
-（`v2301.0.0b7.post2` で実際に踏んだ挙動）。公開済みの tag は動かさないので、`release.yml` の修正は次の版から効きます。
+`release: published`イベントは、tagが指すcommitにある`release.yml`で実行されます。
+公開済みtagは動かさないので、workflowの修正は次の版から効きます。
 
 ### 失敗時の復旧
 
@@ -127,52 +130,61 @@ wheelのversionを照合します。TestPyPIとPyPI.orgは、この共通の検�
 | asset検証／publishの手順自体のバグ | TestPyPIは`main`で修正してdispatch。PyPI.orgはtag限定のenvironment policyがあるため、[公開ガイド](docs/pypi-publication_ja.md#4-既存releaseを指定して公開する場合)の実行ref制限を確認する |
 | 対応する `ci.yml` run が見つからない（90 日超過等） | その commit で `ci.yml` を再実行（`gh workflow run ci.yml --ref <branch>`）してから Release を作り直す |
 
-```bash
-gh workflow run release.yml --ref main -f tag=v<version>
-```
-
-dispatchではpromoteを行わず、`channel`で指定したindexに既存Releaseのassetを送ります。
-未指定／`testpypi`なら従来どおりTestPyPI、`pypi`なら有効化されたPyPI.org jobを使います（§6）。
+既存Releaseの成果物をPyPI.orgへ送る場合は、[公開ガイド](docs/pypi-publication_ja.md#4-既存releaseを指定して公開する場合)に従い、
+公開済みtagを実行refに選び、`channel=pypi`を明示します。
+dispatchではpromoteを行わず、指定indexへ既存Releaseの検証済みassetを送ります。
 
 ---
 
-## 5. TestPyPI（予行）
+## 5. PyPI.org（標準配布先）
 
-### 5.1 Trusted Publisher の登録（human owner、初回のみ）
+### 5.1 公開の設定と承認
 
-TestPyPI の project `minecraft-remote-api` は既にあるので、project の管理画面「Publishing」から GitHub の Trusted Publisher を追加します。
+公開jobはGitHub Trusted Publishingを使います。repository variable `PYPI_PUBLISH_ENABLED=true`、
+environment `pypi`の承認者、tag `v*`限定のdeployment policyを設定します。
+未設定／falseの間は、Release公開・dispatchのどちらでもPyPI jobをskipします。
 
-| 項目 | 値 |
-| --- | --- |
-| Owner | `Naohiro2g` |
-| Repository name | `minecraft-remote-api` |
-| Workflow name | `release.yml` |
-| Environment name | `testpypi` |
+登録値、human ownerの承認、既存Releaseの再実行、公開後の照合は
+[PyPI.org公開ガイド](docs/pypi-publication_ja.md)にまとめています。
 
-GitHub 側の environment `testpypi` は、最初の実行時に自動で作られます。承認者を付ける場合は、repo の Settings → Environments で設定します。
+### 5.2 利用者の取得
 
-### 5.2 exact-pin で取得する（利用目的ごと）
-
-pre-release は、無指定の取得では選ばれません。版を明示して取得します。
-
-**学習者（hello）**：PyPI公開済み版はexact-pinで取得します。gitは不要です。
+beta／rcは版を明示してPyPI.orgから取得します。以下は公開betaを指定した例です。
+導入する版は [README](README.md) で確認してください。
 
 ```bash
 uv init --python 3.13 mc-hello
 cd mc-hello
-uv add "minecraft-remote-api==2320.0.0b9"  # 公開済みb9を選ぶ例
+uv add "minecraft-remote-api==2320.0.0b9"
+uv run python -c "from mc_remote import Minecraft; print(Minecraft.__name__)"
 ```
 
-PyPIに未公開の過去版や、Release assetを直接使う場合はwheel URLを指定します。
+OSS開発者はsource checkoutで`uv sync --frozen`して開発します。
+特定の公開sourceを確認する場合は、そのReleaseのtagをcheckoutしてください。
 
-```bash
-uv init --python 3.13 mc-hello
-cd mc-hello
-uv add https://github.com/Naohiro2g/minecraft-remote-api/releases/download/v<version>/minecraft_remote_api-<version>-py3-none-any.whl
-```
+### 5.3 yank／unyankと出し直し
 
-**beta tester（TestPyPI から取得）**：本 package だけを TestPyPI から取り、依存（`pygame-ce`）は PyPI.org から取ります。
-プロジェクトの `pyproject.toml` に次を足します。
+yankは無指定や範囲指定の解決から外す操作です。exact-pinではyank後も取得できます。
+対象indexのproject管理画面でReleases → 対象版 → Yankを選び、理由を記録します。
+戻す場合はUn-yankを選びます。
+
+版番号は消費されたままで、同じfile名を異なる内容で再uploadできません。
+修正は新しい版番号で出し直し、変更したのがpackagingだけなら`.postN`を使います。
+公開済みtagやassetを、異なる内容へ差し替えないでください。
+
+予行でyankの効果を確認する場合は、対象が唯一の候補になる範囲を選び、
+`--prerelease allow --refresh`を付けて解決します。exact-pinでの取得確認とは分けて記録します。
+
+## 6. TestPyPI（予行用）
+
+予行先への登録は、TestPyPIのproject管理画面のPublishingから行います。
+GitHub Trusted Publisherはowner `Naohiro2g`、repository `minecraft-remote-api`、
+workflow `release.yml`、environment `testpypi`を指定します。
+
+既存Releaseで予行するときは、ActionsのRelease workflowに対象tagと`channel=testpypi`を指定します。
+公開時の自動予行を手動のみに絞る方針は採用済みで、workflowの切り替えは後続作業です。
+
+取得を試すprojectでは、本packageだけTestPyPIを使い、依存はPyPI.orgから取得します。
 
 ```toml
 [[tool.uv.index]]
@@ -184,82 +196,17 @@ explicit = true
 minecraft-remote-api = { index = "testpypi" }
 ```
 
+`<version>`を予行対象の版へ置き換えます。
+
 ```bash
 uv add "minecraft-remote-api==<version>"
 ```
 
-`explicit = true` の index は `[tool.uv.sources]` で指名した package にだけ使われます。TestPyPI にある同名の旧版や、
-TestPyPI 上の無関係な package が依存の解決に混ざることはありません。
+owner・2FA・maintainer体制の運用記録はknowledgeへ返します。
 
-**OSS 開発者**：source checkout で開発します。
+## 7. manifest.json
 
-```bash
-git clone https://github.com/Naohiro2g/minecraft-remote-api.git
-cd minecraft-remote-api
-uv sync --frozen
-```
-
-特定の版を再現する場合は `git checkout v<version>` してから `uv sync --frozen` します。
-
-**無指定の取得が旧 stable のままであることの確認**：
-
-```bash
-uv init --python 3.13 check-default && cd check-default
-uv add minecraft-remote-api --refresh
-uv tree --depth 1      # 1214.x が選ばれていること
-```
-
-### 5.3 yank／unyank
-
-yank は「無指定や範囲指定の解決から外す」操作です。`==` による exact-pin では yank 後も取得できます（PEP 592）。
-削除ではないので、yank しても番号は消費されたままです。
-
-- 操作：TestPyPI の project 管理画面 → Releases → 対象版の Options → Yank（理由を書く）。戻すときは同じ画面で Un-yank。
-- 出し直し：同じ版番号は再 upload できない。修正版は `.postN` を上げて §1 の流れで出す。
-
-yank の効果を確認するときは、**pre-release を許す範囲指定**で解決させます。無指定の解決はもともと pre-release を選ばないため、
-yank の有無で結果が変わらず、確認になりません。§5.2 の TestPyPI 設定をしたプロジェクトで:
-
-```bash
-# yank 後：範囲指定では選ばれないこと（候補が他に無ければ解決に失敗する）
-uv add "minecraft-remote-api>=2301.0.0b0" --prerelease allow --refresh
-# yank 後：exact-pin では取得できること
-uv add "minecraft-remote-api==<version>" --refresh
-```
-
-### 5.4 アカウントの記録
-
-遷移ゲート③の記録として、次を human owner が記入します。
-
-| 項目 | PyPI.org | TestPyPI |
-| --- | --- | --- |
-| project owner | human ownerの管理権限を確認（2026-10-05。account名は未記載） | （未記入） |
-| 2FA | human owner確認済み（2026-10-05） | 確認済み（2026-09-26） |
-| 2人目の maintainer | （未記入） | （未記入） |
-
----
-
-## 6. PyPI.org
-
-matureへの移行はhuman ownerが承認済みです（`2026-10-05-03`）。b9をPyPI.orgへpre-releaseとして公開しました。
-`release.yml`のPyPI.org用jobはTrusted Publisherを使います。repository variable
-`PYPI_PUBLISH_ENABLED`が未設定／falseの間は、Release公開時もdispatch時もPyPI jobをskipします。
-
-公開承認後に変数を`true`へ設定すると、通常の`release: published`からPyPI.orgへも同じassetを送ります。
-b8以前のbetaは有効化後もPyPI.orgの対象にしません。
-environment `pypi`はhuman ownerの承認とtag `v*`からの実行を要求します。
-既存Releaseを指定する場合は、公開済みtagのworkflowを`channel=pypi`でdispatchします。
-jobはdraftを拒否し、Release assetとmanifestのsource／version／SHA-256を検証してからOIDCで公開します。
-公開後にもPyPI側のbytes／SHA-256を照合します。
-
-Trusted Publisherの登録値、GitHub environment、実行と確認の具体的な手順は
-[PyPI.org公開ガイド](docs/pypi-publication_ja.md)を参照してください。
-
----
-
-## 7. `manifest.json`
-
-各 Release へ次の schema（DECISIONS `2026-09-06-04`）で添付されます。
+GitHub Releaseにはwheel／sdistと次のmanifestを添付します。
 
 ```json
 {
@@ -267,7 +214,7 @@ Trusted Publisherの登録値、GitHub environment、実行と確認の具体的
   "schema_version": 1,
   "release_tag": "v<version>",
   "source_commit": "<このrepoのcommit>",
-  "bundled_wirescope_source_commit": "<同梱WireScopeの由来commit（minecraft-remote-tooling）>",
+  "bundled_wirescope_source_commit": "<同梱WireScopeのsource commit>",
   "artifacts": [
     { "role": "wheel", "kind": "https-file", "file": "...", "sha256": "..." },
     { "role": "sdist", "kind": "https-file", "file": "...", "sha256": "..." }
@@ -275,30 +222,4 @@ Trusted Publisherの登録値、GitHub environment、実行と確認の具体的
 }
 ```
 
-`v2301.0.0b7` までの Release には asset が添付されていません（遡及しない）。
-
----
-
-## 付録
-
-- リリースごとの確認記録（b3〜b7）：[`docs/release-records_ja.md`](docs/release-records_ja.md)
-
-### Poetry へのロールバック
-
-uv 運用で問題が出た場合、ビルドバックエンドを Poetry に戻せます。`pyproject.toml` を以下に差し替える:
-
-```toml
-[project]
-# dependencies は [project] に残したまま（PEP 621 標準なので Poetry 2.x も読む）
-
-[tool.poetry]
-packages = [{ include = "mc_remote", from = "." }]   # 配布名≠import名のため必須
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
-```
-
-> 注: `mc_remote` は配布名（`minecraft-remote-api`）と import 名が異なるため、
-> poetry-core では `[tool.poetry].packages` の明示が**必須**（無いとパッケージが空になる）。
-> uv_build では `[tool.uv.build-backend]` の `module-name` / `module-root` が同じ役割を担う。
+公開source・成果物の照合結果は [公開確認記録](docs/release-records_ja.md)を参照してください。
