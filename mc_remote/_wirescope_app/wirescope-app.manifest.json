@@ -9,12 +9,12 @@
   },
   "source": {
     "repository": "https://github.com/Naohiro2g/minecraft-remote-tooling",
-    "commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+    "commit": "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666",
     "subdirectory": "packages/live",
-    "corresponding_source_url": "https://github.com/Naohiro2g/minecraft-remote-tooling/tree/dc1ab834183e29f2eb03059b07e99d2b463776ee/packages/live"
+    "corresponding_source_url": "https://github.com/Naohiro2g/minecraft-remote-tooling/tree/6447f6e8cbfbeeb9d229990b5c4f6e82a5875666/packages/live"
   },
   "build": {
-    "recipe": "npm ci && npm run build:artifact --workspace=@mc-remote/live -- --source-commit dc1ab834183e29f2eb03059b07e99d2b463776ee",
+    "recipe": "npm ci && npm run build:artifact --workspace=@mc-remote/live -- --source-commit 6447f6e8cbfbeeb9d229990b5c4f6e82a5875666",
     "toolchain": {
       "node": "24.19.0",
       "rolldown-vite": "7.3.1",
@@ -22,9 +22,9 @@
       "jszip": "3.10.1"
     },
     "input_identity": {
-      "source_commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+      "source_commit": "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666",
       "package_json_sha256": "84b74060253ef940952db82c24e1cee4d18d652ae11449ee601a92d1f72a6bbe",
-      "package_lock_sha256": "7eacbd1836e00e6172fd7ef92b9abbd3fc8e5c41d29112ee123626a3cc0a1eea"
+      "package_lock_sha256": "e41c451fcd306b358ec6d50c5dc3cbb815fcac1719b1bf9189bc5af1b19e4f0e"
     }
   },
   "protocols": {

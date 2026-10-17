@@ -25,7 +25,7 @@ EXPECTED_FILES = {
     ),
     MANIFEST_PATH: (
         2339,
-        "c654f7d1f0be2773d6737e889279b2587317088717f162b082c82be9cff910d7",
+        "3dd668a236463809a4cdc6d19375f3e6d75eea0c8089a616d2b761d3a4a05235",
     ),
 }
 LICENSE_EXPRESSION = "MIT AND AGPL-3.0-only"
@@ -36,7 +36,7 @@ LICENSE_FILES = {
 }
 SOURCE_URL = (
     "https://github.com/Naohiro2g/minecraft-remote-tooling/tree/"
-    "dc1ab834183e29f2eb03059b07e99d2b463776ee/packages/live"
+    "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666/packages/live"
 )
 
 
