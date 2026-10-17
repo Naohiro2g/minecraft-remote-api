@@ -15,6 +15,8 @@ static helpers, so no socket/server is needed.
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from mc_remote.connection import Connection, McRpcError, McRemoteError  # noqa: E402
@@ -70,6 +72,19 @@ def test_hello_declares_protocol_and_caches():
     assert mc.catalog_hash is None  # null -> always a cache miss
     assert mc._dimension == "minecraft:overworld"  # server-canonical context
     assert (mc._origin.x, mc._origin.y, mc._origin.z) == (200, 0, 200)
+
+
+@pytest.mark.parametrize("server_protocol", ["23.2.0", "23.2.1"])
+def test_rc1_client_accepts_compatible_hello_response(server_protocol):
+    from mc_remote.minecraft import PROTOCOL
+
+    conn = FakeConn({"hello": {**HELLO, "protocol": server_protocol}})
+    mc = Minecraft(conn)
+
+    assert mc.hello()["protocol"] == server_protocol
+    assert mc.protocol == server_protocol
+    assert conn.calls == [("hello", {"protocol": "23.2.1"})]
+    assert PROTOCOL == "23.2.1"
 
 
 def test_invalid_hello_build_context_is_not_cached():

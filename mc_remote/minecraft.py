@@ -148,7 +148,7 @@ __all__ = [
 
 # Wire protocol version this client speaks (sent in the hello handshake and
 # checked by the server). Distinct from the PyPI/distribution version.
-PROTOCOL = "23.2.0"
+PROTOCOL = "23.2.1"
 
 CatalogProjectionError = _projection.CatalogProjectionError
 CatalogProjectionWarning = _projection.CatalogProjectionWarning
@@ -203,7 +203,7 @@ def _env_first(*names):
 class Minecraft:
     """Client for a running Minecraft server speaking protocol 23.x.
 
-    protocol 23.2.0 b8 surface: ``hello`` handshake (carrying an optional
+    protocol 23.2.1 surface: ``hello`` handshake (carrying an optional
     ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
     structured block values, ``postToChat`` (wire ``chat.post``), paired-player
     position and pose helpers (``getPos`` / ``setPos`` / ``getPose`` /

@@ -71,10 +71,10 @@ def observer_source():
     return source, frames
 
 
-def test_b9_package_version_and_unchanged_protocol():
-    assert PROTOCOL == "23.2.0"
+def test_current_package_version_and_protocol():
+    assert PROTOCOL == "23.2.1"
     project = (Path(__file__).parents[1] / "pyproject.toml").read_text()
-    assert 'version = "2320.0.0b9"' in project
+    assert 'version = "2321.0.0rc1"' in project
 
 
 @pytest.mark.parametrize("events", [

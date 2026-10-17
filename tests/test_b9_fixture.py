@@ -56,7 +56,8 @@ def test_shared_fixture_identity_and_33_case_inventory():
     assert SOURCE["commit"] == "dc1ab834183e29f2eb03059b07e99d2b463776ee"
     assert SOURCE["path"] == "packages/protocol/test/fixtures/chat-event-compat-v23.2.json"
     assert FIXTURE["schema"] == "mcremote.chat-event-compat.v23.2"
-    assert FIXTURE["protocol"] == PROTOCOL == "23.2.0"
+    assert FIXTURE["protocol"] == "23.2.0"
+    assert PROTOCOL == "23.2.1"
     assert FIXTURE["knowledge_contract"] == SOURCE["knowledge_contract"]
     assert FIXTURE["knowledge_contract"]["commit"] == "900f6f4b8027d265a62ba7f139d4f3b1bbe78100"
     assert FIXTURE["knowledge_contract"]["decisions"] == ["2026-10-03-01", "2026-10-03-02"]

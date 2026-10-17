@@ -63,7 +63,7 @@ def test_owner_fixture_identity_protocol_and_93_case_ledger():
     assert source["bytes"] == FIXTURE_PATH.stat().st_size
     assert FIXTURE["schema"] == "mcremote.direction-lightning.v23.1"
     assert FIXTURE["protocol"] == "23.1.0"
-    assert PROTOCOL == "23.2.0"
+    assert PROTOCOL == "23.2.1"
     assert FIXTURE["knowledge_contract"] == {
         "commit": "2bddadd1114e05a9076911de83aec0836df36345",
         "path": "10-protocol/wire-format-design_ja.md",

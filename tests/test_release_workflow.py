@@ -16,7 +16,7 @@ import pytest
 
 
 WORKFLOW = Path(__file__).parents[1] / ".github/workflows/release.yml"
-TAG = "v2320.0.0b9"
+TAG = "v2321.0.0rc1"
 SOURCE = "a" * 40
 
 
@@ -38,8 +38,8 @@ def release_assets(tmp_path):
     directory.mkdir()
     artifacts = []
     for role, filename in (
-        ("wheel", "minecraft_remote_api-2320.0.0b9-py3-none-any.whl"),
-        ("sdist", "minecraft_remote_api-2320.0.0b9.tar.gz"),
+        ("wheel", "minecraft_remote_api-2321.0.0rc1-py3-none-any.whl"),
+        ("sdist", "minecraft_remote_api-2321.0.0rc1.tar.gz"),
     ):
         body = f"candidate {role} bytes".encode()
         (directory / filename).write_bytes(body)
@@ -97,7 +97,7 @@ def test_shared_verification_stops_on_identity_or_byte_mismatch(release_assets, 
 @pytest.mark.parametrize("tag,eligible", [
     ("v2301.0.0b7.post3", False), ("v2320.0.0b8", False),
     ("v2320.0.0b8.post1", False), ("v2320.0.0b9", True),
-    ("v2320.0.0b10", True), ("v2320.0.0rc1", True),
+    ("v2320.0.0b10", True), ("v2321.0.0rc1", True),
     ("v2320.0.0", True), ("v2330.0.0b1", True),
 ])
 def test_pypi_starts_at_b9_and_excludes_historical_beta(tmp_path, tag, eligible):

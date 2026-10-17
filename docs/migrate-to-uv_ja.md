@@ -50,10 +50,10 @@ pyenvは消さなくてかまいません。uvは自分で入れたPythonを優�
 ```bash
 uv init --python 3.13 mc-hello
 cd mc-hello
-uv add "minecraft-remote-api==2320.0.0b9"
+uv add "minecraft-remote-api==2321.0.0rc1"
 ```
 
-これは公開betaを指定した例です。導入する版は [README](../README.md) で確認してください。
+これはrc1公開後に版を指定する例です。導入する版は [README](../README.md) で確認してください。
 
 古い `.venv` フォルダは削除してかまいません。uvが作り直します。
 

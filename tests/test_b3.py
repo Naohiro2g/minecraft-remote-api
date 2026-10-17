@@ -1029,7 +1029,7 @@ def test_starter_contract():
     assert MANIFEST_NAME not in actual
 
     template = (starter / "param_mc_remote.template.py").read_text(encoding="utf-8")
-    assert 'ADRS_MCR = "sb.mc-remote.com"' in template
+    assert 'ADRS_MCR = "sb-beta.mc-remote.com"' in template
     assert "PORT_MCR = 25575" in template
     assert "BUILD_ORIGIN = Vec3(" in template
     assert "PLAYER_NAME" not in template

@@ -4,12 +4,12 @@
 
 PyPIからパッケージを導入した作業用projectで、サンプルを実行します。
 導入する版と対応サーバーは、top-level [`README.md`](../README.md) で確認してください。
-公開betaを指定して作業用projectを作る例:
+rc1公開後に作業用projectを作る例:
 
 ```bash
 uv init --python 3.13 mc-starter
 cd mc-starter
-uv add "minecraft-remote-api==2320.0.0b9"
+uv add "minecraft-remote-api==2321.0.0rc1"
 ```
 
 このdirectoryの`.py`ファイルを作業用projectへコピーします。

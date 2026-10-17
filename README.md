@@ -21,10 +21,10 @@ Minecraft側は、このクライアントに対応する [McRemote](https://git
 ```bash
 uv init --python 3.13 mc-hello
 cd mc-hello
-uv add "minecraft-remote-api==2320.0.0b9"
+uv add "minecraft-remote-api==2321.0.0rc1"
 ```
 
-PyPIから取得します。beta／rcは版を指定して導入してください。
+rc1がPyPIへ公開された後は、上のように版を指定して導入します。
 導入済み環境を変更する場合は [更新と元の版への復帰](docs/update-rollback_ja.md) を参照してください。
 
 ### Step 2: 最小コード（`hello.py`）を書く
@@ -52,6 +52,7 @@ mc.setBlock(5, 67, 5, "sea_lantern")
 ```
 
 サーバーが別のPCにある場合は、`localhost` をその接続先に置き換えます。
+[自分のPCやLANで使う案内](https://mc-remote.com/#lan)も参照できます。
 公式箱庭を使う場合は、[公式サイト](https://mc-remote.com/) の接続先と対応版の案内を確認してください。
 
 ### Step 3: 実行とペアリング
@@ -143,9 +144,9 @@ Pythonの `mc.playSound(...)` は一覧の `world.playSound` に対応します�
 ## パッケージ情報 & 対応環境
 
 - **パッケージ名**: `minecraft-remote-api`（インポート名: `mc_remote`）
-- **公開済みバージョン**: [`2320.0.0b9`](https://pypi.org/project/minecraft-remote-api/2320.0.0b9/)（Protocol 23.2.0 準拠、PyPI／GitHub prerelease公開済み）。
+- **このソースのバージョン**: `2321.0.0rc1`（Protocol 23.2.1）。公開状況は [PyPI](https://pypi.org/project/minecraft-remote-api/) と [GitHub Releases](https://github.com/Naohiro2g/minecraft-remote-api/releases) で確認してください。
 - **対応Python**: 3.10〜3.13（標準は3.13）
-- **対応マインクラフト**: Java版 1.21.11（Paper 26.x対応準備中）
+- **対応マインクラフト**: 接続先のMcRemoteが対応するJava版（rc1では1.21.11／26.3）
 - **接続先**:
   - 公式箱庭（サンドボックス）サーバー: `sb-beta.mc-remote.com:25575`
   - 自前サーバー: PaperMC サーバーに [McRemote プラグイン](https://github.com/Naohiro2g/McRemote) を導入して起動

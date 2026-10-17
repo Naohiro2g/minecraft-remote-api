@@ -21,6 +21,7 @@
 
 PyPI.orgのTrusted Publisher（`release.yml`／environment `pypi`）はhuman ownerが登録済みです（2026-10-05）。
 公開・取得確認は [公開確認記録](docs/release-records_ja.md) に記録しています。設定と実施手順は [PyPI.org公開ガイド](docs/pypi-publication_ja.md) を参照してください。
+rc1では、GitHub pre-releaseの試験が終わるまでhuman ownerは`pypi` environmentの公開jobを承認しません。
 
 API token による手作業の upload は正式経路にしません。
 
@@ -49,7 +50,7 @@ PyPI／TestPyPIでは、**同じindexの既出file名を異なる内容でupload
 
 ```toml
 [project]
-version = "2320.0.0b9"   # 例。実際の版はknowledgeの指示で決める
+version = "2321.0.0rc1"   # 例。実際の版はknowledgeの指示で決める
 ```
 
 - 採番はprotocolに連動します。fold 規則（protocol `X.Y.Z` → メジャー番号）と接尾辞（`bN`／`rcN`）は versioning-design が正本。
@@ -149,13 +150,13 @@ environment `pypi`の承認者、tag `v*`限定のdeployment policyを設定し�
 
 ### 5.2 利用者の取得
 
-beta／rcは版を明示してPyPI.orgから取得します。以下は公開betaを指定した例です。
+beta／rcは版を明示してPyPI.orgから取得します。以下はrc1公開後の例です。
 導入する版は [README](README.md) で確認してください。
 
 ```bash
 uv init --python 3.13 mc-hello
 cd mc-hello
-uv add "minecraft-remote-api==2320.0.0b9"
+uv add "minecraft-remote-api==2321.0.0rc1"
 uv run python -c "from mc_remote import Minecraft; print(Minecraft.__name__)"
 ```
 

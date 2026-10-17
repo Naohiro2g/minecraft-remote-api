@@ -29,7 +29,8 @@ def test_owner_fixture_exact_identity_and_111_case_inventory():
     assert SOURCE["repository"] == "Naohiro2g/minecraft-remote-tooling"
     assert SOURCE["commit"] == "dc1ab834183e29f2eb03059b07e99d2b463776ee"
     assert SOURCE["path"] == "packages/protocol/test/fixtures/entity-particle-v23.2.json"
-    assert FIXTURE["protocol"] == PROTOCOL == "23.2.0"
+    assert FIXTURE["protocol"] == "23.2.0"
+    assert PROTOCOL == "23.2.1"
     assert FIXTURE["knowledge_contract"] == SOURCE["knowledge_contract"]
     assert FIXTURE["knowledge_contract"]["decisions"] == ["2026-09-30-01", "2026-09-30-02", "2026-09-30-06"]
     ids = [case["id"] for section, key in (
