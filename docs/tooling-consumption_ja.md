@@ -7,7 +7,7 @@ DECISIONS `2026-10-05-01/02`を参照してください。この文書はPython�
 ## 共有fixture
 
 `tests/fixtures/*.source.json`の`repository`、`commit`、`path`が取得元です。
-共有fixtureは次の7件です。
+共有fixtureは履歴を含めて次の9件です。
 
 | Python側のfile | tooling側のpath |
 | --- | --- |
@@ -16,8 +16,15 @@ DECISIONS `2026-10-05-01/02`を参照してください。この文書はPython�
 | `direction-lightning-v23.1.json` | `packages/protocol/test/fixtures/direction-lightning-v23.1.json` |
 | `entity-particle-v23.2.json` | `packages/protocol/test/fixtures/entity-particle-v23.2.json` |
 | `chat-event-compat-v23.2.json` | `packages/protocol/test/fixtures/chat-event-compat-v23.2.json` |
+| `entity-particle-v23.2.1.json` | `packages/protocol/test/fixtures/entity-particle-v23.2.1.json` |
+| `chat-event-compat-v23.2.1.json` | `packages/protocol/test/fixtures/chat-event-compat-v23.2.1.json` |
 | `display-alias-v1.json` | `packages/live/test/fixtures/display-alias-v1.json` |
 | `station-attach-v1.json` | `packages/live/test/fixtures/station-attach-v1.json` |
+
+rc1のentity／particleとchat／eventのconsumer testは`*-v23.2.1.json`を使います。
+`*-v23.2.json`とそのsidecarは履歴として元のbytesと固定元を保ちます（knowledge `2026-10-18-03`）。
+23.2.1版ではschema名とprotocolの版だけが変わり、caseの内容が同じこともtestで確認します。
+23.2.1版のsidecarの`ci`には、取得元commitで成功したrunと、GitHub APIで照合したartifact ID／digestを記録しています。
 
 1. ownerが発行した固定commitからfileを取得する。JSONの再整形や改行変換をせず、bytesのまま保存する。
 2. ownerのbytes／SHA-256と照合し、fixtureとsidecarを更新する。`branch`は参考情報であり、取得は`commit`に固定する。
@@ -25,7 +32,7 @@ DECISIONS `2026-10-05-01/02`を参照してください。この文書はPython�
 4. `tests/test_b6.py`、`test_b7.py`、`test_b8_fixture.py`、`test_b9_fixture.py`、
    `test_wirescope.py`、`test_wirescope_station_contract.py`を実行する。
 
-`observer-session-lifecycle.ndjson`などPython自身が作るfixtureは、この7件に含めません。
+`observer-session-lifecycle.ndjson`などPython自身が作るfixtureは、この9件に含めません。
 契約caseの追加と取得元の移管は、別commitにします。
 
 ## 同梱WireScope

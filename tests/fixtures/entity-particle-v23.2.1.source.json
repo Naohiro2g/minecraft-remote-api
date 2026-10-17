@@ -1,0 +1,29 @@
+{
+  "repository": "Naohiro2g/minecraft-remote-tooling",
+  "branch": "agent/rc1-protocol-2321",
+  "commit": "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666",
+  "path": "packages/protocol/test/fixtures/entity-particle-v23.2.1.json",
+  "bytes": 36483,
+  "sha256": "0319ff8373a96798cf5e9e421a804729fd33a0fa53e96adc12c93ed7994777ae",
+  "cases": 111,
+  "knowledge_commit": "d0be94624659e82d5f91bac6eba48063cc1c3c7b",
+  "decision_id": "2026-10-18-03",
+  "knowledge_contract": {
+    "commit": "0318332a2b3395a5d74b46d7da6946030a2fc172",
+    "path": "10-protocol/wire-format-design_ja.md",
+    "sections": [
+      "5.0.2",
+      "5.8.3"
+    ],
+    "decisions": [
+      "2026-09-30-01",
+      "2026-09-30-02",
+      "2026-09-30-06"
+    ]
+  },
+  "ci": {
+    "run_id": 39053886890,
+    "artifact_id": 12109060950,
+    "artifact_digest": "sha256:5b644de44ae2f9a2fb9de09d221c2930218f6c317baffee3b5c7f817309555fa"
+  }
+}

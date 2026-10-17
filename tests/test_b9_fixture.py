@@ -1,4 +1,4 @@
-"""Consume the owner's 33 B9 chat/event cases without rewriting their bytes."""
+"""Consume the owner's 33 chat/event cases for protocol 23.2.1 as exact bytes."""
 
 from dataclasses import fields
 import hashlib
@@ -16,8 +16,8 @@ from test_b9 import FakeConn, observer_source
 
 
 ROOT = Path(__file__).parent / "fixtures"
-FIXTURE_PATH = ROOT / "chat-event-compat-v23.2.json"
-SOURCE = json.loads((ROOT / "chat-event-compat-v23.2.source.json").read_text())
+FIXTURE_PATH = ROOT / "chat-event-compat-v23.2.1.json"
+SOURCE = json.loads(FIXTURE_PATH.with_suffix(".source.json").read_text())
 FIXTURE = json.loads(FIXTURE_PATH.read_text())
 
 
@@ -48,16 +48,15 @@ def seed_status(mc, conn, previous):
 
 def test_shared_fixture_identity_and_33_case_inventory():
     body = FIXTURE_PATH.read_bytes()
-    assert len(body) == SOURCE["bytes"] == 32382
+    assert len(body) == SOURCE["bytes"] == 32384
     assert hashlib.sha256(body).hexdigest() == SOURCE["sha256"] == (
-        "670b0a86df1956c0e44c6986a0a2598caab32c7328804f9c703190e62e9dd727"
+        "eead244a7340c315cb63e1e77ede0fe9cf48162c06fedbeef36d941950d5000d"
     )
     assert SOURCE["repository"] == "Naohiro2g/minecraft-remote-tooling"
-    assert SOURCE["commit"] == "dc1ab834183e29f2eb03059b07e99d2b463776ee"
-    assert SOURCE["path"] == "packages/protocol/test/fixtures/chat-event-compat-v23.2.json"
-    assert FIXTURE["schema"] == "mcremote.chat-event-compat.v23.2"
-    assert FIXTURE["protocol"] == "23.2.0"
-    assert PROTOCOL == "23.2.1"
+    assert SOURCE["commit"] == "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666"
+    assert SOURCE["path"] == "packages/protocol/test/fixtures/chat-event-compat-v23.2.1.json"
+    assert FIXTURE["schema"] == "mcremote.chat-event-compat.v23.2.1"
+    assert FIXTURE["protocol"] == PROTOCOL == "23.2.1"
     assert FIXTURE["knowledge_contract"] == SOURCE["knowledge_contract"]
     assert FIXTURE["knowledge_contract"]["commit"] == "900f6f4b8027d265a62ba7f139d4f3b1bbe78100"
     assert FIXTURE["knowledge_contract"]["decisions"] == ["2026-10-03-01", "2026-10-03-02"]
@@ -66,6 +65,17 @@ def test_shared_fixture_identity_and_33_case_inventory():
         + FIXTURE["event_batches"]["stateful_rejections"]
     )]
     assert len(ids) == len(set(ids)) == SOURCE["cases"] == 33
+
+
+def test_protocol_23_2_history_is_preserved():
+    history = (ROOT / "chat-event-compat-v23.2.json").read_bytes()
+    assert hashlib.sha256(history).hexdigest() == (
+        "670b0a86df1956c0e44c6986a0a2598caab32c7328804f9c703190e62e9dd727"
+    )
+    assert FIXTURE_PATH.read_bytes() == history.replace(
+        b'"schema": "mcremote.chat-event-compat.v23.2"',
+        b'"schema": "mcremote.chat-event-compat.v23.2.1"',
+    ).replace(b'"protocol": "23.2.0"', b'"protocol": "23.2.1"')
 
 
 @pytest.mark.parametrize("case", FIXTURE["chat_post"]["cases"], ids=lambda item: item["id"])

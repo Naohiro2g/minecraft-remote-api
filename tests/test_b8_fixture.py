@@ -1,4 +1,4 @@
-"""Consume the protocol owner's exact B8 bytes on the Python surface.
+"""Consume the owner's protocol 23.2.1 entity/particle fixture on Python.
 
 Paper searches, WorkAdmission, and registry transactions are server claims.
 These tests check request projection and response/error transport only.
@@ -18,19 +18,21 @@ from test_b8 import FakeConn, observer_source
 
 
 ROOT = Path(__file__).parent / "fixtures"
-FIXTURE_PATH = ROOT / "entity-particle-v23.2.json"
+FIXTURE_PATH = ROOT / "entity-particle-v23.2.1.json"
 FIXTURE = json.loads(FIXTURE_PATH.read_text())
-SOURCE = json.loads((ROOT / "entity-particle-v23.2.source.json").read_text())
+SOURCE = json.loads(FIXTURE_PATH.with_suffix(".source.json").read_text())
 
 
 def test_owner_fixture_exact_identity_and_111_case_inventory():
-    assert hashlib.sha256(FIXTURE_PATH.read_bytes()).hexdigest() == SOURCE["sha256"]
-    assert len(FIXTURE_PATH.read_bytes()) == SOURCE["bytes"] == 36481
+    assert hashlib.sha256(FIXTURE_PATH.read_bytes()).hexdigest() == SOURCE["sha256"] == (
+        "0319ff8373a96798cf5e9e421a804729fd33a0fa53e96adc12c93ed7994777ae"
+    )
+    assert len(FIXTURE_PATH.read_bytes()) == SOURCE["bytes"] == 36483
     assert SOURCE["repository"] == "Naohiro2g/minecraft-remote-tooling"
-    assert SOURCE["commit"] == "dc1ab834183e29f2eb03059b07e99d2b463776ee"
-    assert SOURCE["path"] == "packages/protocol/test/fixtures/entity-particle-v23.2.json"
-    assert FIXTURE["protocol"] == "23.2.0"
-    assert PROTOCOL == "23.2.1"
+    assert SOURCE["commit"] == "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666"
+    assert SOURCE["path"] == "packages/protocol/test/fixtures/entity-particle-v23.2.1.json"
+    assert FIXTURE["schema"] == "mcremote.entity-particle.v23.2.1"
+    assert FIXTURE["protocol"] == PROTOCOL == "23.2.1"
     assert FIXTURE["knowledge_contract"] == SOURCE["knowledge_contract"]
     assert FIXTURE["knowledge_contract"]["decisions"] == ["2026-09-30-01", "2026-09-30-02", "2026-09-30-06"]
     ids = [case["id"] for section, key in (
@@ -38,10 +40,21 @@ def test_owner_fixture_exact_identity_and_111_case_inventory():
         ("entity_lifecycle", "cases"), ("particle_stage_2", "cases"),
         ("sound", "cases"), ("resource_ids", "cases"),
     ) for case in FIXTURE[section][key]]
-    assert len(ids) == len(set(ids)) == 111
+    assert len(ids) == len(set(ids)) == SOURCE["cases"] == 111
     # N19 and H03..H07 only describe server arithmetic/transaction internals.
     server_only = {"B8-N19", "B8-H03", "B8-H04", "B8-H05", "B8-H06", "B8-H07"}
     assert server_only <= set(ids)
+
+
+def test_protocol_23_2_history_is_preserved():
+    history = (ROOT / "entity-particle-v23.2.json").read_bytes()
+    assert hashlib.sha256(history).hexdigest() == (
+        "ca636b4a2685ea67f24d8e7931e3d30a84e7cec872bb5c5d2eadd178cdac39f2"
+    )
+    assert FIXTURE_PATH.read_bytes() == history.replace(
+        b'"schema": "mcremote.entity-particle.v23.2"',
+        b'"schema": "mcremote.entity-particle.v23.2.1"',
+    ).replace(b'"protocol": "23.2.0"', b'"protocol": "23.2.1"')
 
 
 @pytest.mark.parametrize("case", FIXTURE["nearby"]["cases"][:-1], ids=lambda case: case["id"])

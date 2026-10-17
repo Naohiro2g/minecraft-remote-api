@@ -1,0 +1,28 @@
+{
+  "repository": "Naohiro2g/minecraft-remote-tooling",
+  "branch": "agent/rc1-protocol-2321",
+  "commit": "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666",
+  "path": "packages/protocol/test/fixtures/chat-event-compat-v23.2.1.json",
+  "bytes": 32384,
+  "sha256": "eead244a7340c315cb63e1e77ede0fe9cf48162c06fedbeef36d941950d5000d",
+  "cases": 33,
+  "knowledge_commit": "d0be94624659e82d5f91bac6eba48063cc1c3c7b",
+  "decision_id": "2026-10-18-03",
+  "knowledge_contract": {
+    "commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100",
+    "path": "10-protocol/wire-format-design_ja.md",
+    "sections": [
+      "4",
+      "5.4"
+    ],
+    "decisions": [
+      "2026-10-03-01",
+      "2026-10-03-02"
+    ]
+  },
+  "ci": {
+    "run_id": 39053886890,
+    "artifact_id": 12109060950,
+    "artifact_digest": "sha256:5b644de44ae2f9a2fb9de09d221c2930218f6c317baffee3b5c7f817309555fa"
+  }
+}
