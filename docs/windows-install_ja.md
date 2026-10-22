@@ -2,7 +2,7 @@
 
 Gitを使わず、uvでPyPIからPythonクライアントを取得し、JupyterLabまで進める手順です。
 導入する版と対応サーバーは [README](../README.md) で確認してください。
-以下はrc1公開後に `2321.0.0rc1` を導入する例です。
+以下はrc1公開後に `2321.0.0` を導入する例です。
 
 ## 1. uvを入れる
 
@@ -37,7 +37,7 @@ uv init --python 3.13
 beta／rcは版を指定します。
 
 ```powershell
-uv add "minecraft-remote-api==2321.0.0rc1"
+uv add "minecraft-remote-api==2321.0.0"
 uv run python -c "from mc_remote import Minecraft; from importlib.metadata import version; print(version('minecraft-remote-api')); print(Minecraft.__name__)"
 ```
 

@@ -2,7 +2,7 @@
 # PythonクライアントAPI一覧（ドラフト）
 
 Pythonから使う操作を、用途別に探すための一覧です。
-対象実装: `minecraft-remote-api 2321.0.0rc1` / Protocol `23.2.1`。
+対象実装: `minecraft-remote-api 2321.0.0` / Protocol `23.2.1`。
 
 Minecraftクラスの公開メソッド・読み取り専用propertyと、よく使う入力・戻り値の型、例外をまとめています。
 

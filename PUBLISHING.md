@@ -50,7 +50,7 @@ PyPI／TestPyPIでは、**同じindexの既出file名を異なる内容でupload
 
 ```toml
 [project]
-version = "2321.0.0rc1"   # 例。実際の版はknowledgeの指示で決める
+version = "2321.0.0"   # 例。実際の版はknowledgeの指示で決める
 ```
 
 - 採番はprotocolに連動します。fold 規則（protocol `X.Y.Z` → メジャー番号）と接尾辞（`bN`／`rcN`）は versioning-design が正本。
@@ -156,7 +156,7 @@ beta／rcは版を明示してPyPI.orgから取得します。以下はrc1公開
 ```bash
 uv init --python 3.13 mc-hello
 cd mc-hello
-uv add "minecraft-remote-api==2321.0.0rc1"
+uv add "minecraft-remote-api==2321.0.0"
 uv run python -c "from mc_remote import Minecraft; print(Minecraft.__name__)"
 ```
 

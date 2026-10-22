@@ -9,7 +9,7 @@ rc1公開後に作業用projectを作る例:
 ```bash
 uv init --python 3.13 mc-starter
 cd mc-starter
-uv add "minecraft-remote-api==2321.0.0rc1"
+uv add "minecraft-remote-api==2321.0.0"
 ```
 
 このdirectoryの`.py`ファイルを作業用projectへコピーします。

@@ -25,10 +25,10 @@ Copy-Item uv.lock .mcr-before-update/uv.lock
 
 ## 2. 指定した公開版へ更新する
 
-PyPIの公開版を指定して更新します。次はrc1公開後に`2321.0.0rc1`を選ぶ例です。
+PyPIの公開版を指定して更新します。次はrc1公開後に`2321.0.0`を選ぶ例です。
 
 ```powershell
-uv add 'minecraft-remote-api==2321.0.0rc1'
+uv add 'minecraft-remote-api==2321.0.0'
 ```
 
 importして版を確認します。

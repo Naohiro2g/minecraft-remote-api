@@ -15,7 +15,7 @@ pygameを使う教材では `uv add pygame-ce` で追加できます。
 パッケージのextraを使う場合は、導入する版も指定します。rc1公開後の例:
 
 ```bash
-uv add "minecraft-remote-api[pygame]==2321.0.0rc1"
+uv add "minecraft-remote-api[pygame]==2321.0.0"
 ```
 
 extraは `pygame-ce>=2.5` を指定します。本家の `pygame` と同時に入れないでください。
