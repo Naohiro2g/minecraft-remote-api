@@ -57,7 +57,7 @@ def test_owner_fixture_identity_protocol_and_93_case_ledger():
     assert hashlib.sha256(FIXTURE_PATH.read_bytes()).hexdigest() == FIXTURE_SHA256
     source = json.loads(FIXTURE_PATH.with_suffix(".source.json").read_text())
     assert source["repository"] == "Naohiro2g/minecraft-remote-tooling"
-    assert source["commit"] == "dc1ab834183e29f2eb03059b07e99d2b463776ee"
+    assert source["commit"] == "21a2a9a0aed8b4d9c715da46616aad86f1174b4c"
     assert source["path"] == "packages/protocol/test/fixtures/direction-lightning-v23.1.json"
     assert source["sha256"] == FIXTURE_SHA256
     assert source["bytes"] == FIXTURE_PATH.stat().st_size

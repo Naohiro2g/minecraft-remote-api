@@ -53,7 +53,7 @@ def test_shared_fixture_identity_and_33_case_inventory():
         "eead244a7340c315cb63e1e77ede0fe9cf48162c06fedbeef36d941950d5000d"
     )
     assert SOURCE["repository"] == "Naohiro2g/minecraft-remote-tooling"
-    assert SOURCE["commit"] == "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666"
+    assert SOURCE["commit"] == "21a2a9a0aed8b4d9c715da46616aad86f1174b4c"
     assert SOURCE["path"] == "packages/protocol/test/fixtures/chat-event-compat-v23.2.1.json"
     assert FIXTURE["schema"] == "mcremote.chat-event-compat.v23.2.1"
     assert FIXTURE["protocol"] == PROTOCOL == "23.2.1"

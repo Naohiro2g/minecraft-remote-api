@@ -4,7 +4,7 @@ Fixture-driven against the b6 shared compatibility fixtures now owned by
 minecraft-remote-tooling's ``@mc-remote/protocol`` (DECISIONS `2026-10-05-01`):
 ``tests/fixtures/sign-v23.json`` and ``tests/fixtures/events-v23.json``,
 copied byte-for-byte from ``packages/protocol/test/fixtures`` at
-``dc1ab834183e29f2eb03059b07e99d2b463776ee``. Sidecars record the source pins.
+``21a2a9a0aed8b4d9c715da46616aad86f1174b4c``. Sidecars record the source pins.
 Case IDs (``B6-I0x``/``B6-H0x``/``B6-S0x``/``B6-P0x``) are the plan's
 canonical case ledger; each test below names the case(s) it projects.
 """
@@ -73,7 +73,7 @@ def test_shared_fixture_bytes_match_owner_digest():
     ):
         source = json.loads(path.with_suffix(".source.json").read_text())
         assert source["repository"] == "Naohiro2g/minecraft-remote-tooling"
-        assert source["commit"] == "dc1ab834183e29f2eb03059b07e99d2b463776ee"
+        assert source["commit"] == "21a2a9a0aed8b4d9c715da46616aad86f1174b4c"
         assert source["path"] == f"packages/protocol/test/fixtures/{path.name}"
         assert source["sha256"] == digest
         assert source["bytes"] == path.stat().st_size

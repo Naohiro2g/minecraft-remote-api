@@ -24,7 +24,8 @@ DECISIONS `2026-10-05-01/02`を参照してください。この文書はPython�
 rc1のentity／particleとchat／eventのconsumer testは`*-v23.2.1.json`を使います。
 `*-v23.2.json`とそのsidecarは履歴として元のbytesと固定元を保ちます（knowledge `2026-10-18-03`）。
 23.2.1版ではschema名とprotocolの版だけが変わり、caseの内容が同じこともtestで確認します。
-23.2.1版のsidecarの`ci`には、取得元commitで成功したrunと、GitHub APIで照合したartifact ID／digestを記録しています。
+23.2.1版のsidecarの`ci`には、従来のfixture取得時に成功したrunとartifact ID／digestを残しています。
+`ci.source_commit`はその過去CIのsourceであり、LICENSEの固定し直し後のcommitでCIが走ったという意味ではありません。
 
 1. ownerが発行した固定commitからfileを取得する。JSONの再整形や改行変換をせず、bytesのまま保存する。
 2. ownerのbytes／SHA-256と照合し、fixtureとsidecarを更新する。`branch`は参考情報であり、取得は`commit`に固定する。
@@ -34,6 +35,18 @@ rc1のentity／particleとchat／eventのconsumer testは`*-v23.2.1.json`を使�
 
 `observer-session-lifecycle.ndjson`などPython自身が作るfixtureは、この9件に含めません。
 契約caseの追加と取得元の移管は、別commitにします。
+
+## Protocol fixtureのMIT取得元（2026-11-06）
+
+`packages/protocol/test/fixtures/`の7本のcopyは、MITのLICENSEを含むtooling
+`21a2a9a0aed8b4d9c715da46616aad86f1174b4c`へ取得元を固定し直しました。
+旧`6447f6e8cbfbeeb9d229990b5c4f6e82a5875666`とownerの10本のGit blobは同一で、copy7本も新commitと全文bytesが一致します。
+fixture本体、case ID、contract metadata、履歴版の内容は変更していません。
+
+LICENSEはcopyと同じ`tests/fixtures/LICENSE`へ配置（1,070 bytes、SHA-256
+`aa329a0bafc839b95124306141db13a381de45818bf629e983c44ea55ab5a7fb`）。
+対象file・適用範囲は[fixture取得元の説明](../tests/fixtures/README_ja.md)、全10本の接続状況は[E1返却](polyglot-e1_ja.md)を参照します。
+`packages/live`由来のfixtureと同梱WireScopeの取得元は維持します。
 
 ## 同梱WireScope
 

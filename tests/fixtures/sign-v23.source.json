@@ -1,9 +1,18 @@
 {
   "repository": "Naohiro2g/minecraft-remote-tooling",
   "branch": "main",
-  "commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+  "commit": "21a2a9a0aed8b4d9c715da46616aad86f1174b4c",
   "path": "packages/protocol/test/fixtures/sign-v23.json",
   "bytes": 5043,
   "sha256": "7ffb63c264602cba56117eefff1f9604b955df04c5cc655e877772b8ff7cd30e",
-  "migration_knowledge_commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100"
+  "migration_knowledge_commit": "900f6f4b8027d265a62ba7f139d4f3b1bbe78100",
+  "license_update": {
+    "knowledge_commit": "8c81c0f115127189de117c3848d1e254f79571c9",
+    "decision_id": "2026-10-23-01",
+    "previous_source_commit": "dc1ab834183e29f2eb03059b07e99d2b463776ee",
+    "unchanged_from_tooling_commit": "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666",
+    "license_path": "packages/protocol/test/fixtures/LICENSE",
+    "license_bytes": 1070,
+    "license_sha256": "aa329a0bafc839b95124306141db13a381de45818bf629e983c44ea55ab5a7fb"
+  }
 }

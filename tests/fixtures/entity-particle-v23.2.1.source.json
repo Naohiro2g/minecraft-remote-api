@@ -1,7 +1,7 @@
 {
   "repository": "Naohiro2g/minecraft-remote-tooling",
-  "branch": "agent/rc1-protocol-2321",
-  "commit": "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666",
+  "branch": "main",
+  "commit": "21a2a9a0aed8b4d9c715da46616aad86f1174b4c",
   "path": "packages/protocol/test/fixtures/entity-particle-v23.2.1.json",
   "bytes": 36483,
   "sha256": "0319ff8373a96798cf5e9e421a804729fd33a0fa53e96adc12c93ed7994777ae",
@@ -24,6 +24,17 @@
   "ci": {
     "run_id": 39053886890,
     "artifact_id": 12109060950,
-    "artifact_digest": "sha256:5b644de44ae2f9a2fb9de09d221c2930218f6c317baffee3b5c7f817309555fa"
+    "artifact_digest": "sha256:5b644de44ae2f9a2fb9de09d221c2930218f6c317baffee3b5c7f817309555fa",
+    "source_commit": "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666",
+    "note": "Historical fixture build before the license-only source repin; this run is not a run of the new source commit."
+  },
+  "license_update": {
+    "knowledge_commit": "8c81c0f115127189de117c3848d1e254f79571c9",
+    "decision_id": "2026-10-23-01",
+    "previous_source_commit": "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666",
+    "unchanged_from_tooling_commit": "6447f6e8cbfbeeb9d229990b5c4f6e82a5875666",
+    "license_path": "packages/protocol/test/fixtures/LICENSE",
+    "license_bytes": 1070,
+    "license_sha256": "aa329a0bafc839b95124306141db13a381de45818bf629e983c44ea55ab5a7fb"
   }
 }
