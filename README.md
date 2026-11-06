@@ -21,7 +21,7 @@ Minecraft側は、このクライアントに対応する [McRemote](https://git
 ```bash
 uv init --python 3.13 mc-hello
 cd mc-hello
-uv add "minecraft-remote-api==2321.0.0"
+uv add "minecraft-remote-api==2321.1.0"
 ```
 
 rc1がPyPIへ公開された後は、上のように版を指定して導入します。
@@ -144,11 +144,11 @@ Pythonの `mc.playSound(...)` は一覧の `world.playSound` に対応します�
 ## パッケージ情報 & 対応環境
 
 - **パッケージ名**: `minecraft-remote-api`（インポート名: `mc_remote`）
-- **このソースのバージョン**: `2321.0.0`（Protocol 23.2.1）。公開状況は [PyPI](https://pypi.org/project/minecraft-remote-api/) と [GitHub Releases](https://github.com/Naohiro2g/minecraft-remote-api/releases) で確認してください。
+- **このソースのバージョン**: `2321.1.0`（Protocol 23.2.1）。公開状況は [PyPI](https://pypi.org/project/minecraft-remote-api/) と [GitHub Releases](https://github.com/Naohiro2g/minecraft-remote-api/releases) で確認してください。
 - **対応Python**: 3.10〜3.13（標準は3.13）
 - **対応マインクラフト**: 接続先のMcRemoteが対応するJava版（rc1では1.21.11／26.3）
 - **接続先**:
-  - 公式箱庭（サンドボックス）サーバー: `sb-beta.mc-remote.com:25575`
+  - 公式箱庭（サンドボックス）サーバー: `sb.mc-remote.com:25575`
   - 自前サーバー: PaperMC サーバーに [McRemote プラグイン](https://github.com/Naohiro2g/McRemote) を導入して起動
 - **コミュニティ & サポート**: [Discord サーバー](https://discord.gg/xUqhhqWsuS) 内の `#mc-remote-chat` チャンネル
 
