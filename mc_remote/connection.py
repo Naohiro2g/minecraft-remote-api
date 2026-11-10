@@ -207,7 +207,7 @@ class Connection:
         self.socket.settimeout(10)
         self.socket.connect((self.address, self.port))
         self.socket.settimeout(self.request_timeout)
-        self.reader = self.socket.makefile("r")
+        self.reader = self.socket.makefile("r", encoding="utf8", newline="")
         self._start_sequencer()
 
     def _start_sequencer(self):

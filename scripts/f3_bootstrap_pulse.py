@@ -21,7 +21,7 @@ def main():
     parser.add_argument('--token-key')
     parser.add_argument('--paper-version', required=True,
                         help='Paper version/build verified by the local operator')
-    parser.add_argument('--position', nargs=3, type=int, required=True,
+    parser.add_argument('--position', nargs=3, type=int,
                         help='An operator-approved origin-relative test block')
     args = parser.parse_args()
     # Minecraft.create gives environment overrides precedence; use the selected
@@ -42,7 +42,17 @@ def main():
                               pair=False, sync_catalog=False)
         result['protocol'] = mc.protocol
         result['minecraft_version'] = mc.mc_version
-        original = mc.getBlock(*args.position)
+        candidates = [args.position] if args.position else [(0, y, 0) for y in (3, 8, 16, 32, 64, 96)]
+        for position in candidates:
+            try:
+                value = mc.getBlock(*position)
+            except Exception:
+                continue
+            if value.block_id in ('minecraft:air', 'minecraft:cave_air', 'minecraft:void_air'):
+                args.position, original = position, value
+                break
+        if original is None:
+            raise RuntimeError('No empty test position available')
         block = 'minecraft:gold_block' if original.block_id!='minecraft:gold_block' else 'minecraft:stone'
         touched = True
         mc.setBlock(*args.position, block)

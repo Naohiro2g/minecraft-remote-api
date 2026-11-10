@@ -355,3 +355,22 @@ def test_sequenced_reader_ignores_non_json_and_unknown_id_before_response():
         assert Minecraft(conn).hello()['protocol']=='23.2.1'
     finally:
         conn.close()
+
+
+def test_tcp_reader_explicitly_uses_utf8(monkeypatch):
+    import mc_remote.connection as connection
+    recorded = {}
+    class Socket(WireSocket):
+        def settimeout(self, timeout):
+            pass
+        def connect(self, address):
+            pass
+        def makefile(self, mode, **kwargs):
+            recorded.update(kwargs)
+            return io.StringIO('')
+    monkeypatch.setattr(connection.socket, 'socket', lambda *args:Socket())
+    conn = Connection('fixture-only', 0)
+    try:
+        assert recorded.get('encoding')=='utf8'
+    finally:
+        conn.close()

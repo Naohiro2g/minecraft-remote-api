@@ -29,6 +29,7 @@ BlockSpecが不正なcaseはlocal builderで補正せずraw RPCで送り、peer�
 
 - F1-HE-04/05：以前は応答protocolをそのまま採用していた。今はmajor一致・server minorが要求以上・patch不問で判定し、不一致はcreateの失敗にする。`data.reason=protocol_mismatch`と`server`/`client_requires`を保持し、tokenは消さない。
 - F1-FR-06：以前は非JSON行で接続が失敗した。今は行を捨てて次の完全な応答を読む。未知idも捨て、該当requestの応答を待つ。途中のUTF-8/LFはproductionの増分decoderで保持する。
+- TCP readerはUTF-8を明示し、端末OSの既定encodingに依存しないようにした。指定が無いことによる補助testの失敗を修正前に確認した。
 - 修正前にHE-04/05とFR-06が意図した理由で落ちることを確認した（3 failed / 7 passed）。修正後の追加検証ではcreateの後始末・token温存、両error codeでのreason判定と版の欄の保持も検証する。
 - 従来のhelloを使う別機能のtestに残っていた古いprotocolのダミー応答は現行版へ合わせた。履歴fixtureやobserver単体の過去protocolの検証は変えていない。
 
@@ -38,12 +39,12 @@ protocol_mismatch fixtureの追加修正commitはcoordinatorの連絡待ち。�
 
 ## 実McRemote pulseとF3の境界
 
-実機pulseは未実施。手元Paperの起動後にhelloを試み、保存済み認証が使えないことを確認しました。現在はhuman ownerのMinecraft内承認と、Paper版/build・ロード中のMcRemote版の確認を待っています。
-`python scripts/f3_bootstrap_pulse.py --help`で、既存のtoken storeを使う非対話の手順を確認できます。`--paper-version`と`--position`は、手元の実環境と承認済みの試験位置をoperatorが指定します。
+実機pulseは未実施。human ownerが既存auth_smokeのMinecraft内承認を完了しました。Paper版/build・ロード中のMcRemote版の確認を待っています。
+`python scripts/f3_bootstrap_pulse.py --help`で、既存のtoken storeを使う非対話の手順を確認できます。`--paper-version`に手元で確認した実環境の版/buildを指定します。`--position`を省略すると原点付近の候補を読み、空気だけを試験位置にします。空気が見つからなければ変更前に止まります。位置を明示しても空気以外は変更しません。
 実行前にPaperの版/buildと、公開McRemote2321.1.0のJARが実際にロードされていることをoperatorが確認してください。helperのrequired_mcremote_versionは要求値で、helloから実plugin版を推測した値ではありません。
 hello後に元のblockを保存し、set→getを確認、元のBlockValueへ戻します。`pair=False`で実行し、認証が要れば人の承認前で止まります。
 必要なら既存の`scripts/auth_smoke.py`でhuman ownerがpairingを済ませ、同じtoken store/keyでpulseを再実行します。接続先・token・pair code・player・座標は返却に含めません。
-ローカルの全回帰は835 tests PASS（F1の44caseと補助7testを含む）を確認しました。
+ローカルの全回帰は836 tests PASS（F1の44caseと補助8testを含む）を確認しました。
 CIの全case PASSだけではF3完了にしません。実機pulseが通るまでF3は未完了です。
 
 ## Protocol Inventory：共有fixtureの使い方の更新案
@@ -64,3 +65,5 @@ Pythonの後：従来の7本に加え、F1全6本/44caseを接続。block-value-
 | `client-bootstrap-hello-v23.2.1.json` | 18734 | `0164639f946c58f1a2548334d6ff7032a50ec57dd797a328094eff7f104dc0a1` |
 | `client-bootstrap-pairing-v23.2.1.json` | 19322 | `cdb2209d8a1d46fede158db50c3672936dad152c7fd2bec7ef5a068ed57a1fe1` |
 | `client-bootstrap-v1.schema.json` | 9908 | `026d15c2d09f955ba47d6abd0c06a5af3e49ae41e4cc94441b4f0d9829b1d26f` |
+
+互換判定のInventory更新案：応答のmajor/minor検証が未実装だった「部分」から、§8.2の応答互換判定を実装済みの「あり」へ。申告protocolは23.2.1のままです。
