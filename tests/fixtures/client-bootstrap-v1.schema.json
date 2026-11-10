@@ -18,7 +18,7 @@
       "required": ["commit", "instructions"],
       "properties": {
         "commit": {
-          "const": "308a2a441060265e10af3d5e8e97c826c86b4ed8"
+          "enum": ["308a2a441060265e10af3d5e8e97c826c86b4ed8", "5e00768911feb7be1e54ae3b7e9c2d776b88927a"]
         },
         "instructions": {
           "const": "00-hub/polyglot-f1-fixture-instructions_ja.md"

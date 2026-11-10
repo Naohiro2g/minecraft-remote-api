@@ -45,6 +45,11 @@ def test_f1_hello(case):
         with pytest.raises(McRpcError) as caught:
             mc.hello(request['params'].get('auth',{}).get('token'))
         assert caught.value.reason == expected['reason']
+        if 'error' in replies[0]:
+            error = replies[0]['error']
+            assert caught.value.code == error['code']
+            assert caught.value.message == error['message']
+            assert caught.value.data == error['data']
     else:
         reply = mc.hello(request['params'].get('auth',{}).get('token'))
         assert reply == replies[0]['result']
@@ -292,10 +297,10 @@ def test_f1_close(case, monkeypatch):
         conn.close()
 
 
-def test_f1_pinned_identity_schema_and_44_case_inventory():
+def test_f1_pinned_identity_schema_and_45_case_inventory():
     import hashlib
     source = json.loads((ROOT/'client-bootstrap.source.json').read_text())
-    assert source['commit']=='8264c3881bb4128c14cda6d122641ebcfa67d9c5'
+    assert source['commit']=='ea7838a78bf78947c7dde5876f6cc93b43f7e3cc'
     for file in source['files']:
         body = (ROOT/file['file']).read_bytes()
         assert len(body)==file['bytes']
@@ -310,8 +315,8 @@ def test_f1_pinned_identity_schema_and_44_case_inventory():
         for case in fixture['cases']:
             assert set(schema['properties']['cases']['items']['required'])<=case.keys()
             ids.append(case['id'])
-    assert len(ids)==len(set(ids))==44
-    assert {name:len(f['cases']) for name,f in SUITES.items()}=={'framing':7,'hello':9,'pairing':7,'blocks':12,'errors':3,'close':6}
+    assert len(ids)==len(set(ids))==45
+    assert {name:len(f['cases']) for name,f in SUITES.items()}=={'framing':7,'hello':10,'pairing':7,'blocks':12,'errors':3,'close':6}
 
 
 @pytest.mark.parametrize('case_id', ['F1-HE-04','F1-HE-05'])
