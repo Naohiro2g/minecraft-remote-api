@@ -581,7 +581,7 @@ def test_minecraft_create_without_wirescope_does_not_attach_observer():
             self.request_id += 1
             if self.observer is not None:
                 self.observer.observe_request(method, params, self.request_id)
-            result = HELLO if method == "hello" else None
+            result = {**HELLO, "protocol": params["protocol"]} if method == "hello" else None
             if self.observer is not None:
                 self.observer.observe_result(method, result, self.request_id)
             return result

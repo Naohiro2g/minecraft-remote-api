@@ -1,0 +1,52 @@
+{
+  "repository": "Naohiro2g/minecraft-remote-tooling",
+  "commit": "8264c3881bb4128c14cda6d122641ebcfa67d9c5",
+  "path": "packages/protocol/test/fixtures/",
+  "files": [
+    {
+      "file": "LICENSE",
+      "bytes": 1070,
+      "sha256": "aa329a0bafc839b95124306141db13a381de45818bf629e983c44ea55ab5a7fb"
+    },
+    {
+      "file": "block-value-v22.json",
+      "bytes": 3217,
+      "sha256": "e8e108d59c40751d67a432543d75cb4bf9146ef9781721012085c80545b854f3"
+    },
+    {
+      "file": "client-bootstrap-blocks-v23.2.1.json",
+      "bytes": 45945,
+      "sha256": "664babdf3131a74e4aaf6d9e5dfb5e4cfc6e197df0a0d48142688820f1be813d"
+    },
+    {
+      "file": "client-bootstrap-close-v23.2.1.json",
+      "bytes": 14535,
+      "sha256": "44e9a4276bbd204671db0385f4f801cd3b152d0853ac943876ede73db6bd8dd1"
+    },
+    {
+      "file": "client-bootstrap-errors-v23.2.1.json",
+      "bytes": 9179,
+      "sha256": "c458d3ffbae846cfb33c032eba14d8f0005c6a1fbe871290b53fcfec8ec41aaa"
+    },
+    {
+      "file": "client-bootstrap-framing-v23.2.1.json",
+      "bytes": 15131,
+      "sha256": "be063b519b5d653a4bb4ec3da6f67e5d481a28dcf5913961c848b2b909d4b26d"
+    },
+    {
+      "file": "client-bootstrap-hello-v23.2.1.json",
+      "bytes": 18734,
+      "sha256": "0164639f946c58f1a2548334d6ff7032a50ec57dd797a328094eff7f104dc0a1"
+    },
+    {
+      "file": "client-bootstrap-pairing-v23.2.1.json",
+      "bytes": 19322,
+      "sha256": "cdb2209d8a1d46fede158db50c3672936dad152c7fd2bec7ef5a068ed57a1fe1"
+    },
+    {
+      "file": "client-bootstrap-v1.schema.json",
+      "bytes": 9908,
+      "sha256": "026d15c2d09f955ba47d6abd0c06a5af3e49ae41e4cc94441b4f0d9829b1d26f"
+    }
+  ]
+}

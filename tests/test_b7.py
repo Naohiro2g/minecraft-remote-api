@@ -76,7 +76,7 @@ def test_owner_fixture_identity_protocol_and_93_case_ledger():
 def test_hello_permission_snapshot_remains_an_uninterpreted_server_fact():
     case = FIXTURE["session_admission"]["hello_snapshot_cases"][0]
     hello = {
-        "protocol": "23.1.0",
+        "protocol": PROTOCOL,
         "mc_version": "1.21.11",
         "supported_mc_versions": ["1.21.11"],
         "catalogHash": None,

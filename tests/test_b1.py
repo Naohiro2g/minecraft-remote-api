@@ -20,7 +20,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from mc_remote.connection import Connection, McRpcError, McRemoteError  # noqa: E402
-from mc_remote.minecraft import Minecraft  # noqa: E402
+from mc_remote.minecraft import Minecraft, PROTOCOL  # noqa: E402
 
 
 class FakeConn:
@@ -46,7 +46,7 @@ class FakeConn:
 # Live server hello: catalog is a single catalogHash scalar; y_sea is bundled
 # under world_constants (knowledge DECISIONS 2026-07-02-02).
 HELLO = {
-    "protocol": "22.0.0",
+    "protocol": PROTOCOL,
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "world_constants": {"y_sea": 63},
@@ -65,7 +65,7 @@ def test_hello_declares_protocol_and_caches():
     resp = mc.hello()
     assert resp == HELLO
     assert conn.calls == [("hello", {"protocol": PROTOCOL})]  # §6.1 object params
-    assert mc.protocol == "22.0.0"
+    assert mc.protocol == PROTOCOL
     assert mc.mc_version == "1.21.11"
     assert mc.supported_mc_versions == ["1.21.11"]
     assert mc.y_sea == 63

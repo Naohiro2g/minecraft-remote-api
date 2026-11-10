@@ -1,0 +1,686 @@
+{
+  "schema": "mcremote.client-bootstrap.v1",
+  "protocol": "23.2.1",
+  "suite": "hello",
+  "knowledge_contract": {
+    "commit": "308a2a441060265e10af3d5e8e97c826c86b4ed8",
+    "instructions": "00-hub/polyglot-f1-fixture-instructions_ja.md"
+  },
+  "cases": [
+    {
+      "id": "F1-HE-01",
+      "title": "session token付きhelloと既定build context",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "compatible": true,
+        "result": {
+          "protocol": "23.2.1",
+          "mc_version": "1.21.11",
+          "supported_mc_versions": ["1.21.11", "26.3"],
+          "catalogHash": null,
+          "world_constants": {
+            "y_sea": 62
+          },
+          "session": "fixture-session",
+          "player": "00000000-0000-4000-8000-000000000001",
+          "dimension": "minecraft:overworld",
+          "origin": [200, 0, 200],
+          "permissions": {
+            "online": true,
+            "offline": false,
+            "buildRange": 100
+          },
+          "server": "fixture-server"
+        }
+      }
+    },
+    {
+      "id": "F1-HE-02",
+      "title": "明示bypass時の最小hello",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "compatible": true,
+        "result": {
+          "protocol": "23.2.1",
+          "mc_version": "1.21.11",
+          "supported_mc_versions": ["1.21.11", "26.3"],
+          "catalogHash": null,
+          "world_constants": {
+            "y_sea": 62
+          },
+          "session": "fixture-session",
+          "player": "00000000-0000-4000-8000-000000000001",
+          "dimension": "minecraft:overworld",
+          "origin": [200, 0, 200],
+          "permissions": {
+            "online": true,
+            "offline": false,
+            "buildRange": 100
+          },
+          "server": "fixture-server"
+        }
+      },
+      "preconditions": ["auth enforcement OFFを明示したfixture peer。通常の既定ではない。"]
+    },
+    {
+      "id": "F1-HE-03",
+      "title": "完全なparamsとserver正準dimension",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§5.1"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "compatible": true,
+        "result": {
+          "protocol": "23.2.1",
+          "mc_version": "1.21.11",
+          "supported_mc_versions": ["1.21.11", "26.3"],
+          "catalogHash": null,
+          "world_constants": {
+            "y_sea": 62
+          },
+          "session": "fixture-session",
+          "player": "00000000-0000-4000-8000-000000000001",
+          "dimension": "minecraft:overworld",
+          "origin": [0, 0, 0],
+          "permissions": {
+            "online": true,
+            "offline": false,
+            "buildRange": 100
+          },
+          "server": "fixture-server"
+        }
+      }
+    },
+    {
+      "id": "F1-HE-04",
+      "title": "応答protocol 24.2.1のclient側互換判定",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "24.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "compatible": false,
+        "reason": "protocol_mismatch"
+      }
+    },
+    {
+      "id": "F1-HE-05",
+      "title": "応答protocol 23.1.9のclient側互換判定",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.1.9",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "compatible": false,
+        "reason": "protocol_mismatch"
+      }
+    },
+    {
+      "id": "F1-HE-06",
+      "title": "応答protocol 23.2.0のclient側互換判定",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.0",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "compatible": true
+      }
+    },
+    {
+      "id": "F1-HE-07",
+      "title": "応答protocol 23.2.9のclient側互換判定",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.9",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "compatible": true
+      }
+    },
+    {
+      "id": "F1-HE-08",
+      "title": "応答protocol 23.3.0のclient側互換判定",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.3.0",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "compatible": true
+      }
+    },
+    {
+      "id": "F1-HE-09",
+      "title": "peerからprotocol_mismatch errorを受信",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "24.0.0",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "Server protocol 23.2.1 cannot satisfy client protocol 24.0.0",
+              "data": {
+                "reason": "protocol_mismatch"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        }
+      ],
+      "expected": {
+        "reason": "protocol_mismatch",
+        "pending_ids": []
+      },
+      "unresolved": [
+        "双方の版情報はこの例のmessage内に示す。専用data field名は未確定で追加しない。messageの正準文言・server定義codeのexact番号・切断時機も新しく固定しない。"
+      ]
+    }
+  ]
+}

@@ -301,6 +301,21 @@ class Minecraft:
         resp = self.conn.rpc("hello", params)
         if not isinstance(resp, dict):
             raise McRemoteError("hello result must be an object")
+        server_protocol = resp.get("protocol")
+        try:
+            server_parts = tuple(int(part) for part in server_protocol.split("."))
+            required_parts = tuple(int(part) for part in PROTOCOL.split("."))
+            if len(server_parts) != 3 or any(part < 0 for part in server_parts):
+                raise ValueError
+        except (AttributeError, ValueError) as exc:
+            raise McRemoteError("hello result.protocol must be major.minor.patch") from exc
+        if server_parts[0] != required_parts[0] or server_parts[1] < required_parts[1]:
+            raise McRpcError(
+                -32000,
+                "Server protocol does not satisfy the client requirement",
+                {"reason": "protocol_mismatch", "server": server_protocol,
+                 "client_requires": PROTOCOL},
+            )
         dimension = require_dimension_key(
             resp.get("dimension"), "hello result.dimension"
         )

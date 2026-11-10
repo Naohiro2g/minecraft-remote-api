@@ -1,0 +1,772 @@
+{
+  "schema": "mcremote.client-bootstrap.v1",
+  "protocol": "23.2.1",
+  "suite": "pairing",
+  "knowledge_contract": {
+    "commit": "308a2a441060265e10af3d5e8e97c826c86b4ed8",
+    "instructions": "00-hub/polyglot-f1-fixture-instructions_ja.md"
+  },
+  "cases": [
+    {
+      "id": "F1-AU-01",
+      "title": "auth_required→pending→承認→token付きhello",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "auth required",
+              "data": {
+                "reason": "auth_required"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c2"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "auth.pairBegin",
+            "params": {
+              "token_type": "session",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "pairing_id": "fixture-pairing",
+              "pair_code": "123456",
+              "expires_in": 120
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+              "status": "pending"
+            }
+          }
+        },
+        {
+          "op": "approve_pairing",
+          "note": "fixtureのMinecraft内承認に相当。ネットワークmessageではない。"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "status": "ok",
+              "token": "mcrs_fixture_only_not_a_real_credential"
+            }
+          }
+        },
+        {
+          "op": "client_close"
+        },
+        {
+          "op": "connect",
+          "connection": "c3"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "token": "mcrs_fixture_only_not_a_real_credential",
+        "result": {
+          "protocol": "23.2.1",
+          "mc_version": "1.21.11",
+          "supported_mc_versions": ["1.21.11", "26.3"],
+          "catalogHash": null,
+          "world_constants": {
+            "y_sea": 62
+          },
+          "session": "fixture-session",
+          "player": "00000000-0000-4000-8000-000000000001",
+          "dimension": "minecraft:overworld",
+          "origin": [200, 0, 200],
+          "permissions": {
+            "online": true,
+            "offline": false,
+            "buildRange": 100
+          },
+          "server": "fixture-server"
+        }
+      },
+      "related_cases": ["F1-HE-01"]
+    },
+    {
+      "id": "F1-AU-02",
+      "title": "pair_expired",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "auth required",
+              "data": {
+                "reason": "auth_required"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c2"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "auth.pairBegin",
+            "params": {
+              "token_type": "session",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "pairing_id": "fixture-pairing",
+              "pair_code": "123456",
+              "expires_in": 120
+            }
+          }
+        },
+        {
+          "op": "advance_time",
+          "milliseconds": 120001
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32000,
+              "message": "pair expired",
+              "data": {
+                "reason": "pair_expired"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "pair_expired"
+      }
+    },
+    {
+      "id": "F1-AU-03",
+      "title": "pair_not_found",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "auth required",
+              "data": {
+                "reason": "auth_required"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c2"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "auth.pairBegin",
+            "params": {
+              "token_type": "session",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "pairing_id": "fixture-pairing",
+              "pair_code": "123456",
+              "expires_in": 120
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-unknown-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32000,
+              "message": "pair not found",
+              "data": {
+                "reason": "pair_not_found"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "pair_not_found"
+      }
+    },
+    {
+      "id": "F1-AU-04",
+      "title": "未知token_typeの発行要求を拒否",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "auth.pairBegin",
+            "params": {
+              "token_type": "unknown",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32602,
+              "message": "invalid params",
+              "data": {
+                "reason": "invalid_params"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "invalid_params"
+      }
+    },
+    {
+      "id": "F1-AU-05",
+      "title": "認証できてもhelloの認可拒否はtoken破棄と混同しない",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "permission denied",
+              "data": {
+                "reason": "permission_denied"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "permission_denied",
+        "discard_token": false
+      }
+    },
+    {
+      "id": "F1-AU-06",
+      "title": "再接続でも有効session tokenを再利用",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_close"
+        },
+        {
+          "op": "connect",
+          "connection": "c2"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-new-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "token": "mcrs_fixture_only_not_a_real_credential",
+        "pairing_required": false
+      },
+      "related_cases": ["F1-CL-06"]
+    },
+    {
+      "id": "F1-AU-07",
+      "title": "無効tokenは破棄し認証フローへ戻る",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_invalid"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "token invalid",
+              "data": {
+                "reason": "token_invalid"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        }
+      ],
+      "expected": {
+        "reason": "token_invalid",
+        "discard_token": true
+      },
+      "related_cases": ["F1-AU-01"],
+      "unresolved": [
+        "人間が承認を拒む専用message／pair_denied reasonは契約に無い。pair_not_found、期限切れ、発行params拒否、hello認可拒否を別caseで扱う。"
+      ]
+    }
+  ]
+}

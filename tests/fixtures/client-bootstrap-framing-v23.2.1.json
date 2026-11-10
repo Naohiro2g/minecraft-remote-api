@@ -1,0 +1,358 @@
+{
+  "schema": "mcremote.client-bootstrap.v1",
+  "protocol": "23.2.1",
+  "suite": "framing",
+  "knowledge_contract": {
+    "commit": "308a2a441060265e10af3d5e8e97c826c86b4ed8",
+    "instructions": "00-hub/polyglot-f1-fixture-instructions_ja.md"
+  },
+  "cases": [
+    {
+      "id": "F1-FR-01",
+      "title": "UTF-8の1行",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        }
+      ],
+      "steps": [
+        {
+          "op": "peer_bytes",
+          "bytes_hex": "7b226a736f6e727063223a22322e30222c226964223a312c22726573756c74223a7b2270726f746f636f6c223a2232332e322e31222c226d635f76657273696f6e223a22312e32312e3131222c22737570706f727465645f6d635f76657273696f6e73223a5b22312e32312e3131222c2232362e33225d2c22636174616c6f6748617368223a6e756c6c2c22776f726c645f636f6e7374616e7473223a7b22795f736561223a36327d2c2273657373696f6e223a22666978747572652d73657373696f6e222c22706c61796572223a2230303030303030302d303030302d343030302d383030302d303030303030303030303031222c2264696d656e73696f6e223a226d696e6563726166743a6f766572776f726c64222c226f726967696e223a5b3230302c302c3230305d2c227065726d697373696f6e73223a7b226f6e6c696e65223a747275652c226f66666c696e65223a66616c73652c226275696c6452616e6765223a3130307d2c22736572766572223a2266697874757265e381aee382b5e383bce38390e383bc227d7d0a"
+        }
+      ],
+      "expected": {
+        "frames": [
+          {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixtureのサーバー"
+            }
+          }
+        ],
+        "tail_hex": ""
+      }
+    },
+    {
+      "id": "F1-FR-02",
+      "title": "UTF-8の文字の途中で分割",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        }
+      ],
+      "steps": [
+        {
+          "op": "peer_bytes",
+          "bytes_hex": "7b226a736f6e727063223a22322e30222c226964223a312c22726573756c74223a7b2270726f746f636f6c223a2232332e322e31222c226d635f76657273696f6e223a22312e32312e3131222c22737570706f727465645f6d635f76657273696f6e73223a5b22312e32312e3131222c2232362e33225d2c22636174616c6f6748617368223a6e756c6c2c22776f726c645f636f6e7374616e7473223a7b22795f736561223a36327d2c2273657373696f6e223a22666978747572652d73657373696f6e222c22706c61796572223a2230303030303030302d303030302d343030302d383030302d303030303030303030303031222c2264696d656e73696f6e223a226d696e6563726166743a6f766572776f726c64222c226f726967696e223a5b3230302c302c3230305d2c227065726d697373696f6e73223a7b226f6e6c696e65223a747275652c226f66666c696e65223a66616c73652c226275696c6452616e6765223a3130307d2c22736572766572223a2266697874757265e3"
+        },
+        {
+          "op": "peer_bytes",
+          "bytes_hex": "81aee382b5e383bce38390e383bc227d7d0a"
+        }
+      ],
+      "expected": {
+        "frames": [
+          {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixtureのサーバー"
+            }
+          }
+        ],
+        "tail_hex": ""
+      }
+    },
+    {
+      "id": "F1-FR-03",
+      "title": "複数行を1回で受信",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        }
+      ],
+      "steps": [
+        {
+          "op": "peer_bytes",
+          "bytes_hex": "7b226a736f6e727063223a22322e30222c226964223a312c22726573756c74223a7b2270726f746f636f6c223a2232332e322e31222c226d635f76657273696f6e223a22312e32312e3131222c22737570706f727465645f6d635f76657273696f6e73223a5b22312e32312e3131222c2232362e33225d2c22636174616c6f6748617368223a6e756c6c2c22776f726c645f636f6e7374616e7473223a7b22795f736561223a36327d2c2273657373696f6e223a22666978747572652d73657373696f6e222c22706c61796572223a2230303030303030302d303030302d343030302d383030302d303030303030303030303031222c2264696d656e73696f6e223a226d696e6563726166743a6f766572776f726c64222c226f726967696e223a5b3230302c302c3230305d2c227065726d697373696f6e73223a7b226f6e6c696e65223a747275652c226f66666c696e65223a66616c73652c226275696c6452616e6765223a3130307d2c22736572766572223a2266697874757265e381aee382b5e383bce38390e383bc227d7d0a7b226a736f6e727063223a22322e30222c226964223a322c22726573756c74223a7b22626c6f636b5f6964223a226d696e6563726166743a676f6c645f626c6f636b222c227374617465223a7b7d7d7d0a"
+        }
+      ],
+      "expected": {
+        "frames": [
+          {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixtureのサーバー"
+            }
+          },
+          {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+              "block_id": "minecraft:gold_block",
+              "state": {}
+            }
+          }
+        ],
+        "tail_hex": ""
+      }
+    },
+    {
+      "id": "F1-FR-04",
+      "title": "完全な行と未完の末尾",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        }
+      ],
+      "steps": [
+        {
+          "op": "peer_bytes",
+          "bytes_hex": "7b226a736f6e727063223a22322e30222c226964223a312c22726573756c74223a7b2270726f746f636f6c223a2232332e322e31222c226d635f76657273696f6e223a22312e32312e3131222c22737570706f727465645f6d635f76657273696f6e73223a5b22312e32312e3131222c2232362e33225d2c22636174616c6f6748617368223a6e756c6c2c22776f726c645f636f6e7374616e7473223a7b22795f736561223a36327d2c2273657373696f6e223a22666978747572652d73657373696f6e222c22706c61796572223a2230303030303030302d303030302d343030302d383030302d303030303030303030303031222c2264696d656e73696f6e223a226d696e6563726166743a6f766572776f726c64222c226f726967696e223a5b3230302c302c3230305d2c227065726d697373696f6e73223a7b226f6e6c696e65223a747275652c226f66666c696e65223a66616c73652c226275696c6452616e6765223a3130307d2c22736572766572223a2266697874757265e381aee382b5e383bce38390e383bc227d7d0a7b226a736f6e727063223a22322e30222c226964223a322c22726573756c74223a7b22626c6f636b5f6964223a226d696e6563726166743a676f6c645f626c6f636b222c227374617465223a7b"
+        }
+      ],
+      "expected": {
+        "frames": [
+          {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixtureのサーバー"
+            }
+          }
+        ],
+        "tail_hex": "7b226a736f6e727063223a22322e30222c226964223a322c22726573756c74223a7b22626c6f636b5f6964223a226d696e6563726166743a676f6c645f626c6f636b222c227374617465223a7b"
+      }
+    },
+    {
+      "id": "F1-FR-05",
+      "title": "JSONが閉じてもLFまでは未完",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        }
+      ],
+      "steps": [
+        {
+          "op": "peer_bytes",
+          "bytes_hex": "7b226a736f6e727063223a22322e30222c226964223a312c22726573756c74223a7b2270726f746f636f6c223a2232332e322e31222c226d635f76657273696f6e223a22312e32312e3131222c22737570706f727465645f6d635f76657273696f6e73223a5b22312e32312e3131222c2232362e33225d2c22636174616c6f6748617368223a6e756c6c2c22776f726c645f636f6e7374616e7473223a7b22795f736561223a36327d2c2273657373696f6e223a22666978747572652d73657373696f6e222c22706c61796572223a2230303030303030302d303030302d343030302d383030302d303030303030303030303031222c2264696d656e73696f6e223a226d696e6563726166743a6f766572776f726c64222c226f726967696e223a5b3230302c302c3230305d2c227065726d697373696f6e73223a7b226f6e6c696e65223a747275652c226f66666c696e65223a66616c73652c226275696c6452616e6765223a3130307d2c22736572766572223a2266697874757265e381aee382b5e383bce38390e383bc227d7d"
+        }
+      ],
+      "expected": {
+        "frames": [],
+        "tail_hex": "7b226a736f6e727063223a22322e30222c226964223a312c22726573756c74223a7b2270726f746f636f6c223a2232332e322e31222c226d635f76657273696f6e223a22312e32312e3131222c22737570706f727465645f6d635f76657273696f6e73223a5b22312e32312e3131222c2232362e33225d2c22636174616c6f6748617368223a6e756c6c2c22776f726c645f636f6e7374616e7473223a7b22795f736561223a36327d2c2273657373696f6e223a22666978747572652d73657373696f6e222c22706c61796572223a2230303030303030302d303030302d343030302d383030302d303030303030303030303031222c2264696d656e73696f6e223a226d696e6563726166743a6f766572776f726c64222c226f726967696e223a5b3230302c302c3230305d2c227065726d697373696f6e73223a7b226f6e6c696e65223a747275652c226f66666c696e65223a66616c73652c226275696c6452616e6765223a3130307d2c22736572766572223a2266697874757265e381aee382b5e383bce38390e383bc227d7d"
+      }
+    },
+    {
+      "id": "F1-FR-06",
+      "title": "非JSON行を破棄し次のJSONを読む",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        }
+      ],
+      "steps": [
+        {
+          "op": "peer_bytes",
+          "bytes_hex": "6e6f742d6a736f6e0a7b226a736f6e727063223a22322e30222c226964223a312c22726573756c74223a7b2270726f746f636f6c223a2232332e322e31222c226d635f76657273696f6e223a22312e32312e3131222c22737570706f727465645f6d635f76657273696f6e73223a5b22312e32312e3131222c2232362e33225d2c22636174616c6f6748617368223a6e756c6c2c22776f726c645f636f6e7374616e7473223a7b22795f736561223a36327d2c2273657373696f6e223a22666978747572652d73657373696f6e222c22706c61796572223a2230303030303030302d303030302d343030302d383030302d303030303030303030303031222c2264696d656e73696f6e223a226d696e6563726166743a6f766572776f726c64222c226f726967696e223a5b3230302c302c3230305d2c227065726d697373696f6e73223a7b226f6e6c696e65223a747275652c226f66666c696e65223a66616c73652c226275696c6452616e6765223a3130307d2c22736572766572223a2266697874757265e381aee382b5e383bce38390e383bc227d7d0a"
+        }
+      ],
+      "expected": {
+        "frames": [
+          {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixtureのサーバー"
+            }
+          }
+        ],
+        "tail_hex": ""
+      }
+    },
+    {
+      "id": "F1-FR-07",
+      "title": "応答idで相関し未知idを破棄",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "chat.post",
+            "params": ["こんにちは"]
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 99,
+            "result": "ignored"
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+              "block_id": "minecraft:gold_block",
+              "state": {}
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": null
+          }
+        }
+      ],
+      "expected": {
+        "matched_ids": [2, 1],
+        "ignored_ids": [99],
+        "pending_ids": []
+      },
+      "preconditions": ["相関だけのenvelope試験。method処理やhello前のadmissionを検証する対話ではない。"]
+    }
+  ]
+}
