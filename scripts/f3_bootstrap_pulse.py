@@ -8,6 +8,7 @@ human operator before this script is run.
 import argparse
 import datetime
 import json
+import math
 import os
 
 from mc_remote.auth import PairingRequiredError
@@ -42,7 +43,15 @@ def main():
                               pair=False, sync_catalog=False)
         result['protocol'] = mc.protocol
         result['minecraft_version'] = mc.mc_version
-        candidates = [args.position] if args.position else [(0, y, 0) for y in (3, 8, 16, 32, 64, 96)]
+        if args.position:
+            candidates = [args.position]
+        else:
+            pose = mc.getPos()
+            mc.setDimension(pose['dimension'])
+            pose = mc.getPos()
+            x, y, z = pose['pos']
+            candidates = [(math.floor(x)+dx, math.ceil(y)+dy, math.floor(z)+dz)
+                          for dy in (3, 5, 8) for dx, dz in ((0, 0), (2, 0), (0, 2), (-2, 0), (0, -2))]
         for position in candidates:
             try:
                 value = mc.getBlock(*position)

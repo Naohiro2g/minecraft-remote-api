@@ -39,18 +39,18 @@ protocol_mismatch fixtureの追加修正commitはcoordinatorの連絡待ち。�
 
 ## 実McRemote pulseとF3の境界
 
-実機pulseは未実施。human ownerが既存auth_smokeのMinecraft内承認を完了しました。Paper版/build・ロード中のMcRemote版の確認を待っています。
-`python scripts/f3_bootstrap_pulse.py --help`で、既存のtoken storeを使う非対話の手順を確認できます。`--paper-version`に手元で確認した実環境の版/buildを指定します。`--position`を省略すると原点付近の候補を読み、空気だけを試験位置にします。空気が見つからなければ変更前に止まります。位置を明示しても空気以外は変更しません。
+2026-11-10 19:20 JST、Paper `1.21.11-132-ver/1.21.11@c5eb079`、McRemote `2321.1.0`でlive-auto pulseがPASSしました。Paperとロード中のpluginの版はhuman ownerのbootstrap情報で確認しました。human ownerが既存auth_smokeでMinecraft内の承認を済ませ、その後は保存済みtokenを`pair=False`で再利用しました。hello→setBlock→getBlockを確認し、元の空気への復元と読戻しもPASSしました。
+`python scripts/f3_bootstrap_pulse.py --help`で、既存のtoken storeを使う非対話の手順を確認できます。`--paper-version`に手元で確認した実環境の版/buildを指定します。`--position`を省略するとペア済みプレイヤー付近の候補を読み、空気だけを試験位置にします（playerの移動はしません）。空気が見つからなければ変更前に止まります。位置を明示しても空気以外は変更しません。
 実行前にPaperの版/buildと、公開McRemote2321.1.0のJARが実際にロードされていることをoperatorが確認してください。helperのrequired_mcremote_versionは要求値で、helloから実plugin版を推測した値ではありません。
 hello後に元のblockを保存し、set→getを確認、元のBlockValueへ戻します。`pair=False`で実行し、認証が要れば人の承認前で止まります。
 必要なら既存の`scripts/auth_smoke.py`でhuman ownerがpairingを済ませ、同じtoken store/keyでpulseを再実行します。接続先・token・pair code・player・座標は返却に含めません。
 ローカルの全回帰は836 tests PASS（F1の44caseと補助8testを含む）を確認しました。
-CIの全case PASSだけではF3完了にしません。実機pulseが通るまでF3は未完了です。
+現取得元のF1全44caseと実機pulseがPASSしました。coordinatorによる照合と、後続mismatch fixtureの取得元固定し直しは別途行います。
 
 ## Protocol Inventory：共有fixtureの使い方の更新案
 
 Pythonの前：既存10本のうちcopy7本（5本の意味のtestと履歴2本）。F1の6本は未接続。block-value-v22は未接続。
-Pythonの後：従来の7本に加え、F1全6本/44caseを接続。block-value-v22はblocks12caseのvalue_refsとして読む。schemaとMIT LICENSEも同梱。実機pulseは未完了。
+Pythonの後：従来の7本に加え、F1全6本/44caseを接続。block-value-v22はblocks12caseのvalue_refsとして読む。schemaとMIT LICENSEも同梱。上記の実機pulseもPASS。
 
 ## copyのidentity
 

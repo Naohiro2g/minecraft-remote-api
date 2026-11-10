@@ -48,6 +48,12 @@ LICENSEはcopyと同じ`tests/fixtures/LICENSE`へ配置（1,070 bytes、SHA-256
 対象file・適用範囲は[fixture取得元の説明](../tests/fixtures/README_ja.md)、全10本の接続状況は[E1返却](polyglot-e1_ja.md)を参照します。
 `packages/live`由来のfixtureと同梱WireScopeの取得元は維持します。
 
+## F1 bootstrap fixture（F3）
+
+`tests/fixtures/client-bootstrap.source.json`は、toolingのF1の6本、schema、block-value参照先、LICENSEの取得元と全identityをまとめます。
+固定元は`8264c3881bb4128c14cda6d122641ebcfa67d9c5`です。従来の9件とは別の追加で、Protocol directoryのMIT Licenseに従います。
+[F3返却](polyglot-f3_ja.md)に、testする層、case数、実機pulse、未確定の境界を記載します。
+
 ## 同梱WireScope
 
 ownerの成功したCI runから`wirescope-app.zip`と`wirescope-app.manifest.json`を取得します。
