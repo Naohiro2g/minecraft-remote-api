@@ -1,0 +1,1778 @@
+{
+  "schema": "mcremote.client-bootstrap.v1",
+  "protocol": "23.2.1",
+  "suite": "blocks",
+  "knowledge_contract": {
+    "commit": "308a2a441060265e10af3d5e8e97c826c86b4ed8",
+    "instructions": "00-hub/polyglot-f1-fixture-instructions_ja.md"
+  },
+  "cases": [
+    {
+      "id": "F1-BL-01",
+      "title": "set→get: gold_block",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "gold_block",
+                "state": {}
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": null
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:gold_block",
+              "state": {}
+            }
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "block_id": "minecraft:gold_block",
+          "state": {}
+        }
+      },
+      "related_cases": ["F1-HE-03"],
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": [
+        "block-value-v22.jsonのfixture catalogを持つpeer。元のblock stateは新しいstateへmergeしない。実Minecraft registryの存在確認ではない。"
+      ]
+    },
+    {
+      "id": "F1-BL-02",
+      "title": "set→get: oak_log",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "oak_log",
+                "state": {}
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": null
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:oak_log",
+              "state": {
+                "axis": "y"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "block_id": "minecraft:oak_log",
+          "state": {
+            "axis": "y"
+          }
+        }
+      },
+      "related_cases": ["F1-HE-03"],
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": [
+        "block-value-v22.jsonのfixture catalogを持つpeer。元のblock stateは新しいstateへmergeしない。実Minecraft registryの存在確認ではない。"
+      ]
+    },
+    {
+      "id": "F1-BL-03",
+      "title": "set→get: minecraft:oak_log",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "minecraft:oak_log",
+                "state": {
+                  "axis": "z"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": null
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:oak_log",
+              "state": {
+                "axis": "z"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "block_id": "minecraft:oak_log",
+          "state": {
+            "axis": "z"
+          }
+        }
+      },
+      "related_cases": ["F1-HE-03"],
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": [
+        "block-value-v22.jsonのfixture catalogを持つpeer。元のblock stateは新しいstateへmergeしない。実Minecraft registryの存在確認ではない。"
+      ]
+    },
+    {
+      "id": "F1-BL-04",
+      "title": "set→get: examplemod:counter",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "examplemod:counter",
+                "state": {
+                  "count": 3.0
+                }
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": null
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "examplemod:counter",
+              "state": {
+                "count": 3,
+                "mode": "auto"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "block_id": "examplemod:counter",
+          "state": {
+            "count": 3,
+            "mode": "auto"
+          }
+        }
+      },
+      "related_cases": ["F1-HE-03"],
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": [
+        "block-value-v22.jsonのfixture catalogを持つpeer。元のblock stateは新しいstateへmergeしない。実Minecraft registryの存在確認ではない。"
+      ]
+    },
+    {
+      "id": "F1-BL-05",
+      "title": "set→get: minecraft:repeater",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "minecraft:repeater",
+                "state": {
+                  "powered": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": null
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:repeater",
+              "state": {
+                "delay": 1,
+                "facing": "north",
+                "locked": false,
+                "powered": true
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "block_id": "minecraft:repeater",
+          "state": {
+            "delay": 1,
+            "facing": "north",
+            "locked": false,
+            "powered": true
+          }
+        }
+      },
+      "related_cases": ["F1-HE-03"],
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": [
+        "block-value-v22.jsonのfixture catalogを持つpeer。元のblock stateは新しいstateへmergeしない。実Minecraft registryの存在確認ではない。"
+      ]
+    },
+    {
+      "id": "F1-BL-06",
+      "title": "不正state等の拒否: unknown_block",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "fixture:missing",
+                "state": {}
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32602,
+              "message": "unknown block",
+              "data": {
+                "reason": "unknown_block",
+                "block_id": "fixture:missing"
+              }
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:oak_log",
+              "state": {
+                "axis": "x"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "unknown_block",
+        "result": {
+          "block_id": "minecraft:oak_log",
+          "state": {
+            "axis": "x"
+          }
+        }
+      },
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": ["peerの対象位置はminecraft:oak_log[axis=x]。fixture catalogにfixture:missingは無い。"]
+    },
+    {
+      "id": "F1-BL-07",
+      "title": "不正state等の拒否: unknown_property",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "oak_log",
+                "state": {
+                  "missing": "x"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32602,
+              "message": "unknown property",
+              "data": {
+                "reason": "unknown_property",
+                "block_id": "minecraft:oak_log",
+                "property": "missing"
+              }
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:oak_log",
+              "state": {
+                "axis": "x"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "unknown_property",
+        "result": {
+          "block_id": "minecraft:oak_log",
+          "state": {
+            "axis": "x"
+          }
+        }
+      },
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": ["peerの対象位置はminecraft:oak_log[axis=x]。fixture catalogにfixture:missingは無い。"]
+    },
+    {
+      "id": "F1-BL-08",
+      "title": "不正state等の拒否: invalid_property_value",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "oak_log",
+                "state": {
+                  "axis": "bad"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32602,
+              "message": "invalid property value",
+              "data": {
+                "reason": "invalid_property_value",
+                "block_id": "minecraft:oak_log",
+                "property": "axis",
+                "value": "bad",
+                "allowed": ["x", "y", "z"]
+              }
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:oak_log",
+              "state": {
+                "axis": "x"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "invalid_property_value",
+        "result": {
+          "block_id": "minecraft:oak_log",
+          "state": {
+            "axis": "x"
+          }
+        }
+      },
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": ["peerの対象位置はminecraft:oak_log[axis=x]。fixture catalogにfixture:missingは無い。"]
+    },
+    {
+      "id": "F1-BL-09",
+      "title": "不正state等の拒否: invalid_params",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "oak_log",
+                "state": null
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32602,
+              "message": "invalid params",
+              "data": {
+                "reason": "invalid_params"
+              }
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:oak_log",
+              "state": {
+                "axis": "x"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "invalid_params",
+        "result": {
+          "block_id": "minecraft:oak_log",
+          "state": {
+            "axis": "x"
+          }
+        }
+      },
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": ["peerの対象位置はminecraft:oak_log[axis=x]。fixture catalogにfixture:missingは無い。"]
+    },
+    {
+      "id": "F1-BL-10",
+      "title": "不正state等の拒否: invalid_params",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "oak_log"
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32602,
+              "message": "invalid params",
+              "data": {
+                "reason": "invalid_params"
+              }
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:oak_log",
+              "state": {
+                "axis": "x"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "invalid_params",
+        "result": {
+          "block_id": "minecraft:oak_log",
+          "state": {
+            "axis": "x"
+          }
+        }
+      },
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": ["peerの対象位置はminecraft:oak_log[axis=x]。fixture catalogにfixture:missingは無い。"]
+    },
+    {
+      "id": "F1-BL-11",
+      "title": "不正state等の拒否: invalid_params",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "oak_log",
+                "state": {},
+                "extra": true
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32602,
+              "message": "invalid params",
+              "data": {
+                "reason": "invalid_params"
+              }
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:oak_log",
+              "state": {
+                "axis": "x"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "invalid_params",
+        "result": {
+          "block_id": "minecraft:oak_log",
+          "state": {
+            "axis": "x"
+          }
+        }
+      },
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": ["peerの対象位置はminecraft:oak_log[axis=x]。fixture catalogにfixture:missingは無い。"]
+    },
+    {
+      "id": "F1-BL-12",
+      "title": "不正state等の拒否: invalid_property_value",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.1"
+        },
+        {
+          "path": "10-protocol/block-value-design_ja.md",
+          "section": "§3–5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "examplemod:counter",
+                "state": {
+                  "count": "3"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32602,
+              "message": "invalid property value",
+              "data": {
+                "reason": "invalid_property_value",
+                "block_id": "examplemod:counter",
+                "property": "count",
+                "value": "3",
+                "allowed": [1, 2, 3]
+              }
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "block_id": "minecraft:oak_log",
+              "state": {
+                "axis": "x"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "reason": "invalid_property_value",
+        "result": {
+          "block_id": "minecraft:oak_log",
+          "state": {
+            "axis": "x"
+          }
+        }
+      },
+      "value_refs": [
+        {
+          "file": "block-value-v22.json",
+          "pointer": "/catalog/block"
+        }
+      ],
+      "preconditions": ["peerの対象位置はminecraft:oak_log[axis=x]。fixture catalogにfixture:missingは無い。"]
+    }
+  ]
+}

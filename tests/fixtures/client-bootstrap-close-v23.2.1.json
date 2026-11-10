@@ -1,0 +1,536 @@
+{
+  "schema": "mcremote.client-bootstrap.v1",
+  "protocol": "23.2.1",
+  "suite": "close",
+  "knowledge_contract": {
+    "commit": "308a2a441060265e10af3d5e8e97c826c86b4ed8",
+    "instructions": "00-hub/polyglot-f1-fixture-instructions_ja.md"
+  },
+  "cases": [
+    {
+      "id": "F1-CL-01",
+      "title": "正常なclient close",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.6"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_close"
+        }
+      ],
+      "expected": {
+        "connection": "closed",
+        "pending_ids": []
+      }
+    },
+    {
+      "id": "F1-CL-02",
+      "title": "完全な応答後のEOF",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.6"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        }
+      ],
+      "expected": {
+        "connection": "closed",
+        "pending_ids": []
+      }
+    },
+    {
+      "id": "F1-CL-03",
+      "title": "行の途中でEOF",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.6"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_bytes",
+          "bytes_hex": "7b226a736f6e727063223a22322e30222c226964223a322c22726573756c74223a"
+        },
+        {
+          "op": "peer_eof"
+        }
+      ],
+      "expected": {
+        "connection": "closed",
+        "unanswered_ids": [2],
+        "completed_ids": [1]
+      },
+      "unresolved": [
+        "EOF時の末尾破棄／error分類とpendingの例外型・timeout・完了方法は契約で一意でない。部分行を成功応答としない観測だけを固定。"
+      ]
+    },
+    {
+      "id": "F1-CL-04",
+      "title": "接続自体が成立しない",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.6"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect_error",
+          "connection": "c1",
+          "note": "fixture peerの接続拒否。OS固有のerrnoや文言を要求しない。"
+        }
+      ],
+      "expected": {
+        "connection": "failed",
+        "completed_ids": []
+      }
+    },
+    {
+      "id": "F1-CL-05",
+      "title": "未応答requestを残してEOF",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.6"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_eof"
+        }
+      ],
+      "expected": {
+        "connection": "closed",
+        "unanswered_ids": [2]
+      },
+      "unresolved": ["wire §3.4のpending解決は既知gapの記述。clientの例外型・自動再送は新しく決めない。"]
+    },
+    {
+      "id": "F1-CL-06",
+      "title": "新しい接続ではidを1へ戻しhelloをやり直す",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.6"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_close"
+        },
+        {
+          "op": "connect",
+          "connection": "c2"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-new-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "connection": "open",
+        "pending_ids": [],
+        "result": {
+          "protocol": "23.2.1",
+          "mc_version": "1.21.11",
+          "supported_mc_versions": ["1.21.11", "26.3"],
+          "catalogHash": null,
+          "world_constants": {
+            "y_sea": 62
+          },
+          "session": "fixture-new-session",
+          "player": "00000000-0000-4000-8000-000000000001",
+          "dimension": "minecraft:overworld",
+          "origin": [200, 0, 200],
+          "permissions": {
+            "online": true,
+            "offline": false,
+            "buildRange": 100
+          },
+          "server": "fixture-server"
+        }
+      },
+      "related_cases": ["F1-AU-06"]
+    }
+  ]
+}

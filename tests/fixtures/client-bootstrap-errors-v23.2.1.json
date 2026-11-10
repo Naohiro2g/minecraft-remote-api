@@ -1,0 +1,342 @@
+{
+  "schema": "mcremote.client-bootstrap.v1",
+  "protocol": "23.2.1",
+  "suite": "errors",
+  "knowledge_contract": {
+    "commit": "308a2a441060265e10af3d5e8e97c826c86b4ed8",
+    "instructions": "00-hub/polyglot-f1-fixture-instructions_ja.md"
+  },
+  "cases": [
+    {
+      "id": "F1-ER-01",
+      "title": "error外枠とopaque dataの保持",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.setBlock",
+            "params": [
+              0,
+              0,
+              0,
+              {
+                "block_id": "oak_log",
+                "state": null
+              }
+            ]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32602,
+              "message": "invalid params",
+              "data": {
+                "reason": "invalid_params",
+                "path": "params[3].state"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": -32602,
+          "message": "invalid params",
+          "data": {
+            "reason": "invalid_params",
+            "path": "params[3].state"
+          }
+        },
+        "matched_ids": [2]
+      },
+      "unresolved": [
+        "message文言とserver定義codeのexact番号は例。fixture_future_reasonは未知reason保持用の架空値で、protocolへ追加しない。"
+      ]
+    },
+    {
+      "id": "F1-ER-02",
+      "title": "error外枠とopaque dataの保持",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32000,
+              "message": "build denied",
+              "data": {
+                "reason": "build_denied"
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": -32000,
+          "message": "build denied",
+          "data": {
+            "reason": "build_denied"
+          }
+        },
+        "matched_ids": [2]
+      },
+      "unresolved": [
+        "message文言とserver定義codeのexact番号は例。fixture_future_reasonは未知reason保持用の架空値で、protocolへ追加しない。"
+      ]
+    },
+    {
+      "id": "F1-ER-03",
+      "title": "error外枠とopaque dataの保持",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+              "code": -32000,
+              "message": "fixture future reason",
+              "data": {
+                "reason": "fixture_future_reason",
+                "extra": {
+                  "preserve": [1, "value"]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": -32000,
+          "message": "fixture future reason",
+          "data": {
+            "reason": "fixture_future_reason",
+            "extra": {
+              "preserve": [1, "value"]
+            }
+          }
+        },
+        "matched_ids": [2]
+      },
+      "unresolved": [
+        "message文言とserver定義codeのexact番号は例。fixture_future_reasonは未知reason保持用の架空値で、protocolへ追加しない。"
+      ]
+    }
+  ]
+}

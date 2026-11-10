@@ -20,9 +20,18 @@
 | `events-v23.json` | 2,112 | `31760d267f3c2641042fbe8595fda9c259134a1c05423271a99cb74da1efa9aa` |
 | `sign-v23.json` | 5,043 | `7ffb63c264602cba56117eefff1f9604b955df04c5cc655e877772b8ff7cd30e` |
 
+## F1 bootstrap fixture（F3）
+
+同じProtocol fixture directoryのMIT Licenseに基づき、tooling
+`8264c3881bb4128c14cda6d122641ebcfa67d9c5`からF1の6本、`client-bootstrap-v1.schema.json`、参照先の`block-value-v22.json`を追加しました。
+同梱LICENSEの全文bytesはこのcommitのLICENSEとも一致します。
+各fileのbytes/SHA-256は`client-bootstrap.source.json`、44caseの接続状況は
+[`docs/polyglot-f3_ja.md`](../../docs/polyglot-f3_ja.md)を参照してください。
+従来7本のpinと履歴は変更していません。
+
 ## その他のfixture
 
-この`LICENSE`の追加は、上記以外のfileを一律にMITへ変更するものではない。
+この`LICENSE`の追加は、上記のProtocol fixture copy以外のfileを一律にMITへ変更するものではない。
 
 - `display-alias-v1.json` / `station-attach-v1.json`はtoolingの`packages/live/test/fixtures/`からのcopyで、Protocol fixture directoryのMIT化の対象外。既存の`.source.json`と取得元のlicenseを維持する。
 - `observer-session-lifecycle.ndjson`とsidecarは別の履歴素材。今回のProtocol 10本に含めない。

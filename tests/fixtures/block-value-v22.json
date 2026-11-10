@@ -1,0 +1,132 @@
+{
+  "schema": "mcremote.block-value",
+  "version": 1,
+  "catalog": {
+    "block": {
+      "examplemod:counter": {
+        "states": {
+          "count": [1, 2, 3],
+          "mode": ["3", "auto"]
+        },
+        "default_state": {
+          "count": 1,
+          "mode": "auto"
+        }
+      },
+      "minecraft:gold_block": {
+        "states": {},
+        "default_state": {}
+      },
+      "minecraft:oak_log": {
+        "states": {
+          "axis": ["x", "y", "z"]
+        },
+        "default_state": {
+          "axis": "y"
+        }
+      },
+      "minecraft:repeater": {
+        "states": {
+          "delay": [1, 2, 3, 4],
+          "facing": ["north", "east", "south", "west"],
+          "locked": [false, true],
+          "powered": [false, true]
+        },
+        "default_state": {
+          "delay": 1,
+          "facing": "north",
+          "locked": false,
+          "powered": false
+        }
+      }
+    }
+  },
+  "state_text": [
+    {
+      "name": "empty",
+      "block_id": "minecraft:gold_block",
+      "input": "",
+      "canonical": "",
+      "state": {}
+    },
+    {
+      "name": "single string",
+      "block_id": "oak_log",
+      "input": "axis=z",
+      "canonical": "axis=z",
+      "state": {
+        "axis": "z"
+      }
+    },
+    {
+      "name": "typed and sorted",
+      "block_id": "minecraft:repeater",
+      "input": " powered=true,delay=3,facing=east,locked=false ",
+      "canonical": "delay=3,facing=east,locked=false,powered=true",
+      "state": {
+        "delay": 3,
+        "facing": "east",
+        "locked": false,
+        "powered": true
+      }
+    },
+    {
+      "name": "number scale independent",
+      "block_id": "examplemod:counter",
+      "input": "count=3.0",
+      "canonical": "count=3",
+      "state": {
+        "count": 3
+      }
+    },
+    {
+      "name": "numeric string stays string",
+      "block_id": "examplemod:counter",
+      "input": "mode=3",
+      "canonical": "mode=3",
+      "state": {
+        "mode": "3"
+      }
+    }
+  ],
+  "invalid_state_text": [
+    { "input": "axis=z,", "reason": "invalid_block_state" },
+    { "input": "axis=z,axis=y", "reason": "invalid_block_state" },
+    { "input": "axis =z", "reason": "invalid_block_state" },
+    { "input": "axis=z\n", "reason": "invalid_block_state" },
+    { "input": "axis", "reason": "invalid_block_state" },
+    { "input": "=z", "reason": "invalid_block_state" }
+  ],
+  "block_value": [
+    {
+      "value": {
+        "block_id": "minecraft:gold_block",
+        "state": {}
+      },
+      "text": "minecraft:gold_block"
+    },
+    {
+      "value": {
+        "block_id": "minecraft:repeater",
+        "state": {
+          "powered": true,
+          "delay": 3,
+          "facing": "east",
+          "locked": false
+        }
+      },
+      "text": "minecraft:repeater[delay=3,facing=east,locked=false,powered=true]"
+    }
+  ],
+  "error_text": {
+    "known_remote": {
+      "reason": "unknown_block",
+      "text": "⟦mcr-error:unknown_block⟧"
+    },
+    "unknown_remote": {
+      "reason": "future_server_reason",
+      "text": "⟦mcr-error:remote_error⟧"
+    },
+    "malformed": ["mcr-error:unknown_block", "⟦mcr-error:UnknownBlock⟧", "⟦mcr-error:unknown_block⟧extra"]
+  }
+}

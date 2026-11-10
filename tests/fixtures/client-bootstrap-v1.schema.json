@@ -1,0 +1,371 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "protocol", "suite", "knowledge_contract", "cases"],
+  "properties": {
+    "schema": {
+      "const": "mcremote.client-bootstrap.v1"
+    },
+    "protocol": {
+      "const": "23.2.1"
+    },
+    "suite": {
+      "enum": ["framing", "hello", "pairing", "blocks", "errors", "close"]
+    },
+    "knowledge_contract": {
+      "type": "object",
+      "required": ["commit", "instructions"],
+      "properties": {
+        "commit": {
+          "const": "308a2a441060265e10af3d5e8e97c826c86b4ed8"
+        },
+        "instructions": {
+          "const": "00-hub/polyglot-f1-fixture-instructions_ja.md"
+        }
+      },
+      "additionalProperties": false
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "basis", "steps", "expected"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^F1-[A-Z]{2}-[0-9]{2}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "basis": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["path", "section"],
+              "properties": {
+                "path": {
+                  "enum": [
+                    "10-protocol/wire-format-design_ja.md",
+                    "10-protocol/versioning-design_ja.md",
+                    "10-protocol/block-value-design_ja.md"
+                  ]
+                },
+                "section": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["op"],
+              "additionalProperties": false,
+              "properties": {
+                "op": {
+                  "enum": [
+                    "connect",
+                    "connect_error",
+                    "client_send",
+                    "peer_send",
+                    "peer_bytes",
+                    "peer_eof",
+                    "client_close",
+                    "approve_pairing",
+                    "advance_time"
+                  ]
+                },
+                "connection": {
+                  "type": "string"
+                },
+                "message": {
+                  "$ref": "#/definitions/message"
+                },
+                "bytes_hex": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{2})*$"
+                },
+                "milliseconds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "op": {
+                        "enum": ["client_send", "peer_send"]
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": ["message"]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "op": {
+                        "const": "peer_bytes"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": ["bytes_hex"]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "op": {
+                        "const": "advance_time"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": ["milliseconds"]
+                  }
+                }
+              ]
+            }
+          },
+          "expected": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "result": {},
+              "error": {
+                "type": "object",
+                "required": ["code", "message", "data"],
+                "properties": {
+                  "code": {
+                    "type": "integer"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "required": ["reason"],
+                    "properties": {
+                      "reason": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "compatible": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "frames": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/message"
+                }
+              },
+              "tail_hex": {
+                "type": "string",
+                "pattern": "^(?:[0-9a-f]{2})*$"
+              },
+              "connection": {
+                "enum": ["open", "closed", "failed"]
+              },
+              "token": {
+                "type": "string"
+              },
+              "discard_token": {
+                "type": "boolean"
+              },
+              "pairing_required": {
+                "type": "boolean"
+              },
+              "matched_ids": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "uniqueItems": true
+              },
+              "ignored_ids": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "uniqueItems": true
+              },
+              "pending_ids": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "uniqueItems": true
+              },
+              "unanswered_ids": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "uniqueItems": true
+              },
+              "completed_ids": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "uniqueItems": true
+              }
+            }
+          },
+          "related_cases": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "value_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["file", "pointer"],
+              "additionalProperties": false,
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9.-]+\\.json$"
+                },
+                "pointer": {
+                  "type": "string",
+                  "pattern": "^/"
+                }
+              }
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unresolved": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "message": {
+      "type": "object",
+      "required": ["jsonrpc"],
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "method": {
+          "type": "string"
+        },
+        "params": {
+          "type": ["object", "array"]
+        },
+        "result": {},
+        "error": {
+          "type": "object",
+          "required": ["code", "message", "data"],
+          "properties": {
+            "code": {
+              "type": "integer"
+            },
+            "message": {
+              "type": "string"
+            },
+            "data": {
+              "type": "object",
+              "required": ["reason"],
+              "properties": {
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": ["id", "method", "params"],
+          "not": {
+            "anyOf": [
+              {
+                "required": ["result"]
+              },
+              {
+                "required": ["error"]
+              }
+            ]
+          }
+        },
+        {
+          "required": ["id", "result"],
+          "not": {
+            "anyOf": [
+              {
+                "required": ["method"]
+              },
+              {
+                "required": ["error"]
+              }
+            ]
+          }
+        },
+        {
+          "required": ["id", "error"],
+          "not": {
+            "anyOf": [
+              {
+                "required": ["method"]
+              },
+              {
+                "required": ["result"]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

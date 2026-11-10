@@ -118,6 +118,35 @@ class McRpcError(RequestFailedError):
         return " ".join(parts)
 
 
+class _JsonRpcFrames:
+    """Incremental LF framing shared by the TCP reader and fixture consumers."""
+
+    def __init__(self):
+        self.tail = b""
+
+    def feed(self, data):
+        lines = (self.tail + data).split(b"\n")
+        self.tail = lines.pop()
+        frames = []
+        for line in lines:
+            try:
+                frame = json.loads(line.decode("utf8"))
+            except (ValueError, UnicodeError):
+                continue
+            if isinstance(frame, dict):
+                frames.append(frame)
+        return frames
+
+    @staticmethod
+    def matches(frame, pending_ids):
+        try:
+            return frame.get("id") in pending_ids or (
+                frame.get("id") is None and "error" in frame
+            )
+        except TypeError:
+            return False
+
+
 class Connection:
     """JSON-RPC 2.0 connection to a Minecraft server (protocol 23.x).
 
@@ -178,7 +207,7 @@ class Connection:
         self.socket.settimeout(10)
         self.socket.connect((self.address, self.port))
         self.socket.settimeout(self.request_timeout)
-        self.reader = self.socket.makefile("r")
+        self.reader = self.socket.makefile("r", encoding="utf8", newline="")
         self._start_sequencer()
 
     def _start_sequencer(self):
@@ -494,21 +523,7 @@ class Connection:
                 return
 
             try:
-                line = self.reader.readline()
-            except TimeoutError as exc:
-                raise RequestTimeoutError(call.method) from exc
-            except OSError as exc:
-                raise ConnectionLostError(
-                    f"Failed to receive from the server: {exc}"
-                ) from exc
-            if line == "":
-                raise ConnectionLostError("Connection closed by server")
-            if self.debug:
-                sys.stderr.write(f"<- {line!r}")
-            try:
-                result = self._parse_response(
-                    line.rstrip("\n"), call.request_id
-                )
+                result = self._read_response(call.request_id, call.method)
             except McRpcError as exc:
                 self._notify_observer(
                     "observe_error", call.method, exc, call.request_id
@@ -580,25 +595,36 @@ class Connection:
         self.lastSent = payload
         try:
             self.socket.sendall(payload)
-            line = self.reader.readline()
         except TimeoutError as exc:
             self._notify_connection_closed_once()
             raise RequestTimeoutError(method) from exc
         except OSError as exc:
             self._notify_connection_closed_once()
             raise ConnectionLostError(f"Failed to talk to the server: {exc}") from exc
-        if line == "":
-            self._notify_connection_closed_once()
-            raise ConnectionLostError("Connection closed by server")
-        if self.debug:
-            sys.stderr.write(f"<- {line!r}")
         try:
-            result = self._parse_response(line.rstrip("\n"), req_id)
+            result = self._read_response(req_id, method)
         except McRpcError as exc:
             self._notify_observer("observe_error", method, exc, req_id)
             raise
         self._notify_observer("observe_result", method, result, req_id)
         return result
+
+    def _read_response(self, request_id, method):
+        frames = _JsonRpcFrames()
+        while True:
+            try:
+                line = self.reader.readline()
+            except TimeoutError as exc:
+                raise RequestTimeoutError(method) from exc
+            except OSError as exc:
+                raise ConnectionLostError("Failed to receive from the server") from exc
+            if not line:
+                raise ConnectionLostError("Connection closed by server")
+            if self.debug:
+                sys.stderr.write(f"<- {line!r}")
+            for frame in frames.feed(line.encode("utf8")):
+                if frames.matches(frame, {request_id}):
+                    return self._parse_response(json.dumps(frame), request_id)
 
     @staticmethod
     def _build_request(method, params, req_id):
