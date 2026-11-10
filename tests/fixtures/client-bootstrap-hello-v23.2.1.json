@@ -3,7 +3,7 @@
   "protocol": "23.2.1",
   "suite": "hello",
   "knowledge_contract": {
-    "commit": "308a2a441060265e10af3d5e8e97c826c86b4ed8",
+    "commit": "5e00768911feb7be1e54ae3b7e9c2d776b88927a",
     "instructions": "00-hub/polyglot-f1-fixture-instructions_ja.md"
   },
   "cases": [
@@ -665,7 +665,9 @@
               "code": -32000,
               "message": "Server protocol 23.2.1 cannot satisfy client protocol 24.0.0",
               "data": {
-                "reason": "protocol_mismatch"
+                "reason": "protocol_mismatch",
+                "server": "23.2.1",
+                "client_requires": "24.0.0"
               }
             }
           }
@@ -678,8 +680,81 @@
         "reason": "protocol_mismatch",
         "pending_ids": []
       },
-      "unresolved": [
-        "双方の版情報はこの例のmessage内に示す。専用data field名は未確定で追加しない。messageの正準文言・server定義codeのexact番号・切断時機も新しく固定しない。"
+      "unresolved": ["messageの正準文言・server定義域のcodeのexact番号・切断時機を、このfixtureで新しく固定しない。"]
+    },
+    {
+      "id": "F1-HE-10",
+      "title": "移行中の旧codeでもreasonでprotocol_mismatchを判定",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.3–3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "24.0.0",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32600,
+              "message": "Server protocol 23.2.1 cannot satisfy client protocol 24.0.0",
+              "data": {
+                "reason": "protocol_mismatch",
+                "server": "23.2.1",
+                "client_requires": "24.0.0"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        }
+      ],
+      "expected": {
+        "reason": "protocol_mismatch",
+        "pending_ids": []
+      },
+      "unresolved": ["messageの正準文言・server定義域のcodeのexact番号・切断時機を、このfixtureで新しく固定しない。"],
+      "related_cases": ["F1-HE-09"],
+      "preconditions": [
+        "McRemote 2321.1.0までのcode -32600を受ける移行対応の例。clientはdata.reasonで判定し、-32600を契約上のcodeとして新たに採用しない。"
       ]
     }
   ]

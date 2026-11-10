@@ -1,6 +1,6 @@
 {
   "repository": "Naohiro2g/minecraft-remote-tooling",
-  "commit": "8264c3881bb4128c14cda6d122641ebcfa67d9c5",
+  "commit": "ea7838a78bf78947c7dde5876f6cc93b43f7e3cc",
   "path": "packages/protocol/test/fixtures/",
   "files": [
     {
@@ -35,8 +35,8 @@
     },
     {
       "file": "client-bootstrap-hello-v23.2.1.json",
-      "bytes": 18734,
-      "sha256": "0164639f946c58f1a2548334d6ff7032a50ec57dd797a328094eff7f104dc0a1"
+      "bytes": 20913,
+      "sha256": "78297f05eb4352b0dabffab3242e933c1e68cb192bbb6d242019c7956c809d57"
     },
     {
       "file": "client-bootstrap-pairing-v23.2.1.json",
@@ -45,8 +45,8 @@
     },
     {
       "file": "client-bootstrap-v1.schema.json",
-      "bytes": 9908,
-      "sha256": "026d15c2d09f955ba47d6abd0c06a5af3e49ae41e4cc94441b4f0d9829b1d26f"
+      "bytes": 9953,
+      "sha256": "e848bd3a61d4c0a737f7f3a8963baf2fcbb83247486f3d8aa69f022bb55a7ede"
     }
   ]
 }
