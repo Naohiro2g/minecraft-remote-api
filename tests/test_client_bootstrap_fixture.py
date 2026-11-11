@@ -228,6 +228,8 @@ def test_f1_pairing(case, monkeypatch):
                             conn.rpc(msg['method'], msg.get('params'))
                         except McRpcError as exc:
                             failure = exc
+            elif case['id']=='F1-AU-07':
+                result = mc._hello_attempt('key',store['key'])
             elif initial['method']=='auth.pairBegin':
                 auth.pair(conn, token_type=initial['params']['token_type'], stream=io.StringIO())
             else:
@@ -248,6 +250,14 @@ def test_f1_pairing(case, monkeypatch):
             assert store['key'] == expected['token']
         if 'discard_token' in expected:
             assert bool(discarded) == expected['discard_token']
+        attempts = sum(m['method']=='auth.pairBegin' for _,sock in conn.streams for m in sock.sent)
+        if 'pairing_attempts' in expected:
+            assert attempts == expected['pairing_attempts']
+        if expected.get('pairing_required') is True:
+            assert attempts > 0
+        if 'error' in expected:
+            error = expected['error']
+            assert (failure.code, failure.message, failure.data)==(error['code'],error['message'],error['data'])
         if expected.get('pairing_required') is False:
             assert not any(m['method'].startswith('auth.pair') for _,sock in conn.streams for m in sock.sent)
         conn.assert_requests()
@@ -268,7 +278,7 @@ def test_f1_close(case, monkeypatch):
         assert case['expected']['completed_ids']==[]
         return
     conn = ScriptedConnection(case)
-    completed, unanswered = [], []
+    completed, unanswered, local_failures = [], [], []
     last = None
     try:
         for step in case['steps']:
@@ -277,8 +287,11 @@ def test_f1_close(case, monkeypatch):
                 try:
                     last = conn.rpc(msg['method'],msg.get('params'))
                     completed.append(msg['id'])
-                except McRemoteError:
+                except McRemoteError as exc:
                     unanswered.append(msg['id'])
+                    if getattr(exc, "completion_unknown", False):
+                        assert not isinstance(exc, McRpcError) and not hasattr(exc, "reason")
+                        local_failures.append({"id":msg["id"],"outcome":"completion_unknown"})
             elif step['op']=='client_close':
                 conn.close()
             elif step['op']=='connect' and completed:
@@ -288,8 +301,12 @@ def test_f1_close(case, monkeypatch):
             assert completed==expected['completed_ids']
         if 'unanswered_ids' in expected:
             assert unanswered==expected['unanswered_ids']
+        if 'local_failures' in expected:
+            assert local_failures==expected['local_failures']
+            assert not conn._pending
         if 'pending_ids' in expected:
-            assert not unanswered
+            assert completed or unanswered
+            assert not getattr(conn, '_pending', {})
         if 'result' in expected:
             assert last==expected['result']
         assert conn.is_connected() == (expected['connection']=='open')
@@ -297,10 +314,10 @@ def test_f1_close(case, monkeypatch):
         conn.close()
 
 
-def test_f1_pinned_identity_schema_and_45_case_inventory():
+def test_f1_pinned_identity_schema_and_48_case_inventory():
     import hashlib
     source = json.loads((ROOT/'client-bootstrap.source.json').read_text())
-    assert source['commit']=='ea7838a78bf78947c7dde5876f6cc93b43f7e3cc'
+    assert source['commit']=='36ebe9e63e4f0afcf949eae998832f68209b8119'
     for file in source['files']:
         body = (ROOT/file['file']).read_bytes()
         assert len(body)==file['bytes']
@@ -315,8 +332,8 @@ def test_f1_pinned_identity_schema_and_45_case_inventory():
         for case in fixture['cases']:
             assert set(schema['properties']['cases']['items']['required'])<=case.keys()
             ids.append(case['id'])
-    assert len(ids)==len(set(ids))==45
-    assert {name:len(f['cases']) for name,f in SUITES.items()}=={'framing':7,'hello':10,'pairing':7,'blocks':12,'errors':3,'close':6}
+    assert len(ids)==len(set(ids))==48
+    assert {name:len(f['cases']) for name,f in SUITES.items()}=={'framing':7,'hello':10,'pairing':10,'blocks':12,'errors':3,'close':6}
 
 
 @pytest.mark.parametrize('case_id', ['F1-HE-04','F1-HE-05'])

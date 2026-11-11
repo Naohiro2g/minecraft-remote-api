@@ -9,7 +9,7 @@ and ``auth.pairPoll`` is polled until the server hands back the token
 The client contract (§6.5) is a single path: try ``hello`` first (with a stored
 token if we have one) and only pair when the server answers ``auth_required``.
 This unifies enforcement OFF (token-less hello succeeds, pairing auto-skipped)
-and ON (missing/invalid token -> ``auth_required``/``token_invalid`` -> pair).
+and ON (invalid token -> token-less hello -> ``auth_required`` -> pair).
 The orchestration lives in ``minecraft.create()``; this module provides the
 pieces it composes: token persistence, the ``pair()`` poll loop, and the reason
 classification that decides discard-vs-keep.
@@ -21,6 +21,15 @@ import sys
 import time
 
 from .connection import McRemoteError, McRpcError
+
+
+class PairingExpiredError(McRemoteError):
+    """The client clock expired pairing; no server code/reason is fabricated."""
+
+    origin = "client"
+
+    def __init__(self):
+        super().__init__("Pairing was not approved or expired (client deadline)")
 
 
 class PairingRequiredError(McRemoteError):
@@ -171,7 +180,8 @@ def pair(conn, *, token_type="session", client=None, interval=1.5, stream=None):
     ``auth.pairPoll`` at
     ``interval`` seconds until ``result.status == "ok"`` (``"pending"`` is not
     an error). ``pair_expired`` / ``pair_not_found`` surface as
-    :class:`McRpcError`; exceeding ``expires_in`` is treated as ``pair_expired``.
+    :class:`McRpcError`; exceeding ``expires_in`` raises local
+    :class:`PairingExpiredError` without fabricating a server code/reason.
 
     Only the token is returned -- ``player`` / ``permissions`` / ``dimension`` /
     ``origin`` come from the subsequent ``hello`` result, the single source
@@ -204,5 +214,5 @@ def pair(conn, *, token_type="session", client=None, interval=1.5, stream=None):
             return poll["token"]
         # status == "pending" (or anything non-terminal): keep waiting.
         if deadline is not None and time.monotonic() >= deadline:
-            raise McRpcError(-32000, "pairing code expired", {"reason": "pair_expired"})
+            raise PairingExpiredError()
         time.sleep(interval)

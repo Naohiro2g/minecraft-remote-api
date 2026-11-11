@@ -17,6 +17,7 @@ from .connection import (
 )
 from .auth import (
     PairingRequiredError,
+    PairingExpiredError,
     pair as run_pairing,
     is_auth_discard,
     load_token,
@@ -115,6 +116,7 @@ __all__ = [
     "RequestFailedError",
     "RequestTimeoutError",
     "PairingRequiredError",
+    "PairingExpiredError",
     "BuildMode",
     "DEFAULT_TRACE_DELAY",
     "MAX_TRACE_DELAY",
@@ -310,6 +312,18 @@ class Minecraft:
         except (AttributeError, ValueError) as exc:
             raise McRemoteError("hello result.protocol must be major.minor.patch") from exc
         if server_parts[0] != required_parts[0] or server_parts[1] < required_parts[1]:
+            # Incompatible hello must not be followed by flush or another request.
+            try:
+                abort = getattr(self.conn, "_close_epoch", None)
+                if abort is not None:
+                    abort(flush=False)
+                else:
+                    self.conn.close()
+            except Exception:
+                pass
+            finally:
+                self._closed = True
+                self._close_wirescope_runtime()
             raise McRpcError(
                 -32000,
                 "Server protocol does not satisfy the client requirement",
@@ -1182,37 +1196,42 @@ class Minecraft:
                 )
         return False
 
-    def authenticate(self, server_key, token_type="session", pair=True):
-        """Run the unified b2 auth flow (§6.5) and return the hello response.
-
-        Tries ``hello`` first, reusing a stored token for ``server_key`` if one
-        exists. Under enforcement OFF a token-less hello just succeeds and
-        pairing never runs. Under ON (or when the stored token is stale) the
-        server answers with an auth-family reason (§6.3); we discard the bad
-        token, pair once (printing the pair code to stdout and blocking until
-        the player approves), persist the fresh token, and retry hello exactly
-        once. Non-auth errors (``permission_denied``, ``protocol_mismatch``)
-        propagate. ``pair=False`` disables the interactive pairing fallback."""
-        token = load_token(server_key)
+    def _hello_attempt(self, server_key, token):
+        """One auth attempt, preserving the server error and token disposition."""
         try:
             return self.hello(token)
-        except McRpcError as e:
-            if not is_auth_discard(e):
-                raise
-            # Token disposition is independent of whether this call is
-            # allowed to launch pairing (DEC 2026-08-02-06).
-            clear_token(server_key)
-            if not pair:
-                raise PairingRequiredError(e.reason) from e
-            # Auth-family failure: pair. The server
-            # drops the stream after auth_required (hello is once per
-            # connection), so reconnect before pairing and again for the
-            # authenticated hello.
-            self.conn.reconnect()
-            token = run_pairing(self.conn, token_type=token_type)
-            save_token(server_key, token)
-            self.conn.reconnect()
-            return self.hello(token)
+        except McRpcError as exc:
+            if is_auth_discard(exc):
+                clear_token(server_key)
+            raise
+
+    def authenticate(self, server_key, token_type="session", pair=True):
+        """Try a saved token, then token-less hello before pairing if required.
+
+        Pairing is attempted at most once. Errors after that attempt propagate;
+        invalid tokens are discarded, but authorization/version errors keep them.
+        """
+        token = load_token(server_key)
+        paired = False
+        while True:
+            try:
+                return self._hello_attempt(server_key, token)
+            except McRpcError as exc:
+                if not is_auth_discard(exc) or paired:
+                    raise
+                if exc.reason != "auth_required":
+                    if token is None:
+                        raise
+                    token = None
+                    self.conn.reconnect()
+                    continue
+                if not pair:
+                    raise PairingRequiredError(exc.reason) from exc
+                paired = True
+                self.conn.reconnect()
+                token = run_pairing(self.conn, token_type=token_type)
+                save_token(server_key, token)
+                self.conn.reconnect()
 
     @staticmethod
     def create(

@@ -3,8 +3,8 @@
   "protocol": "23.2.1",
   "suite": "pairing",
   "knowledge_contract": {
-    "commit": "308a2a441060265e10af3d5e8e97c826c86b4ed8",
-    "instructions": "00-hub/polyglot-f1-fixture-instructions_ja.md"
+    "commit": "562b5c008c7a4e391f04a79ed4496bbd44670896",
+    "instructions": "00-hub/polyglot-f1-e2-fixture-instructions_ja.md"
   },
   "cases": [
     {
@@ -715,6 +715,10 @@
         {
           "path": "10-protocol/wire-format-design_ja.md",
           "section": "§7.3"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-11-11-01"
         }
       ],
       "steps": [
@@ -764,9 +768,633 @@
         "discard_token": true
       },
       "related_cases": ["F1-AU-01"],
-      "unresolved": [
-        "人間が承認を拒む専用message／pair_denied reasonは契約に無い。pair_not_found、期限切れ、発行params拒否、hello認可拒否を別caseで扱う。"
+      "preconditions": [
+        "人の承認を拒む専用message／pair_denied reasonは持たない。承認されなければpendingのまま期限が切れてpair_expiredになる（F1-AU-02）。"
       ]
+    },
+    {
+      "id": "F1-AU-08",
+      "title": "保存tokenを破棄してtokenなしhelloへ戻りauth_requiredの後だけpairingする",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-08-30-03"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-11-11-01"
+        }
+      ],
+      "preconditions": [
+        "同じ接続試行をc1〜c4のTCPで進める。認証error後のEOFはpeerのscenarioであり、すべてのserverに切断を要求するものではない。"
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_expired"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "token expired",
+              "data": {
+                "reason": "token_expired"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c2"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "auth required",
+              "data": {
+                "reason": "auth_required"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c3"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "auth.pairBegin",
+            "params": {
+              "token_type": "session",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "pairing_id": "fixture-pairing",
+              "pair_code": "123456",
+              "expires_in": 120
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+              "status": "pending"
+            }
+          }
+        },
+        {
+          "op": "approve_pairing",
+          "note": "fixtureのMinecraft内承認に相当。ネットワークmessageではない。"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "status": "ok",
+              "token": "mcrs_fixture_only_not_a_real_credential"
+            }
+          }
+        },
+        {
+          "op": "client_close"
+        },
+        {
+          "op": "connect",
+          "connection": "c4"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "discard_token": true,
+        "pairing_required": true,
+        "pairing_attempts": 1,
+        "token": "mcrs_fixture_only_not_a_real_credential",
+        "result": {
+          "protocol": "23.2.1",
+          "mc_version": "1.21.11",
+          "supported_mc_versions": ["1.21.11", "26.3"],
+          "catalogHash": null,
+          "world_constants": {
+            "y_sea": 62
+          },
+          "session": "fixture-session",
+          "player": "00000000-0000-4000-8000-000000000001",
+          "dimension": "minecraft:overworld",
+          "origin": [200, 0, 200],
+          "permissions": {
+            "online": true,
+            "offline": false,
+            "buildRange": 100
+          },
+          "server": "fixture-server"
+        }
+      }
+    },
+    {
+      "id": "F1-AU-09",
+      "title": "保存token破棄後のtokenなしhelloが成功したらpairingしない",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-08-30-03"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-11-11-01"
+        }
+      ],
+      "preconditions": [
+        "peerは認証を強制しない設定。これは診断用serverの形で、clientが認証errorから設定を変える操作ではない。"
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_expired"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "token expired",
+              "data": {
+                "reason": "token_expired"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c2"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "discard_token": true,
+        "pairing_required": false,
+        "pairing_attempts": 0,
+        "result": {
+          "protocol": "23.2.1",
+          "mc_version": "1.21.11",
+          "supported_mc_versions": ["1.21.11", "26.3"],
+          "catalogHash": null,
+          "world_constants": {
+            "y_sea": 62
+          },
+          "session": "fixture-session",
+          "player": "00000000-0000-4000-8000-000000000001",
+          "dimension": "minecraft:overworld",
+          "origin": [200, 0, 200],
+          "permissions": {
+            "online": true,
+            "offline": false,
+            "buildRange": 100
+          },
+          "server": "fixture-server"
+        }
+      }
+    },
+    {
+      "id": "F1-AU-10",
+      "title": "pairing後のhelloが認証reasonで拒まれても二度目のpairingをしない",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-08-30-03"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-11-11-01"
+        }
+      ],
+      "preconditions": [
+        "同じ接続試行をc1〜c4のTCPで進める。認証error後のEOFはpeerのscenarioであり、すべてのserverに切断を要求するものではない。",
+        "c1〜c4で一接続試行。最後の認証errorをapplicationへ返し、二度目のpairBeginや新tokenの取得を始めない。"
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_expired"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "token expired",
+              "data": {
+                "reason": "token_expired"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c2"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "auth required",
+              "data": {
+                "reason": "auth_required"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c3"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "auth.pairBegin",
+            "params": {
+              "token_type": "session",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "pairing_id": "fixture-pairing",
+              "pair_code": "123456",
+              "expires_in": 120
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+              "status": "pending"
+            }
+          }
+        },
+        {
+          "op": "approve_pairing",
+          "note": "fixtureのMinecraft内承認に相当。ネットワークmessageではない。"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+              "status": "ok",
+              "token": "mcrs_fixture_only_not_a_real_credential"
+            }
+          }
+        },
+        {
+          "op": "client_close"
+        },
+        {
+          "op": "connect",
+          "connection": "c4"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "token revoked",
+              "data": {
+                "reason": "token_revoked"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        }
+      ],
+      "expected": {
+        "reason": "token_revoked",
+        "error": {
+          "code": -32000,
+          "message": "token revoked",
+          "data": {
+            "reason": "token_revoked"
+          }
+        },
+        "discard_token": true,
+        "pairing_attempts": 1
+      }
     }
   ]
 }
