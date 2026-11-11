@@ -74,12 +74,12 @@ Minecraft.create(
 **戻り値・値:** 接続したMinecraftオブジェクト。
 
 - from mc_remote import Minecraftでimportできます。Minecraft.create()が通常の入口です。
-- 保存済みtokenでhelloを試し、認証に必要なときだけpairing commandを表示してMinecraft内の承認を待ちます。pair=Falseはこの待機を行わず、必要ならPairingRequiredErrorを返します。
+- 保存済みtokenでhelloを試します。無効なtokenを捨てたらtokenなしhelloへ戻り、auth_requiredのときだけpairing commandを表示してMinecraft内の承認を待ちます。pair=Falseはこの待機を行わず、必要ならPairingRequiredErrorを返します。
 - sync_catalog=Trueでは接続後に補完を生成します。生成が失敗した場合はCatalogProjectionWarningを出し、接続したオブジェクトを返します。
 - wirescope=Trueは同梱WireScopeをlocalhostで開く設定です。WireScopeStation.local()も渡せます。NoneまたはFalseで無効です。
 - handshake=Falseは接続処理を自分で組み立てる用途です。sandboxはローカルtoken保存先のkeyを指定する互換引数です。
 
-[実装を見る](../mc_remote/minecraft.py#L1218)
+[実装を見る](../mc_remote/minecraft.py#L1237)
 
 <a id="mc-close"></a>
 
@@ -96,7 +96,7 @@ mc.close()
 - with Minecraft.create(...) as mc:のブロックを抜けるとclose()が呼ばれます。明示的にclose()を呼ぶこともできます。
 - 正常に閉じたあとにもう一度呼んでもTrueを返します。同梱WireScopeの実行状態も閉じます。
 
-[実装を見る](../mc_remote/minecraft.py#L1138)
+[実装を見る](../mc_remote/minecraft.py#L1152)
 
 <a id="mc-flush"></a>
 
@@ -113,7 +113,7 @@ mc.flush() -> None
 - ブロックの現在値を読む操作はgetBlock()/getBlocks()で行います。
 - タイムアウトした場合はRequestTimeoutErrorになり、接続を閉じます。先行操作の完了は不明なので、自動再試行しません。
 
-[実装を見る](../mc_remote/minecraft.py#L878)
+[実装を見る](../mc_remote/minecraft.py#L892)
 
 <a id="build"></a>
 
@@ -141,7 +141,7 @@ mc.setDimension(dimension)
 
 プレイヤーを次元間で移動する操作はsetPos()/setPose()で行います。
 
-[実装を見る](../mc_remote/minecraft.py#L909)
+[実装を見る](../mc_remote/minecraft.py#L923)
 
 <a id="mc-setBuildOrigin"></a>
 
@@ -157,7 +157,7 @@ mc.setBuildOrigin(x, y, z)
 
 x・y・zは絶対位置の整数です。以後の位置はこの原点から相対になります。Yにも同じ加算を使います。
 
-[実装を見る](../mc_remote/minecraft.py#L923)
+[実装を見る](../mc_remote/minecraft.py#L937)
 
 <a id="mc-setBuildMode"></a>
 
@@ -179,7 +179,7 @@ mc.setBuildMode(mode: BuildMode, *, trace_delay: float) -> None
 - trace_delayは0〜2秒です。省略すると現在の値を保ちます。
 - FASTがnotificationになるのはsetBlock()/setBlocks()です。spawnParticle()などは各モードでも応答を待ちます。
 
-[実装を見る](../mc_remote/minecraft.py#L856)
+[実装を見る](../mc_remote/minecraft.py#L870)
 
 <a id="mc-build_mode"></a>
 
@@ -195,7 +195,7 @@ mc.build_mode: BuildMode
 
 変更はsetBuildMode()で行います。
 
-[実装を見る](../mc_remote/minecraft.py#L805)
+[実装を見る](../mc_remote/minecraft.py#L819)
 
 <a id="mc-trace_delay"></a>
 
@@ -211,7 +211,7 @@ mc.trace_delay: float
 
 変更はsetBuildMode(..., trace_delay=...)で行います。
 
-[実装を見る](../mc_remote/minecraft.py#L812)
+[実装を見る](../mc_remote/minecraft.py#L826)
 
 <a id="block"></a>
 
@@ -254,7 +254,7 @@ mc.setBlock(x, y, z, block_id: str, *, state: Mapping[str, StateScalar] | None =
 
 </details>
 
-[実装を見る](../mc_remote/minecraft.py#L359)
+[実装を見る](../mc_remote/minecraft.py#L373)
 
 <a id="mc-getBlock"></a>
 
@@ -268,7 +268,7 @@ mc.getBlock(x, y, z) -> BlockValue
 
 **戻り値・値:** [BlockValue](#type-BlockValue)。block_idとstateは属性で読みます。
 
-[実装を見る](../mc_remote/minecraft.py#L373)
+[実装を見る](../mc_remote/minecraft.py#L387)
 
 <a id="mc-setBlocks"></a>
 
@@ -317,7 +317,7 @@ mc.setBlocks(
 
 </details>
 
-[実装を見る](../mc_remote/minecraft.py#L794)
+[実装を見る](../mc_remote/minecraft.py#L808)
 
 <a id="mc-getBlocks"></a>
 
@@ -334,7 +334,7 @@ mc.getBlocks(x0, y0, z0, x1, y1, z1) -> tuple[BlockValue, ...]
 - 各軸は入力の大小からmin/maxを決め、両端を含みます。結果はZが最も速く変わり、次にY、最後にXの順です。
 - tupleと各BlockValueは取得時点の変更不能なsnapshotです。
 
-[実装を見る](../mc_remote/minecraft.py#L378)
+[実装を見る](../mc_remote/minecraft.py#L392)
 
 <a id="mc-getHeight"></a>
 
@@ -363,7 +363,7 @@ mc.getHeight(x, z, max_y) -> int
 
 </details>
 
-[実装を見る](../mc_remote/minecraft.py#L400)
+[実装を見る](../mc_remote/minecraft.py#L414)
 
 <a id="player"></a>
 
@@ -392,7 +392,7 @@ mc.getPos()
 
 posは建築原点から相対です。プレイヤー名は渡しません。
 
-[実装を見る](../mc_remote/minecraft.py#L942)
+[実装を見る](../mc_remote/minecraft.py#L956)
 
 <a id="mc-setPos"></a>
 
@@ -408,7 +408,7 @@ mc.setPos(dimension, x, y, z)
 
 dimensionを明示します。x・y・zは建築原点から相対で、小数も使えます。
 
-[実装を見る](../mc_remote/minecraft.py#L952)
+[実装を見る](../mc_remote/minecraft.py#L966)
 
 <a id="mc-getPose"></a>
 
@@ -424,7 +424,7 @@ mc.getPose()
 
 posは[x, y, z]のlistで、建築原点から相対です。yaw・pitchは角度です。
 
-[実装を見る](../mc_remote/minecraft.py#L964)
+[実装を見る](../mc_remote/minecraft.py#L978)
 
 <a id="mc-setPose"></a>
 
@@ -440,7 +440,7 @@ mc.setPose(dimension, x, y, z, yaw, pitch)
 
 dimensionを明示します。yaw・pitchは角度で、数値の検証と正準化はサーバーが行います。
 
-[実装を見る](../mc_remote/minecraft.py#L974)
+[実装を見る](../mc_remote/minecraft.py#L988)
 
 <a id="mc-getDirection"></a>
 
@@ -454,7 +454,7 @@ mc.getDirection() -> DirectionValue
 
 **戻り値・値:** [DirectionValue](#type-DirectionValue)。X/Y/Z成分のtuple。
 
-[実装を見る](../mc_remote/minecraft.py#L411)
+[実装を見る](../mc_remote/minecraft.py#L425)
 
 <a id="mc-setDirection"></a>
 
@@ -470,7 +470,7 @@ mc.setDirection(x, y, z) -> DirectionValue
 
 有限な方向ベクトルを渡します。サーバーが正規化し、Pythonは入力の大きさや精度を変えず送ります。
 
-[実装を見る](../mc_remote/minecraft.py#L424)
+[実装を見る](../mc_remote/minecraft.py#L438)
 
 <a id="entity"></a>
 
@@ -500,7 +500,7 @@ mc.spawnEntity(x, y, z, entity) -> EntityHandle
 
 entityはcowなどのID文字列です。handleは取得した接続で使い、再接続後は取り直します。
 
-[実装を見る](../mc_remote/minecraft.py#L590)
+[実装を見る](../mc_remote/minecraft.py#L604)
 
 <a id="mc-getNearbyEntities"></a>
 
@@ -517,7 +517,7 @@ mc.getNearbyEntities(x, y, z, radius, max_entities) -> tuple[NearbyEntity, ...]
 - radiusとmax_entitiesは必須引数です。半径は0〜64、件数は1〜64で、サーバーがさらに小さい上限を設定している場合があります。
 - プレイヤーは含みません。検索でchunkをloadせず、結果のposは建築原点から相対です。取得後にエンティティが消える場合があります。
 
-[実装を見る](../mc_remote/minecraft.py#L646)
+[実装を見る](../mc_remote/minecraft.py#L660)
 
 <a id="mc-getEntityPose"></a>
 
@@ -531,7 +531,7 @@ mc.getEntityPose(handle: str) -> PoseValue
 
 **戻り値・値:** [PoseValue](#type-PoseValue)。dimension・pos・yaw・pitchを含むdict。
 
-[実装を見る](../mc_remote/minecraft.py#L663)
+[実装を見る](../mc_remote/minecraft.py#L677)
 
 <a id="mc-setEntityPose"></a>
 
@@ -547,7 +547,7 @@ mc.setEntityPose(handle: str, dimension, x, y, z, yaw, pitch) -> PoseValue
 
 次元を移動しても成功時は同じhandleを使えます。この接続の建築次元・原点は変わりません。
 
-[実装を見る](../mc_remote/minecraft.py#L670)
+[実装を見る](../mc_remote/minecraft.py#L684)
 
 <a id="mc-getEntityDirection"></a>
 
@@ -561,7 +561,7 @@ mc.getEntityDirection(handle: str) -> DirectionValue
 
 **戻り値・値:** DirectionValue。
 
-[実装を見る](../mc_remote/minecraft.py#L437)
+[実装を見る](../mc_remote/minecraft.py#L451)
 
 <a id="mc-setEntityDirection"></a>
 
@@ -575,7 +575,7 @@ mc.setEntityDirection(handle: str, x, y, z) -> DirectionValue
 
 **戻り値・値:** 変更後のDirectionValue。
 
-[実装を見る](../mc_remote/minecraft.py#L447)
+[実装を見る](../mc_remote/minecraft.py#L461)
 
 <a id="mc-removeEntity"></a>
 
@@ -591,7 +591,7 @@ mc.removeEntity(handle: str) -> None
 
 削除したhandleは即時失効します。
 
-[実装を見る](../mc_remote/minecraft.py#L687)
+[実装を見る](../mc_remote/minecraft.py#L701)
 
 <a id="sign"></a>
 
@@ -617,7 +617,7 @@ mc.getSign(x, y, z) -> SignValue
 
 指定位置に看板が必要です。waxedな看板も読めます。
 
-[実装を見る](../mc_remote/minecraft.py#L471)
+[実装を見る](../mc_remote/minecraft.py#L485)
 
 <a id="mc-setSign"></a>
 
@@ -634,7 +634,7 @@ mc.setSign(x, y, z, *, front = None, back = None) -> None
 - frontまたはbackの少なくとも片方を、4行のsequenceで指定します。省略した面は保ち、指定した面の4行はすべて置き換えます。
 - 各行は文字列、またはtext・color・decorationsを持つmappingです。waxedな看板への変更はsign_waxedになります。
 
-[実装を見る](../mc_remote/minecraft.py#L478)
+[実装を見る](../mc_remote/minecraft.py#L492)
 
 <a id="mc-updateSignLine"></a>
 
@@ -650,7 +650,7 @@ mc.updateSignLine(x, y, z, face, line_index, line) -> None
 
 faceはfront/back、line_indexは0〜3です。lineは文字列、またはtext・color・decorationsのmappingです。
 
-[実装を見る](../mc_remote/minecraft.py#L493)
+[実装を見る](../mc_remote/minecraft.py#L507)
 
 <a id="effect"></a>
 
@@ -705,7 +705,7 @@ mc.spawnParticle(
 - 受け取った生成数と、Minecraft画面で実際に見える粒子数は別です。描画はクライアントの距離・設定にも依存します。
 - FASTでも応答を待つrequestです。[3Dグラフの作例](../examples/particle_graph.py)も参照できます。
 
-[実装を見る](../mc_remote/minecraft.py#L543)
+[実装を見る](../mc_remote/minecraft.py#L557)
 
 <a id="mc-playSound"></a>
 
@@ -735,7 +735,7 @@ mc.playSound(
 - receiverのworldは近くのプレイヤー向け、selfはpairingしたプレイヤー向けです。
 - 辞書の設定は **controls の形で渡せます。音名からnoteへの換算はユーザーコードで行います。
 
-[実装を見る](../mc_remote/minecraft.py#L601)
+[実装を見る](../mc_remote/minecraft.py#L615)
 
 <a id="mc-playBlockSound"></a>
 
@@ -763,7 +763,7 @@ mc.playBlockSound(
 - 省略したvolume/pitchは、そのブロックのSoundGroupの値を使います。pitchまたはnoteを指定すると元の高さを置き換えます。
 - None・pitch/note・receiverの渡し方はplaySound()と同じです。airの位置ではno_blockになります。
 
-[実装を見る](../mc_remote/minecraft.py#L623)
+[実装を見る](../mc_remote/minecraft.py#L637)
 
 <a id="mc-strikeLightning"></a>
 
@@ -779,7 +779,7 @@ mc.strikeLightning(x, y, z) -> None
 
 worldにdamage・発火などの効果を与える操作です。自動再試行しません。
 
-[実装を見る](../mc_remote/minecraft.py#L458)
+[実装を見る](../mc_remote/minecraft.py#L472)
 
 <a id="events"></a>
 
@@ -803,7 +803,7 @@ mc.postToChat(message) -> None
 
 **戻り値・値:** None。成功resultはnull。
 
-[実装を見る](../mc_remote/minecraft.py#L936)
+[実装を見る](../mc_remote/minecraft.py#L950)
 
 <a id="mc-pollEvents"></a>
 
@@ -823,7 +823,7 @@ mc.pollEvents(max_events = None) -> EventBatch
 - max_eventsは正の整数、省略するとサーバーの取得件数を使います。
 - 各イベントは発生時のdimensionとoriginを持ちます。位置を建築に使う前にassertEventContext()で現在の原点と合うかを確認できます。
 
-[実装を見る](../mc_remote/minecraft.py#L695)
+[実装を見る](../mc_remote/minecraft.py#L709)
 
 <a id="mc-assertEventContext"></a>
 
@@ -839,7 +839,7 @@ mc.assertEventContext(event: EventValue) -> None
 
 ローカルで確認し、イベントを捨てたり建築状態を変更したりしません。
 
-[実装を見る](../mc_remote/minecraft.py#L736)
+[実装を見る](../mc_remote/minecraft.py#L750)
 
 <a id="catalog"></a>
 
@@ -864,7 +864,7 @@ mc.getCatalog()
 
 別の短命な認証済み接続を使います。補完ファイルを生成する場合はsync_constants()を使います。
 
-[実装を見る](../mc_remote/minecraft.py#L1046)
+[実装を見る](../mc_remote/minecraft.py#L1060)
 
 <a id="mc-sync_constants"></a>
 
@@ -882,7 +882,7 @@ mc.sync_constants(target_dir = None, force = False)
 - Git管理下では生成物をignoreする設定が必要です。mcremote initで設定できます。
 - 明示的に呼んだときの失敗はCatalogProjectionErrorです。create()内の自動同期では警告になります。
 
-[実装を見る](../mc_remote/minecraft.py#L1058)
+[実装を見る](../mc_remote/minecraft.py#L1072)
 
 <a id="advanced"></a>
 
@@ -907,7 +907,7 @@ mc.hello(auth_token = None)
 
 通常はcreate()が行います。1接続に1回のhandshakeです。auth_tokenは保存済みcredentialを自分で扱う用途です。
 
-[実装を見る](../mc_remote/minecraft.py#L268)
+[実装を見る](../mc_remote/minecraft.py#L270)
 
 <a id="mc-authenticate"></a>
 
@@ -921,9 +921,9 @@ mc.authenticate(server_key, token_type = 'session', pair = True)
 
 **戻り値・値:** 認証後のhello応答のdict。
 
-通常はcreate()が行います。server_keyはローカル保存先のkeyで、接続先アドレスを変更する引数ではありません。
+通常はcreate()が行います。token破棄後はtokenなしhelloへ戻り、auth_requiredのときだけ一度pairingします。server_keyはローカル保存先のkeyで、接続先アドレスを変更する引数ではありません。
 
-[実装を見る](../mc_remote/minecraft.py#L1185)
+[実装を見る](../mc_remote/minecraft.py#L1208)
 
 <a id="values"></a>
 
@@ -945,7 +945,7 @@ from mc_remote.minecraft import BuildMode
 
 DEBUGは応答を待つrequest、TRACEはrequest後に待ち時間を入れるモード、FASTはnotificationで送るモードです。FASTの完了はflush()/close()で確認します。
 
-[定義を見る](../mc_remote/minecraft.py#L81)
+[定義を見る](../mc_remote/minecraft.py#L82)
 
 <a id="type-BlockValue"></a>
 
@@ -1383,16 +1383,17 @@ WireScopeStation.local()で作り、Minecraft.create(wirescope=...)に渡しま�
 ## 例外と警告
 
 - サーバーの拒否はMcRpcErrorです。reason・code・message・dataを読めます。処理を分けるときはreasonを使います。[Protocolのerror一覧](https://mc-remote.com/api/#errors)も参照してください。
-- Python内の引数チェックではValueError/TypeErrorも発生します。通信の完了が不明なRequestTimeoutErrorは、操作が実行されなかったことを意味しません。
+- Python内の引数チェックではValueError/TypeErrorも発生します。ConnectionLostErrorのcompletion_unknownがtrueのときやRequestTimeoutErrorでは、操作が実行されなかったとは限りません。PairingExpiredErrorはclientが判断した承認待ちの期限切れで、serverのcode／reasonはありません。
 
 | 名前 | 意味 | import元 |
 | --- | --- | --- |
-| [`McRemoteError`](../mc_remote/connection.py#L57) | クライアント例外の基底 | `mc_remote.minecraft` |
-| [`McRpcError`](../mc_remote/connection.py#L86) | サーバーのJSON-RPC error。reasonで理由を読む | `mc_remote.minecraft` |
-| [`ConnectionLostError`](../mc_remote/connection.py#L61) | 接続が失われた | `mc_remote.minecraft` |
-| [`RequestTimeoutError`](../mc_remote/connection.py#L68) | 送信後のタイムアウト。完了は不明 | `mc_remote.minecraft` |
-| [`RequestFailedError`](../mc_remote/connection.py#L81) | McRpcErrorの互換用基底 | `mc_remote.minecraft` |
-| [`PairingRequiredError`](../mc_remote/auth.py#L26) | pair=Falseで認証にpairingが必要 | `mc_remote.minecraft` |
+| [`McRemoteError`](../mc_remote/connection.py#L63) | クライアント例外の基底 | `mc_remote.minecraft` |
+| [`McRpcError`](../mc_remote/connection.py#L96) | サーバーのJSON-RPC error。reasonで理由を読む | `mc_remote.minecraft` |
+| [`ConnectionLostError`](../mc_remote/connection.py#L67) | 接続が失われた。completion_unknownで送信後の完了不明と送信前の失敗を区別 | `mc_remote.minecraft` |
+| [`RequestTimeoutError`](../mc_remote/connection.py#L78) | 送信後のタイムアウト。完了は不明 | `mc_remote.minecraft` |
+| [`RequestFailedError`](../mc_remote/connection.py#L91) | McRpcErrorの互換用基底 | `mc_remote.minecraft` |
+| [`PairingExpiredError`](../mc_remote/auth.py#L26) | clientが判断したpairingの期限切れ。serverのcode/reasonは持たない | `mc_remote.minecraft` |
+| [`PairingRequiredError`](../mc_remote/auth.py#L35) | pair=Falseで認証にpairingが必要 | `mc_remote.minecraft` |
 | [`EventContextMismatchError`](../mc_remote/b5_values.py#L32) | イベントと現在の建築座標系が違う | `mc_remote.minecraft` |
 | [`CatalogProjectionError`](../mc_remote/projection.py#L38) | 明示的な補完生成の失敗。stageで段階を読む | `mc_remote.minecraft` |
 | [`CatalogProjectionWarning`](../mc_remote/projection.py#L47) | create()での自動補完生成の失敗 | `mc_remote.minecraft` |

@@ -16,16 +16,22 @@ class _PendingResult:
 
     def __init__(self):
         self._event = threading.Event()
+        self._settle_lock = threading.Lock()
+        self.sent = False
         self._result = None
         self._error = None
 
     def set_result(self, result):
-        self._result = result
-        self._event.set()
+        with self._settle_lock:
+            if not self._event.is_set():
+                self._result = result
+                self._event.set()
 
     def set_error(self, error):
-        self._error = error
-        self._event.set()
+        with self._settle_lock:
+            if not self._event.is_set():
+                self._error = error
+                self._event.set()
 
     def result(self):
         self._event.wait()
@@ -64,6 +70,10 @@ class ConnectionLostError(McRemoteError):
     Replaces the old ``sys.exit(1)`` so that one failed stream does not take
     down the whole process (build state is scoped per stream)."""
 
+    def __init__(self, message, *, completion_unknown=False):
+        self.completion_unknown = completion_unknown
+        super().__init__(message)
+
 
 class RequestTimeoutError(ConnectionLostError):
     """A request timed out after transmission; its completion is unknown."""
@@ -74,7 +84,7 @@ class RequestTimeoutError(ConnectionLostError):
         self.method = method
         super().__init__(
             f"{method} timed out; completion is unknown and the request "
-            "was not retried"
+            "was not retried", completion_unknown=True
         )
 
 
@@ -218,6 +228,7 @@ class Connection:
         self._send_queue = queue.Queue(maxsize=self.send_queue_capacity)
         self._enqueue_lock = threading.Lock()
         self._state_lock = threading.Lock()
+        self._pending = {}
         self._accepting = True
         self._closing = False
         self._closed = False
@@ -267,6 +278,28 @@ class Connection:
             if self.debug:
                 sys.stderr.write("Closing connection... ")
 
+            # Stop producers before taking the enqueue lock: a producer may
+            # hold it while waiting for queue space behind a blocked reply.
+            with self._state_lock:
+                outstanding = any(
+                    not item._event.is_set() for item in self._pending.values()
+                )
+                was_accepting = self._accepting
+                self._accepting = False
+                self._closing = True
+            if outstanding or not flush:
+                failure = ConnectionLostError(
+                    "Connection closed; completion is unknown", completion_unknown=True
+                )
+                self._fail_connection(failure)
+                self._shutdown_socket()
+                self._stop_worker()
+                self._close_resources()
+                self._closed = True
+                if flush and self._notification_serial > self._flushed_serial:
+                    raise failure
+                return
+
             flush_pending = None
             flush_error = None
             with self._enqueue_lock:
@@ -275,7 +308,7 @@ class Connection:
                 )
                 if needs_flush and self._failure is not None:
                     flush_error = self._copy_failure(self._failure)
-                if self._accepting:
+                if was_accepting:
                     if needs_flush:
                         if not self._hello_completed:
                             flush_error = McRemoteError(
@@ -287,6 +320,7 @@ class Connection:
                                     "connection.flush",
                                     [],
                                     flush_target=self._notification_serial,
+                                    allow_closing=True,
                                 )
                             except Exception as exc:
                                 flush_error = exc
@@ -318,6 +352,12 @@ class Connection:
         self._send_queue.put(_STOP)
         if threading.current_thread() is not worker:
             worker.join()
+
+    def _shutdown_socket(self):
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except (OSError, AttributeError):
+            pass
 
     def _close_resources(self):
         reader = getattr(self, "reader", None)
@@ -435,7 +475,9 @@ class Connection:
             self._ensure_accepting_locked()
             return self._enqueue_request_locked(method, params)
 
-    def _enqueue_request_locked(self, method, params, *, flush_target=None):
+    def _enqueue_request_locked(
+        self, method, params, *, flush_target=None, allow_closing=False
+    ):
         self._id += 1
         request_id = self._id
         try:
@@ -454,30 +496,36 @@ class Connection:
             pending=pending,
             flush_target=flush_target,
         )
+        with self._state_lock:
+            self._pending[request_id] = pending
         try:
-            self._put_call_locked(call)
+            self._put_call_locked(call, allow_closing=allow_closing)
         except Exception:
+            with self._state_lock:
+                self._pending.pop(request_id, None)
             self._id -= 1
             raise
         return pending
 
-    def _put_call_locked(self, call):
+    def _put_call_locked(self, call, *, allow_closing=False):
         # Timed retries are deliberate. If the worker fails while a producer
         # is applying backpressure, it records failure before taking the
         # enqueue lock; the producer then wakes and releases the lock so the
         # failed queue can be drained without deadlock.
         while True:
-            self._ensure_accepting_locked()
+            self._ensure_accepting_locked(allow_closing=allow_closing)
             try:
                 self._send_queue.put(call, timeout=0.1)
                 return
             except queue.Full:
                 continue
 
-    def _ensure_accepting_locked(self):
+    def _ensure_accepting_locked(self, *, allow_closing=False):
         if self._failure is not None:
-            raise self._copy_failure(self._failure)
-        if not self._accepting:
+            raise ConnectionLostError(
+                "Connection failed before transmission"
+            ) from self._failure
+        if not self._accepting and not allow_closing:
             raise ConnectionLostError("Connection is closing or closed")
 
     @classmethod
@@ -500,6 +548,9 @@ class Connection:
                 if self._failure is not None:
                     return
             finally:
+                if call is not _STOP and call.pending is not None:
+                    with self._state_lock:
+                        self._pending.pop(call.request_id, None)
                 self._send_queue.task_done()
 
     def _execute_queued_call(self, call):
@@ -512,6 +563,11 @@ class Connection:
             if self.debug:
                 sys.stderr.write(f"-> {call.payload!r}\n")
             self.lastSent = call.payload
+            with self._state_lock:
+                if self._failure is not None:
+                    raise ConnectionLostError("Connection was closed before transmission")
+                if call.pending is not None:
+                    call.pending.sent = True
             try:
                 self.socket.sendall(call.payload)
             except OSError as exc:
@@ -548,15 +604,28 @@ class Connection:
                 if isinstance(exc, McRemoteError)
                 else ConnectionLostError(f"Connection failed: {exc}")
             )
+            if isinstance(failure, ConnectionLostError) and call.pending is not None:
+                failure.completion_unknown = call.pending.sent
+            self._fail_connection(failure)
             if call.pending is not None:
                 call.pending.set_error(failure)
-            self._fail_connection(failure)
 
     def _fail_connection(self, failure):
         with self._state_lock:
             if self._failure is None:
                 self._failure = failure
             self._accepting = False
+            pending = list(self._pending.values())
+            self._pending.clear()
+        for item in pending:
+            if item.sent:
+                error = self._copy_failure(failure)
+                if not isinstance(error, ConnectionLostError):
+                    error = ConnectionLostError("Connection closed; completion is unknown")
+                error.completion_unknown = True
+            else:
+                error = ConnectionLostError("Connection closed before transmission")
+            item.set_error(error)
         with self._enqueue_lock:
             while True:
                 try:
@@ -568,14 +637,17 @@ class Connection:
                         queued.pending.set_error(self._copy_failure(failure))
                 finally:
                     self._send_queue.task_done()
-        self._notify_connection_closed_once()
+        self._shutdown_socket()
+        self._close_resources()
 
     @staticmethod
     def _copy_failure(failure):
         if isinstance(failure, RequestTimeoutError):
             return RequestTimeoutError(failure.method)
         if isinstance(failure, ConnectionLostError):
-            return ConnectionLostError(str(failure))
+            return ConnectionLostError(
+                str(failure), completion_unknown=failure.completion_unknown
+            )
         if isinstance(failure, McRemoteError):
             return McRemoteError(str(failure))
         return ConnectionLostError(str(failure))
@@ -617,9 +689,9 @@ class Connection:
             except TimeoutError as exc:
                 raise RequestTimeoutError(method) from exc
             except OSError as exc:
-                raise ConnectionLostError("Failed to receive from the server") from exc
+                raise ConnectionLostError("Failed to receive from the server", completion_unknown=True) from exc
             if not line:
-                raise ConnectionLostError("Connection closed by server")
+                raise ConnectionLostError("Connection closed by server", completion_unknown=True)
             if self.debug:
                 sys.stderr.write(f"<- {line!r}")
             for frame in frames.feed(line.encode("utf8")):

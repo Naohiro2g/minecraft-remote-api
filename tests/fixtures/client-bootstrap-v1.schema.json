@@ -18,10 +18,17 @@
       "required": ["commit", "instructions"],
       "properties": {
         "commit": {
-          "enum": ["308a2a441060265e10af3d5e8e97c826c86b4ed8", "5e00768911feb7be1e54ae3b7e9c2d776b88927a"]
+          "enum": [
+            "308a2a441060265e10af3d5e8e97c826c86b4ed8",
+            "5e00768911feb7be1e54ae3b7e9c2d776b88927a",
+            "562b5c008c7a4e391f04a79ed4496bbd44670896"
+          ]
         },
         "instructions": {
-          "const": "00-hub/polyglot-f1-fixture-instructions_ja.md"
+          "enum": [
+            "00-hub/polyglot-f1-fixture-instructions_ja.md",
+            "00-hub/polyglot-f1-e2-fixture-instructions_ja.md"
+          ]
         }
       },
       "additionalProperties": false
@@ -53,7 +60,8 @@
                   "enum": [
                     "10-protocol/wire-format-design_ja.md",
                     "10-protocol/versioning-design_ja.md",
-                    "10-protocol/block-value-design_ja.md"
+                    "10-protocol/block-value-design_ja.md",
+                    "00-hub/DECISIONS_ja.md"
                   ]
                 },
                 "section": {
@@ -238,6 +246,29 @@
                   "minimum": 1
                 },
                 "uniqueItems": true
+              },
+              "local_failures": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["id", "outcome"],
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "outcome": {
+                      "const": "completion_unknown"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "uniqueItems": true
+              },
+              "pairing_attempts": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           },

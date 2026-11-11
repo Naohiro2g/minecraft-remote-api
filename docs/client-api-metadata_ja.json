@@ -39,7 +39,7 @@
       ],
       "notes": [
         "from mc_remote import Minecraftでimportできます。Minecraft.create()が通常の入口です。",
-        "保存済みtokenでhelloを試し、認証に必要なときだけpairing commandを表示してMinecraft内の承認を待ちます。pair=Falseはこの待機を行わず、必要ならPairingRequiredErrorを返します。",
+        "保存済みtokenでhelloを試します。無効なtokenを捨てたらtokenなしhelloへ戻り、auth_requiredのときだけpairing commandを表示してMinecraft内の承認を待ちます。pair=Falseはこの待機を行わず、必要ならPairingRequiredErrorを返します。",
         "sync_catalog=Trueでは接続後に補完を生成します。生成が失敗した場合はCatalogProjectionWarningを出し、接続したオブジェクトを返します。",
         "wirescope=Trueは同梱WireScopeをlocalhostで開く設定です。WireScopeStation.local()も渡せます。NoneまたはFalseで無効です。",
         "handshake=Falseは接続処理を自分で組み立てる用途です。sandboxはローカルtoken保存先のkeyを指定する互換引数です。"
@@ -362,7 +362,7 @@
         {"method": "auth.pairBegin", "section": "auth"},
         {"method": "auth.pairPoll", "section": "auth"}
       ],
-      "notes": ["通常はcreate()が行います。server_keyはローカル保存先のkeyで、接続先アドレスを変更する引数ではありません。"]
+      "notes": ["通常はcreate()が行います。token破棄後はtokenなしhelloへ戻り、auth_requiredのときだけ一度pairingします。server_keyはローカル保存先のkeyで、接続先アドレスを変更する引数ではありません。"]
     }
   },
   "values": [
@@ -481,14 +481,15 @@
   ],
   "error_notes": [
     "サーバーの拒否はMcRpcErrorです。reason・code・message・dataを読めます。処理を分けるときはreasonを使います。[Protocolのerror一覧](https://mc-remote.com/api/#errors)も参照してください。",
-    "Python内の引数チェックではValueError/TypeErrorも発生します。通信の完了が不明なRequestTimeoutErrorは、操作が実行されなかったことを意味しません。"
+    "Python内の引数チェックではValueError/TypeErrorも発生します。ConnectionLostErrorのcompletion_unknownがtrueのときやRequestTimeoutErrorでは、操作が実行されなかったとは限りません。PairingExpiredErrorはclientが判断した承認待ちの期限切れで、serverのcode／reasonはありません。"
   ],
   "errors": [
     {"name": "McRemoteError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "クライアント例外の基底"},
     {"name": "McRpcError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "サーバーのJSON-RPC error。reasonで理由を読む"},
-    {"name": "ConnectionLostError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "接続が失われた"},
+    {"name": "ConnectionLostError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "接続が失われた。completion_unknownで送信後の完了不明と送信前の失敗を区別"},
     {"name": "RequestTimeoutError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "送信後のタイムアウト。完了は不明"},
     {"name": "RequestFailedError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "McRpcErrorの互換用基底"},
+    {"name": "PairingExpiredError", "source": "mc_remote/auth.py", "import": "mc_remote.minecraft", "purpose": "clientが判断したpairingの期限切れ。serverのcode/reasonは持たない"},
     {"name": "PairingRequiredError", "source": "mc_remote/auth.py", "import": "mc_remote.minecraft", "purpose": "pair=Falseで認証にpairingが必要"},
     {"name": "EventContextMismatchError", "source": "mc_remote/b5_values.py", "import": "mc_remote.minecraft", "purpose": "イベントと現在の建築座標系が違う"},
     {"name": "CatalogProjectionError", "source": "mc_remote/projection.py", "import": "mc_remote.minecraft", "purpose": "明示的な補完生成の失敗。stageで段階を読む"},

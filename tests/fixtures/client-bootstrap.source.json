@@ -1,6 +1,6 @@
 {
   "repository": "Naohiro2g/minecraft-remote-tooling",
-  "commit": "ea7838a78bf78947c7dde5876f6cc93b43f7e3cc",
+  "commit": "36ebe9e63e4f0afcf949eae998832f68209b8119",
   "path": "packages/protocol/test/fixtures/",
   "files": [
     {
@@ -20,8 +20,8 @@
     },
     {
       "file": "client-bootstrap-close-v23.2.1.json",
-      "bytes": 14535,
-      "sha256": "44e9a4276bbd204671db0385f4f801cd3b152d0853ac943876ede73db6bd8dd1"
+      "bytes": 14884,
+      "sha256": "a030cc72aa0e4f41575cb15610b1e06e941d3eab07157ce47f0eafe744475154"
     },
     {
       "file": "client-bootstrap-errors-v23.2.1.json",
@@ -40,13 +40,13 @@
     },
     {
       "file": "client-bootstrap-pairing-v23.2.1.json",
-      "bytes": 19322,
-      "sha256": "cdb2209d8a1d46fede158db50c3672936dad152c7fd2bec7ef5a068ed57a1fe1"
+      "bytes": 35577,
+      "sha256": "5864c23ef3f31af6134d36770cab80b569b708b35fd3fdbed69fb6db195e3aeb"
     },
     {
       "file": "client-bootstrap-v1.schema.json",
-      "bytes": 9953,
-      "sha256": "e848bd3a61d4c0a737f7f3a8963baf2fcbb83247486f3d8aa69f022bb55a7ede"
+      "bytes": 10916,
+      "sha256": "8c3e4ff6e7b5b0cf438d358578096579dafab699a40df9cd56de7b9513837413"
     }
   ]
 }

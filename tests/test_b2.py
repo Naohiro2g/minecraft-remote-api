@@ -278,39 +278,45 @@ def test_enforcement_on_pairs_and_retries():
         assert mc.conn.reconnects == 2, mc.conn.reconnects
 
 
-# 8a. every auth-family reason triggers re-pair
+# 8a. Invalid tokens return to token-less hello before auth_required pairs.
 def test_discard_reasons_repair():
     for reason in AUTH_DISCARD_REASONS:
         with tmp_config():
+            save_token("srv:1", "mcrs_stale")
             err = McRpcError(-32000, reason, {"reason": reason})
+            required = McRpcError(-32000, "auth", {"reason": "auth_required"})
             resp = _pair_responses(token="mcrs_r", poll=("ok",))
-            resp["hello"] = [err, HELLO_OK]
+            resp["hello"] = [err, HELLO_OK] if reason=="auth_required" else [err, required, HELLO_OK]
             mc = Minecraft(FakeConn(resp))
             mc.authenticate("srv:1")
             methods = [m for m, _ in mc.conn.calls]
-            assert methods == ["hello", "auth.pairBegin", "auth.pairPoll", "hello"], \
-                (reason, methods)
-            assert is_auth_discard(err), reason
+            expected = ["hello", "auth.pairBegin", "auth.pairPoll", "hello"]
+            if reason!="auth_required": expected.insert(1,"hello")
+            assert methods==expected
+            assert is_auth_discard(err)
+            if reason!="auth_required": assert mc.conn.calls[1][1]=={"protocol":PROTOCOL}
 
 
-# 8b. pair=False still discards an invalid token, but never starts pairing
+# 8b. pair=False still allows a token-less hello; only auth_required stops it.
 def test_pair_false_discards_token_and_fails_actionably():
     for reason in AUTH_DISCARD_REASONS:
         with tmp_config():
             save_token("srv:1", "mcrs_stale")
             err = McRpcError(-32000, reason, {"reason": reason})
-            mc = Minecraft(FakeConn({"hello": err}))
+            required = McRpcError(-32000,"auth",{"reason":"auth_required"})
+            replies = [err] if reason=="auth_required" else [err,required]
+            mc = Minecraft(FakeConn({"hello":replies}))
             try:
                 mc.authenticate("srv:1", pair=False)
             except PairingRequiredError as exc:
-                assert exc.reason == reason
+                assert exc.reason=="auth_required"
             else:
                 raise AssertionError("expected PairingRequiredError")
             assert load_token("srv:1") is None
-            assert mc.conn.calls == [
-                ("hello", {"protocol": PROTOCOL, "auth": {"token": "mcrs_stale"}})
-            ]
-            assert mc.conn.reconnects == 0
+            expected=[("hello",{"protocol":PROTOCOL,"auth":{"token":"mcrs_stale"}})]
+            if reason!="auth_required": expected.append(("hello",{"protocol":PROTOCOL}))
+            assert mc.conn.calls==expected
+            assert mc.conn.reconnects==(0 if reason=="auth_required" else 1)
 
 
 # 8c. permission_denied is authorization, not auth: propagate, no pairing

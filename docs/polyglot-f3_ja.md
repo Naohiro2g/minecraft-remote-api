@@ -1,5 +1,8 @@
 # Python F3：client bootstrap fixture
 
+> この文書はF3／PR #13・#14の履歴（45case、取得元ea7838a）です。現在の48caseとE2の修正は[後続の返却](polyglot-f1-e2_ja.md)を参照してください。
+
+
 参照knowledge: `5e00768911feb7be1e54ae3b7e9c2d776b88927a` / `00-hub/polyglot-f3-instructions_ja.md`。
 基準sourceは2321.1.0公開後のmain。申告protocolは`23.2.1`を維持します。
 
