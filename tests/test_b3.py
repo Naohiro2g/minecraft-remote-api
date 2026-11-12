@@ -82,6 +82,10 @@ class FakeConn:
         self.address = "localhost"
         self.port = 25575
         self.debug = False
+        self._hello_completed = True
+
+    def is_connected(self):
+        return not self.closed
 
     def rpc(self, method, params=None):
         self.calls.append((method, params))

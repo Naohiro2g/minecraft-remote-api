@@ -1,0 +1,695 @@
+{
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "mcremote.client-bootstrap.v2"
+    },
+    "protocol": {
+      "const": "23.2.1"
+    },
+    "suite": {
+      "const": "operations"
+    },
+    "knowledge_contract": {
+      "type": "object",
+      "properties": {
+        "commit": {
+          "enum": ["076a127a22eaf0188c1d13822bfd55bfeee9ec38", "cd2ba766576215924ef2e8182b100c6be8c78aaf"]
+        },
+        "instructions": {
+          "const": "00-hub/polyglot-f1-e2-ops-fixture-instructions_ja.md"
+        }
+      },
+      "required": ["commit", "instructions"],
+      "additionalProperties": false
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^F1-OP-[0-9]{2}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "basis": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "enum": ["00-hub/DECISIONS_ja.md", "10-protocol/wire-format-design_ja.md"]
+                },
+                "section": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": ["path", "section"],
+              "additionalProperties": false
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "app_connect"
+                    },
+                    "call": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["op", "call"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "app_call"
+                    },
+                    "call": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "method": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "params": {
+                      "type": ["object", "array"]
+                    },
+                    "mode": {
+                      "enum": ["DEBUG", "FAST"]
+                    }
+                  },
+                  "required": ["op", "call", "method", "params", "mode"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "expect_connect"
+                    },
+                    "connection": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["op", "connection"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "peer_eof"
+                    },
+                    "connection": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["op", "connection"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "socket_error"
+                    },
+                    "connection": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["op", "connection"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "liveness_lost"
+                    },
+                    "connection": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["op", "connection"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "connect_error"
+                    },
+                    "connection": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "terminal": {
+                      "const": true
+                    }
+                  },
+                  "required": ["op", "connection", "terminal"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "expect_send"
+                    },
+                    "connection": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "message": {
+                      "$ref": "#/definitions/message"
+                    }
+                  },
+                  "required": ["op", "connection", "message"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "peer_send"
+                    },
+                    "connection": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "message": {
+                      "$ref": "#/definitions/message"
+                    }
+                  },
+                  "required": ["op", "connection", "message"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "advance_clock"
+                    },
+                    "timer": {
+                      "enum": ["receive_idle", "pairing_ttl"]
+                    },
+                    "connection": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "fraction": {
+                      "type": "object",
+                      "properties": {
+                        "numerator": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "denominator": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": ["numerator", "denominator"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["op", "timer", "connection", "fraction"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "observe"
+                    },
+                    "expected": {
+                      "$ref": "#/definitions/expected"
+                    }
+                  },
+                  "required": ["op", "expected"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "const": "seed_epoch_state"
+                    },
+                    "connection": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "entity_handles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "event_cursors": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "catalog_hash": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["op", "connection", "entity_handles", "event_cursors", "catalog_hash"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "expected": {
+            "$ref": "#/definitions/expected"
+          }
+        },
+        "required": ["id", "title", "basis", "preconditions", "steps", "expected"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["schema", "protocol", "suite", "knowledge_contract", "cases"],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mc-remote.com/schemas/client-bootstrap-v2.schema.json",
+  "definitions": {
+    "message": {
+      "type": "object",
+      "required": ["jsonrpc"],
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "method": {
+          "type": "string"
+        },
+        "params": {
+          "type": ["object", "array"]
+        },
+        "result": {},
+        "error": {
+          "type": "object",
+          "required": ["code", "message", "data"],
+          "properties": {
+            "code": {
+              "type": "integer"
+            },
+            "message": {
+              "type": "string"
+            },
+            "data": {
+              "type": "object",
+              "required": ["reason"],
+              "properties": {
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": ["id", "method", "params"],
+          "not": {
+            "anyOf": [
+              {
+                "required": ["result"]
+              },
+              {
+                "required": ["error"]
+              }
+            ]
+          }
+        },
+        {
+          "required": ["id", "result"],
+          "not": {
+            "anyOf": [
+              {
+                "required": ["method"]
+              },
+              {
+                "required": ["error"]
+              }
+            ]
+          }
+        },
+        {
+          "required": ["id", "error"],
+          "not": {
+            "anyOf": [
+              {
+                "required": ["method"]
+              },
+              {
+                "required": ["result"]
+              }
+            ]
+          }
+        },
+        {
+          "required": ["method", "params"],
+          "not": {
+            "anyOf": [
+              {
+                "required": ["id"]
+              },
+              {
+                "required": ["result"]
+              },
+              {
+                "required": ["error"]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "expected": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/call_result"
+          }
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "connection": {
+                "type": "string",
+                "minLength": 1
+              },
+              "state": {
+                "enum": ["open", "closed", "failed"]
+              },
+              "sent_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pending_ids": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "required": ["connection", "sent_count", "pending_ids"],
+            "additionalProperties": false
+          }
+        },
+        "connect_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": ["reconnected", "events_lost", "server_changed", "session_changed"]
+              },
+              "connection": {
+                "type": "string",
+                "minLength": 1
+              },
+              "previous_connection": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["kind", "connection", "previous_connection"],
+            "additionalProperties": false
+          }
+        },
+        "flushes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "call": {
+                "type": "string",
+                "minLength": 1
+              },
+              "connection": {
+                "type": "string",
+                "minLength": 1
+              },
+              "excluded_connections": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "reconnected_since_previous_flush": {
+                "type": "boolean"
+              }
+            },
+            "required": ["call", "connection", "excluded_connections", "reconnected_since_previous_flush"],
+            "additionalProperties": false
+          }
+        },
+        "negotiations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "connection": {
+                "type": "string",
+                "minLength": 1
+              },
+              "compatible": {
+                "type": "boolean"
+              }
+            },
+            "required": ["connection", "compatible"],
+            "additionalProperties": false
+          }
+        },
+        "epoch_states": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "connection": {
+                "type": "string",
+                "minLength": 1
+              },
+              "invalidated_handles": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "invalidated_cursors": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "required": ["connection", "invalidated_handles", "invalidated_cursors"],
+            "additionalProperties": false
+          }
+        },
+        "catalogs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "connection": {
+                "type": "string",
+                "minLength": 1
+              },
+              "hello_hash": {
+                "type": "string",
+                "minLength": 1
+              },
+              "cached_hash": {
+                "type": "string",
+                "minLength": 1
+              },
+              "cache_matches": {
+                "type": "boolean"
+              }
+            },
+            "required": ["connection", "hello_hash", "cached_hash", "cache_matches"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "call_result": {
+      "type": "object",
+      "properties": {
+        "call": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outcome": {
+          "enum": [
+            "pending",
+            "queued",
+            "success",
+            "completion_unknown",
+            "not_sent",
+            "server_error",
+            "pairing_expired"
+          ]
+        },
+        "source": {
+          "enum": ["client", "server"]
+        },
+        "connection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cause": {
+          "enum": ["connection_failed", "incompatible_protocol", "pairing_required"]
+        },
+        "error": {
+          "type": "object",
+          "required": ["code", "message", "data"],
+          "properties": {
+            "code": {
+              "type": "integer"
+            },
+            "message": {
+              "type": "string"
+            },
+            "data": {
+              "type": "object",
+              "required": ["reason"],
+              "properties": {
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "equivalent_to": {
+          "const": "pair_expired"
+        }
+      },
+      "required": ["call", "outcome", "source"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "server_error"
+              }
+            }
+          },
+          "then": {
+            "required": ["error"],
+            "properties": {
+              "source": {
+                "const": "server"
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "required": ["error"]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "enum": ["completion_unknown", "not_sent", "pairing_expired", "pending", "queued"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "const": "client"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "not_sent"
+              }
+            }
+          },
+          "then": {
+            "required": ["cause"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "pairing_expired"
+              }
+            }
+          },
+          "then": {
+            "required": ["equivalent_to"]
+          }
+        }
+      ]
+    }
+  }
+}

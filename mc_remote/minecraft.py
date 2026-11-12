@@ -117,6 +117,8 @@ __all__ = [
     "RequestTimeoutError",
     "PairingRequiredError",
     "PairingExpiredError",
+    "CompletionUnknownError", "RequestNotSentError", "StaleEpochError",
+    "ConnectionOptions", "LivenessOptions", "ReconnectOptions", "ReconnectInfo", "FlushInfo",
     "BuildMode",
     "DEFAULT_TRACE_DELAY",
     "MAX_TRACE_DELAY",
@@ -202,7 +204,12 @@ def _env_first(*names):
     return None
 
 
-class Minecraft:
+from .reconnect import RecoveryMixin, StaleEpochError
+from .connection import CompletionUnknownError, RequestNotSentError
+from .connection_options import ConnectionOptions, LivenessOptions, ReconnectOptions, ReconnectInfo, FlushInfo, call_options
+
+
+class Minecraft(RecoveryMixin):
     """Client for a running Minecraft server speaking protocol 23.x.
 
     protocol 23.2.1 surface: ``hello`` handshake (carrying an optional
@@ -231,6 +238,8 @@ class Minecraft:
         _sleeper=None,
     ):
         self.conn = connection
+        self._init_recovery()
+        self.conn._result_callback = self._connection_result
         self._build_mode_lock = threading.RLock()
         self._context_lock = threading.RLock()
         self._build_mode = _validate_build_mode(build_mode)
@@ -267,6 +276,17 @@ class Minecraft:
         self._event_epoch = getattr(connection, "epoch", None)
         self._last_event_batch = None
 
+    @property
+    def connection_epoch(self):
+        return getattr(self.conn, 'epoch', 0)
+
+    @property
+    def catalog_cache_matches(self):
+        return self.catalog_hash is not None and self.catalog_hash == self._catalog_cache_hash
+
+    def call_options(self, *, response_idle_timeout):
+        return call_options(response_idle_timeout=response_idle_timeout)
+
     def hello(self, auth_token=None):
         """Handshake. Declares this client's protocol (and, if held, its auth
         token) and caches the server's hello response on this instance.
@@ -298,9 +318,11 @@ class Minecraft:
         constants are informational only; the coordinate formula stays
         ``absolute_y = origin.y + dy``."""
         params = {"protocol": PROTOCOL}
+        if self._hello_build is not None:
+            params['build'] = self._hello_build
         if auth_token:
             params["auth"] = {"token": auth_token}
-        resp = self.conn.rpc("hello", params)
+        resp = self._rpc("hello", params)
         if not isinstance(resp, dict):
             raise McRemoteError("hello result must be an object")
         server_protocol = resp.get("protocol")
@@ -337,6 +359,7 @@ class Minecraft:
             {"dimension": dimension, "origin": resp.get("origin")},
             "hello build context",
         )
+        self._last_hello = __import__("copy").deepcopy(resp)
         self.protocol = resp.get("protocol")
         self.mc_version = resp.get("mc_version")
         self.supported_mc_versions = resp.get("supported_mc_versions", [])
@@ -345,6 +368,7 @@ class Minecraft:
         self.y_sea = self.world_constants.get("y_sea")
         self.catalog_hash = resp.get("catalogHash")
         self.session = resp.get("session")
+        self.server = resp.get("server")
         self.player = resp.get("player")
         self.permissions = resp.get("permissions")
         dimension, origin = context
@@ -387,7 +411,7 @@ class Minecraft:
     def getBlock(self, x, y, z) -> BlockValue:
         """Return an immutable canonical :class:`BlockValue` snapshot."""
         coords = _integer_values("world.getBlock coordinates", x, y, z)
-        return decode_block_value(self.conn.rpc("world.getBlock", coords))
+        return decode_block_value(self._rpc("world.getBlock", coords))
 
     def getBlocks(self, x0, y0, z0, x1, y1, z1) -> tuple[BlockValue, ...]:
         """Return canonical block snapshots in protocol-defined z-fastest order.
@@ -400,7 +424,7 @@ class Minecraft:
         coords = _integer_values(
             "world.getBlocks coordinates", x0, y0, z0, x1, y1, z1
         )
-        result = self.conn.rpc("world.getBlocks", coords)
+        result = self._rpc("world.getBlocks", coords)
         if not isinstance(result, list):
             raise McRemoteError("world.getBlocks result must be an array")
         return tuple(decode_block_value(value) for value in result)
@@ -417,7 +441,7 @@ class Minecraft:
         params = _integer_values("world.getHeight coordinates", x, z)
         if max_y is not None:
             params.extend(_integer_values("world.getHeight max_y", max_y))
-        result = self.conn.rpc("world.getHeight", params)
+        result = self._rpc("world.getHeight", params)
         if isinstance(result, bool) or not isinstance(result, int):
             raise McRemoteError("world.getHeight result must be an integer")
         return result
@@ -431,7 +455,7 @@ class Minecraft:
         """
 
         return decode_direction_value(
-            self.conn.rpc("player.getDirection", []),
+            self._rpc("player.getDirection", []),
             "player.getDirection result",
         )
 
@@ -444,7 +468,7 @@ class Minecraft:
 
         params = _finite_values("player.setDirection", x, y, z)
         return decode_direction_value(
-            self.conn.rpc("player.setDirection", params),
+            self._rpc("player.setDirection", params),
             "player.setDirection result",
         )
 
@@ -454,7 +478,7 @@ class Minecraft:
         if not isinstance(handle, str):
             raise TypeError("entity handle must be a string")
         return decode_direction_value(
-            self.conn.rpc("entity.getDirection", [handle]),
+            self._rpc("entity.getDirection", [handle]),
             "entity.getDirection result",
         )
 
@@ -465,7 +489,7 @@ class Minecraft:
             raise TypeError("entity handle must be a string")
         params = [handle, *_finite_values("entity.setDirection", x, y, z)]
         return decode_direction_value(
-            self.conn.rpc("entity.setDirection", params),
+            self._rpc("entity.setDirection", params),
             "entity.setDirection result",
         )
 
@@ -477,7 +501,7 @@ class Minecraft:
         """
 
         params = _finite_values("world.strikeLightning", x, y, z)
-        result = self.conn.rpc("world.strikeLightning", params)
+        result = self._rpc("world.strikeLightning", params)
         if result is not None:
             raise McRemoteError("world.strikeLightning success result must be null")
         return None
@@ -487,7 +511,7 @@ class Minecraft:
 
         Works even on a waxed sign (read is never blocked by waxing)."""
         coords = _integer_values("world.getSign coordinates", x, y, z)
-        return decode_sign_value(self.conn.rpc("world.getSign", coords))
+        return decode_sign_value(self._rpc("world.getSign", coords))
 
     def setSign(self, x, y, z, *, front=None, back=None) -> None:
         """Replace the given sign face(s) with a strict 4-line value.
@@ -499,7 +523,7 @@ class Minecraft:
         (``sign_waxed``) and never leaves a partial write."""
         coords = _integer_values("world.setSign coordinates", x, y, z)
         params = coords + [sign_face(front=front, back=back)]
-        result = self.conn.rpc("world.setSign", params)
+        result = self._rpc("world.setSign", params)
         if result is not None:
             raise McRemoteError("world.setSign success result must be null")
         return None
@@ -520,7 +544,7 @@ class Minecraft:
             raise ValueError("line_index must be an integer between 0 and 3")
         coords = _integer_values("world.updateSignLine coordinates", x, y, z)
         params = coords + [face, line_index, line_spec(line)]
-        result = self.conn.rpc("world.updateSignLine", params)
+        result = self._rpc("world.updateSignLine", params)
         if result is not None:
             raise McRemoteError("world.updateSignLine success result must be null")
         return None
@@ -594,7 +618,7 @@ class Minecraft:
             if not isinstance(force, bool):
                 raise TypeError("force must be a boolean")
             params.append(force)
-        result = self.conn.rpc("world.spawnParticle", params)
+        result = self._rpc("world.spawnParticle", params)
         if isinstance(result, bool) or not isinstance(result, int) or result < 0:
             raise McRemoteError(
                 "world.spawnParticle result must be a non-negative integer"
@@ -606,9 +630,9 @@ class Minecraft:
 
         params = _finite_values("world.spawnEntity position", x, y, z)
         params.append(resource_id(entity, "entity"))
-        result = self.conn.rpc("world.spawnEntity", params)
+        result = self._rpc("world.spawnEntity", params)
         try:
-            return EntityHandle(result)
+            return self._bind_handle(EntityHandle(result))
         except ValueError as exc:
             raise McRemoteError(f"invalid world.spawnEntity result: {exc}") from exc
 
@@ -631,7 +655,7 @@ class Minecraft:
         options = sound_options(volume=volume, pitch=pitch, note=note, receiver=receiver)
         if options:
             params.append(options)
-        if self.conn.rpc("world.playSound", params) is not None:
+        if self._rpc("world.playSound", params) is not None:
             raise McRemoteError("world.playSound result must be null")
 
     def playBlockSound(
@@ -654,7 +678,7 @@ class Minecraft:
         options = sound_options(volume=volume, pitch=pitch, note=note, receiver=receiver)
         if options:
             params.append(options)
-        if self.conn.rpc("world.playBlockSound", params) is not None:
+        if self._rpc("world.playBlockSound", params) is not None:
             raise McRemoteError("world.playBlockSound result must be null")
 
     def getNearbyEntities(self, x, y, z, radius, max_entities) -> tuple[NearbyEntity, ...]:
@@ -670,16 +694,19 @@ class Minecraft:
         limit = _integer_values("world.getNearbyEntities max_entities", max_entities)[0]
         if not 0 <= radius <= 64 or not 1 <= limit <= 64:
             raise ValueError("radius must be 0..64 and max_entities must be 1..64")
-        return decode_nearby_entities(
-            self.conn.rpc("world.getNearbyEntities", params + [limit]), limit
+        entries = decode_nearby_entities(
+            self._rpc("world.getNearbyEntities", params + [limit]), limit
         )
+        for entry in entries:
+            self._bind_handle(entry.handle)
+        return entries
 
     def getEntityPose(self, handle: str) -> PoseValue:
         """Read an entity's dimension and origin-relative pose."""
 
         if not isinstance(handle, str):
             raise TypeError("entity handle must be a string")
-        return decode_entity_pose(self.conn.rpc("entity.getPose", [handle]))
+        return decode_entity_pose(self._rpc("entity.getPose", [handle]))
 
     def setEntityPose(self, handle: str, dimension, x, y, z, yaw, pitch) -> PoseValue:
         """Teleport once and return the server's post-read pose.
@@ -695,7 +722,7 @@ class Minecraft:
         if not -90 <= pitch <= 90:
             raise ValueError("entity.setPose pitch must be -90..90")
         return decode_entity_pose(
-            self.conn.rpc("entity.setPose", [handle, dimension] + values)
+            self._rpc("entity.setPose", [handle, dimension] + values)
         )
 
     def removeEntity(self, handle: str) -> None:
@@ -703,7 +730,7 @@ class Minecraft:
 
         if not isinstance(handle, str):
             raise TypeError("entity handle must be a string")
-        if self.conn.rpc("entity.remove", [handle]) is not None:
+        if self._rpc("entity.remove", [handle]) is not None:
             raise McRemoteError("entity.remove success result must be null")
 
     def pollEvents(self, max_events=None) -> EventBatch:
@@ -718,34 +745,42 @@ class Minecraft:
         The server's cursor and loss counters include these omitted events.
         """
 
-        epoch = getattr(self.conn, "epoch", None)
-        if epoch != self._event_epoch:
-            self._event_cursor = 0
-            self._event_epoch = epoch
-            self._last_event_batch = None
-        after_sequence = self._event_cursor
-        params = [after_sequence]
-        if max_events is not None:
-            max_events_value = _integer_values(
-                "events.poll max_events", max_events
-            )[0]
-            if max_events_value < 1:
-                raise ValueError("events.poll max_events must be positive")
-            params.append({"max_events": max_events_value})
-        result = self.conn.rpc("events.poll", params)
-        batch = decode_event_batch(result, after_sequence=after_sequence)
-        previous = self._last_event_batch
-        if previous is not None:
-            if batch.latest_sequence < previous.latest_sequence:
-                raise McRemoteError("events.poll latest_sequence moved backwards")
-            if any(
-                batch.loss_totals[key] < previous.loss_totals[key]
-                for key in previous.loss_totals
-            ):
-                raise McRemoteError("events.poll loss counter moved backwards")
-        self._event_cursor = batch.through_sequence
-        self._last_event_batch = batch
-        return batch
+        with self._event_lock:
+            self._ensure_ready()
+            epoch = getattr(self.conn, "epoch", None)
+            if epoch != self._event_epoch:
+                self._event_cursor = 0
+                self._event_epoch = epoch
+                self._last_event_batch = None
+            after_sequence = self._event_cursor
+            params = [after_sequence]
+            if max_events is not None:
+                max_events_value = _integer_values(
+                    "events.poll max_events", max_events
+                )[0]
+                if max_events_value < 1:
+                    raise ValueError("events.poll max_events must be positive")
+                params.append({"max_events": max_events_value})
+            result = self._rpc("events.poll", params)
+            after_sequence = getattr(self._call_local, 'after_sequence', after_sequence)
+            batch = decode_event_batch(result, after_sequence=after_sequence)
+            previous = self._last_event_batch
+            if previous is not None:
+                if batch.latest_sequence < previous.latest_sequence:
+                    raise McRemoteError("events.poll latest_sequence moved backwards")
+                if any(
+                    batch.loss_totals[key] < previous.loss_totals[key]
+                    for key in previous.loss_totals
+                ):
+                    raise McRemoteError("events.poll loss counter moved backwards")
+            for event in batch.events:
+                target = getattr(event, "target", None)
+                if hasattr(target, "handle"):
+                    self._bind_handle(target.handle)
+            if getattr(self._call_local, "epoch", self.connection_epoch) == self.connection_epoch:
+                self._event_cursor = batch.through_sequence
+                self._last_event_batch = batch
+            return batch
 
     def assertEventContext(self, event: EventValue) -> None:
         """Reject use of event coordinates under a changed build context.
@@ -830,6 +865,8 @@ class Minecraft:
             return self._trace_delay
 
     def _execute_set(self, method, params):
+        self._ensure_ready()
+        self._deliver_reconnect()
         pending = None
         result = None
         with self._build_mode_lock:
@@ -847,7 +884,7 @@ class Minecraft:
                 if enqueue is None:
                     # Synchronous test doubles use the call itself as their
                     # registration point for transition ordering.
-                    result = self.conn.rpc(method, params)
+                    result = self._rpc(method, params)
                 else:
                     pending = enqueue(method, params)
 
@@ -897,6 +934,8 @@ class Minecraft:
         raised.
         """
 
+        self._ensure_ready()
+        self._deliver_reconnect()
         flush = getattr(self.conn, "flush", None)
         if flush is None:
             raise McRemoteError("connection does not support connection.flush")
@@ -913,43 +952,29 @@ class Minecraft:
                     cause=cleanup_exc,
                 )
             finally:
-                self._closed = True
                 self._close_wirescope_runtime()
             raise
         if result is not None:
             raise McRemoteError("connection.flush success result must be null")
+        self._record_flush()
         return None
 
     def setDimension(self, dimension):
         """Set this stream's build dimension from a protocol 22 DimensionRef."""
 
         dimension = require_dimension_ref(dimension, "dimension")
-        result = self.conn.rpc("build.setDimension", [dimension])
-        canonical_dimension, origin = decode_build_context(
-            result, "build.setDimension result"
-        )
-        canonical_origin = Vec3(*origin)
-        with self._context_lock:
-            self._dimension = canonical_dimension
-            self._origin = canonical_origin
-        return result
+        return self._rpc("build.setDimension", [dimension])
 
     def setBuildOrigin(self, x, y, z):
         """Set the build origin (x, y, z). Default is (200, 0, 200).
         Coordinates are absolute; no implicit Y offset is applied (abs y =
         origin y + dy)."""
         coords = _integer_values("build.setOrigin coordinates", x, y, z)
-        result = self.conn.rpc("build.setOrigin", coords)
-        dimension, origin = decode_build_context(result, "build.setOrigin result")
-        canonical_origin = Vec3(*origin)
-        with self._context_lock:
-            self._dimension = dimension
-            self._origin = canonical_origin
-        return result
+        return self._rpc("build.setOrigin", coords)
 
     def postToChat(self, message) -> None:
         """Post a chat message; successful ``chat.post`` returns null."""
-        result = self.conn.rpc("chat.post", [message])
+        result = self._rpc("chat.post", [message])
         if result is not None:
             raise McRemoteError("chat.post success result must be null")
 
@@ -961,7 +986,7 @@ class Minecraft:
         is the authenticated/pair-bound player; the client never sends a
         player name.
         """
-        return self.conn.rpc("player.getPos", [])
+        return self._rpc("player.getPos", [])
 
     def setPos(self, dimension, x, y, z):
         """Move the paired player to a dimension and origin-relative position.
@@ -973,7 +998,7 @@ class Minecraft:
         """
         dimension = require_dimension_ref(dimension, "dimension")
         coords = _finite_values("player.setPos coordinates", x, y, z)
-        return self.conn.rpc("player.setPos", [dimension] + coords)
+        return self._rpc("player.setPos", [dimension] + coords)
 
     def getPose(self):
         """Get the paired player's current position and orientation.
@@ -983,7 +1008,7 @@ class Minecraft:
         The target is the authenticated/pair-bound player; no player identity
         is sent.
         """
-        return self.conn.rpc("player.getPose", [])
+        return self._rpc("player.getPose", [])
 
     def setPose(self, dimension, x, y, z, yaw, pitch):
         """Move and orient the paired player with one atomic server operation.
@@ -994,11 +1019,11 @@ class Minecraft:
         and returns the resulting pose in the same shape as :meth:`getPose`.
         """
         dimension = require_dimension_ref(dimension, "dimension")
-        return self.conn.rpc("player.setPose", [dimension, x, y, z, yaw, pitch])
+        return self._rpc("player.setPose", [dimension, x, y, z, yaw, pitch])
 
     def _get_catalog_on_current_stream(self):
         """Fetch on this instance's stream (auxiliary instances only)."""
-        return self.conn.rpc("catalog.get", [])
+        return self._rpc("catalog.get", [])
 
     def _catalog_stream(self):
         factory = self._catalog_connection_factory
@@ -1067,6 +1092,8 @@ class Minecraft:
         close this instance's connection-scoped build state. Most callers
         want :meth:`sync_constants` instead, which adds caching, integrity
         verification, and publishes the generated projection."""
+        self._ensure_ready()
+        self._deliver_reconnect()
         return self._fetch_catalog_separately()
 
     def sync_constants(self, target_dir=None, force=False):
@@ -1090,6 +1117,8 @@ class Minecraft:
         calls it automatically unless ``sync_catalog=False``, but turns such
         failures into :class:`CatalogProjectionWarning` and still returns the
         connected client."""
+        self._ensure_ready()
+        self._deliver_reconnect()
         if not self.catalog_hash:
             return None
 
@@ -1125,6 +1154,7 @@ class Minecraft:
                 raise _projection.CatalogProjectionError(
                     "cache", "could not save the validated raw catalog", cause=exc
                 ) from exc
+        self._catalog_cache_hash = self.catalog_hash
         try:
             world_info = {
                 key.upper(): value
@@ -1151,6 +1181,7 @@ class Minecraft:
 
     def close(self):
         """Flush pending FAST commands and close the Minecraft connection."""
+        self._recovery_cancel.set()
         if self._closed:
             return True
         try:
@@ -1245,6 +1276,9 @@ class Minecraft:
         token_key=None,
         sync_catalog=True,
         wirescope=None,
+        connection_options=None,
+        on_reconnect=None,
+        build=None,
         build_mode=BuildMode.DEBUG,
         trace_delay=DEFAULT_TRACE_DELAY,
     ) -> "Minecraft":
@@ -1310,10 +1344,17 @@ class Minecraft:
         mc = None
         try:
             mc = Minecraft(
-                connection_factory(address, port, debug),
+                (connection_factory(address, port, debug) if connection_options is None
+                 else connection_factory(address, port, debug, connection_options=connection_options)),
                 build_mode=build_mode,
                 trace_delay=trace_delay,
             )
+            mc._on_reconnect = on_reconnect
+            if on_reconnect is not None and not callable(on_reconnect):
+                raise TypeError('on_reconnect must be callable')
+            if build is not None:
+                dimension, origin = decode_build_context(build, 'hello build')
+                mc._hello_build = {'dimension':dimension, 'origin':list(origin)}
             mc._wirescope_runtime = runtime
             if runtime is not None:
                 attach_observer = getattr(mc.conn, "set_observer", None)
@@ -1355,6 +1396,7 @@ class Minecraft:
                             _projection.CatalogProjectionWarning,
                             stacklevel=2,
                         )
+            mc._reconnect_active = bool(handshake)
             return mc
         except Exception:
             if mc is not None:

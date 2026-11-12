@@ -20,7 +20,7 @@ import os
 import sys
 import time
 
-from .connection import McRemoteError, McRpcError
+from .connection import McRemoteError, McRpcError, ConnectionLostError
 
 
 class PairingExpiredError(McRemoteError):
@@ -206,13 +206,33 @@ def pair(conn, *, token_type="session", client=None, interval=1.5, stream=None):
     stream.write("Waiting for approval...\n")
     stream.flush()
 
-    deadline = time.monotonic() + expires_in if expires_in else None
+    clock = getattr(conn, '_clock', time.monotonic)
+    sleep = getattr(conn, '_pair_sleep', time.sleep)
+    deadline = clock() + expires_in if expires_in else None
+    def pause():
+        until = clock() + interval
+        if deadline is not None:
+            until = min(until, deadline)
+        waiter = getattr(conn, '_pair_wait_until', None)
+        if waiter is not None:
+            waiter(until)
+        else:
+            sleep(max(0, until - clock()))
     while True:
-        poll = conn.rpc("auth.pairPoll", {"pairing_id": pairing_id})
-        status = poll.get("status")
-        if status == "ok":
-            return poll["token"]
-        # status == "pending" (or anything non-terminal): keep waiting.
-        if deadline is not None and time.monotonic() >= deadline:
+        if deadline is not None and clock() >= deadline:
             raise PairingExpiredError()
-        time.sleep(interval)
+        try:
+            if hasattr(conn, 'is_connected') and not conn.is_connected():
+                conn.reconnect()
+            poll = conn.rpc("auth.pairPoll", {"pairing_id": pairing_id})
+        except (ConnectionLostError, OSError):
+            if deadline is not None and clock() >= deadline:
+                raise PairingExpiredError()
+            # The lost poll ends here. The next poll continues the same pairing.
+            pause()
+            continue
+        if poll.get("status") == "ok":
+            return poll["token"]
+        if deadline is not None and clock() >= deadline:
+            raise PairingExpiredError()
+        pause()

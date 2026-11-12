@@ -3,8 +3,8 @@
   "protocol": "23.2.1",
   "suite": "pairing",
   "knowledge_contract": {
-    "commit": "562b5c008c7a4e391f04a79ed4496bbd44670896",
-    "instructions": "00-hub/polyglot-f1-e2-fixture-instructions_ja.md"
+    "commit": "cd2ba766576215924ef2e8182b100c6be8c78aaf",
+    "instructions": "00-hub/polyglot-f1-e2-ops-fixture-instructions_ja.md"
   },
   "cases": [
     {
@@ -1395,6 +1395,405 @@
         "discard_token": true,
         "pairing_attempts": 1
       }
+    },
+    {
+      "id": "F1-AU-11",
+      "title": "承認待ちのEOF後も新TCPで同じpairingのpollを続ける",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-10-07-02"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-08-30-03"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "auth required",
+              "data": {
+                "reason": "auth_required"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c2"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "auth.pairBegin",
+            "params": {
+              "token_type": "session",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "pairing_id": "fixture-pairing",
+              "pair_code": "123456",
+              "expires_in": 120
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+              "status": "pending"
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c3"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "status": "pending"
+            }
+          }
+        },
+        {
+          "op": "approve_pairing",
+          "note": "fixtureのMinecraft内承認に相当。ネットワークmessageではない。"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+              "status": "ok",
+              "token": "mcrs_fixture_only_not_a_real_credential"
+            }
+          }
+        },
+        {
+          "op": "client_close"
+        },
+        {
+          "op": "connect",
+          "connection": "c4"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "token": "mcrs_fixture_only_not_a_real_credential",
+        "result": {
+          "protocol": "23.2.1",
+          "mc_version": "1.21.11",
+          "supported_mc_versions": ["1.21.11", "26.3"],
+          "catalogHash": null,
+          "world_constants": {
+            "y_sea": 62
+          },
+          "session": "fixture-session",
+          "player": "00000000-0000-4000-8000-000000000001",
+          "dimension": "minecraft:overworld",
+          "origin": [200, 0, 200],
+          "permissions": {
+            "online": true,
+            "offline": false,
+            "buildRange": 100
+          },
+          "server": "fixture-server"
+        },
+        "pairing_attempts": 1
+      },
+      "related_cases": ["F1-HE-01"],
+      "preconditions": [
+        "peerはc2のpending応答を完了した後、認証前の接続を理由なしで閉じる。同じ接続試行のpairingは継続し、新しいpairBeginを始めない。",
+        "接続の張り直しでpairingの期限を延ばさない。固定の待ち時間やserver側の上限値は要求しない。"
+      ]
+    },
+    {
+      "id": "F1-AU-12",
+      "title": "pollの応答前にEOFならそのrequestを完了不明にする",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.5"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.3"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§7.3"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-11-11-01"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+              "code": -32000,
+              "message": "auth required",
+              "data": {
+                "reason": "auth_required"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        },
+        {
+          "op": "connect",
+          "connection": "c2"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "auth.pairBegin",
+            "params": {
+              "token_type": "session",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "pairing_id": "fixture-pairing",
+              "pair_code": "123456",
+              "expires_in": 120
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+              "status": "pending"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "auth.pairPoll",
+            "params": {
+              "pairing_id": "fixture-pairing"
+            }
+          }
+        },
+        {
+          "op": "peer_eof"
+        }
+      ],
+      "expected": {
+        "connection": "closed",
+        "pending_ids": [],
+        "unanswered_ids": [3],
+        "local_failures": [
+          {
+            "id": 3,
+            "outcome": "completion_unknown"
+          }
+        ],
+        "pairing_attempts": 1
+      },
+      "related_cases": ["F1-HE-01"],
+      "preconditions": [
+        "観測はc2のEOFで未応答pollがlocalな完了不明として終わるところまで。bootstrap全体の終了や後続pollの開始方針を固定しない。"
+      ],
+      "unresolved": [
+        "応答前に切れた後の自動のpoll継続を新しいpollとするか、禁止した自動再送とするか、その判定境界はこのcaseでは決めない。"
+      ]
     }
   ]
 }

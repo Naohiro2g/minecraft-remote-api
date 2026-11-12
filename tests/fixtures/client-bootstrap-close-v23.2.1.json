@@ -3,8 +3,8 @@
   "protocol": "23.2.1",
   "suite": "close",
   "knowledge_contract": {
-    "commit": "562b5c008c7a4e391f04a79ed4496bbd44670896",
-    "instructions": "00-hub/polyglot-f1-e2-fixture-instructions_ja.md"
+    "commit": "076a127a22eaf0188c1d13822bfd55bfeee9ec38",
+    "instructions": "00-hub/polyglot-f1-e2-ops-fixture-instructions_ja.md"
   },
   "cases": [
     {
@@ -551,6 +551,226 @@
         }
       },
       "related_cases": ["F1-AU-06"]
+    },
+    {
+      "id": "F1-CL-07",
+      "title": "JSONが閉じてもLF無しのままEOFなら応答にしない",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.6"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-11-11-01"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "peer_bytes",
+          "bytes_hex": "7b226a736f6e727063223a22322e30222c226964223a322c22726573756c74223a7b22626c6f636b5f6964223a226d696e6563726166743a676f6c645f626c6f636b222c227374617465223a7b7d7d7d"
+        },
+        {
+          "op": "peer_eof"
+        }
+      ],
+      "expected": {
+        "connection": "closed",
+        "unanswered_ids": [2],
+        "completed_ids": [1],
+        "pending_ids": [],
+        "local_failures": [
+          {
+            "id": 2,
+            "outcome": "completion_unknown"
+          }
+        ]
+      },
+      "unresolved": ["localな失敗の例外型・名前は言語ごとに決める。"]
+    },
+    {
+      "id": "F1-CL-08",
+      "title": "clientが閉じたら残るすべてのrequestを完了不明にする",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§2"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§3.4"
+        },
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.6"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-11-11-01"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              },
+              "build": {
+                "dimension": "minecraft:overworld",
+                "origin": [0, 0, 0]
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [0, 0, 0],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "world.getBlock",
+            "params": [0, 0, 0]
+          }
+        },
+        {
+          "op": "client_close"
+        }
+      ],
+      "expected": {
+        "connection": "closed",
+        "unanswered_ids": [2, 3],
+        "pending_ids": [],
+        "local_failures": [
+          {
+            "id": 2,
+            "outcome": "completion_unknown"
+          },
+          {
+            "id": 3,
+            "outcome": "completion_unknown"
+          }
+        ]
+      },
+      "unresolved": ["localな失敗の例外型・名前は言語ごとに決める。"]
     }
   ]
 }
