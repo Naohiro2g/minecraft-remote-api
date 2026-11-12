@@ -1,5 +1,8 @@
 # Python：F1の固定し直しとE2の接続動作（2026-11-12）
 
+> この文書はPR #15時点の履歴です。③⑤の実装と現在のv1 54case／v2 12caseは[後続の返却](polyglot-e2-reconnect_ja.md)を参照してください。
+
+
 参照したknowledgeは`076a127a22eaf0188c1d13822bfd55bfeee9ec38`です。
 依頼は`00-hub/polyglot-f1-e2-repin-instructions_ja.md`の「共通」「Python」、根拠は
 DECISIONS `2026-11-11-01`②④⑦⑧と`2026-11-12-01`、wire「3.4」「6.2」「6.5」です。

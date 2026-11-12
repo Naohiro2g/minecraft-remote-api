@@ -358,7 +358,7 @@ def test_trace_delay_accepts_both_contract_boundaries_without_clamping():
     assert conn.flush_count == 2
 
 
-def test_b5_runtime_policy_fixture_locks_python_candidate_values():
+def test_b5_runtime_policy_fixture_preserves_historical_values():
     fixture = json.loads(RUNTIME_POLICY_FIXTURE.read_text(encoding="utf-8"))
     assert fixture == {
         "knowledge_commit": "5b12a4360b969db9ad899b868cae993ce65cfa44",
@@ -369,7 +369,7 @@ def test_b5_runtime_policy_fixture_locks_python_candidate_values():
             "silent_drop": False,
         },
         "request_timeout": {
-            "seconds": DEFAULT_REQUEST_TIMEOUT_SECONDS,
+            "seconds": 60.0,  # Historical b5 policy; E2 options are tested separately.
             "completion": "unknown",
             "automatic_retry": False,
             "reclaim_connection": True,
@@ -543,7 +543,7 @@ def test_flush_timeout_reclaims_connection_and_is_never_retried():
     else:
         raise AssertionError("flush timeout was not surfaced")
 
-    assert mc._closed is True
+    assert mc._closed is False  # Transport loss is recoverable; explicit close is terminal.
     assert conn.socket.closed is True
     assert timeout_reader.closed is True
     assert [
@@ -568,7 +568,7 @@ def test_mode_transition_timeout_keeps_old_mode_and_reclaims_connection():
 
     assert mc.build_mode is BuildMode.DEBUG
     assert mc.trace_delay == DEFAULT_TRACE_DELAY
-    assert mc._closed is True
+    assert mc._closed is False  # Transport loss is recoverable; explicit close is terminal.
     assert conn.socket.closed is True
 
 

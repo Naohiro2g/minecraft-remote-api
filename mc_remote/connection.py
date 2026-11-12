@@ -4,10 +4,13 @@ import sys
 import json
 import queue
 import threading
+import time
+
+from .connection_options import ConnectionOptions, _response_budget
 
 
 DEFAULT_SEND_QUEUE_CAPACITY = 1024
-DEFAULT_REQUEST_TIMEOUT_SECONDS = 60.0
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 900.0
 _STOP = object()
 
 
@@ -75,7 +78,22 @@ class ConnectionLostError(McRemoteError):
         super().__init__(message)
 
 
-class RequestTimeoutError(ConnectionLostError):
+class CompletionUnknownError(ConnectionLostError):
+    """A transmitted request may have completed; no server reason is invented."""
+
+    def __init__(self, message='Request completion is unknown'):
+        super().__init__(message, completion_unknown=True)
+
+
+class RequestNotSentError(ConnectionLostError):
+    """This call was never transmitted to the server."""
+
+    def __init__(self, message='Request was not sent', *, cause='connection_failed'):
+        self.cause = cause
+        super().__init__(message)
+
+
+class RequestTimeoutError(CompletionUnknownError):
     """A request timed out after transmission; its completion is unknown."""
 
     completion_unknown = True
@@ -84,7 +102,7 @@ class RequestTimeoutError(ConnectionLostError):
         self.method = method
         super().__init__(
             f"{method} timed out; completion is unknown and the request "
-            "was not retried", completion_unknown=True
+            "was not retried"
         )
 
 
@@ -172,6 +190,7 @@ class Connection:
         debug=False,
         *,
         send_queue_capacity=DEFAULT_SEND_QUEUE_CAPACITY,
+        connection_options=None,
     ):
         if (
             isinstance(send_queue_capacity, bool)
@@ -183,7 +202,11 @@ class Connection:
         self.port = port
         self.debug = debug
         self.send_queue_capacity = send_queue_capacity
-        self.request_timeout = DEFAULT_REQUEST_TIMEOUT_SECONDS
+        self.options = ConnectionOptions() if connection_options is None else connection_options
+        if not isinstance(self.options, ConnectionOptions):
+            raise TypeError('connection_options must be ConnectionOptions')
+        self._clock = getattr(self, '_clock', time.monotonic)
+        self.request_timeout = self.options.response_idle_timeout
         self.lastSent = b""
         self._observer = None
         self._close_lock = threading.Lock()
@@ -214,9 +237,15 @@ class Connection:
 
     def _connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(10)
-        self.socket.connect((self.address, self.port))
-        self.socket.settimeout(self.request_timeout)
+        self.socket.settimeout(self.options.connect_timeout)
+        try:
+            self.socket.connect((self.address, self.port))
+            self._configure_keepalive()
+            # Receive polling uses select; never impose its short interval on writes.
+            self.socket.settimeout(self.request_timeout)
+        except BaseException:
+            self.socket.close()
+            raise
         self.reader = self.socket.makefile("r", encoding="utf8", newline="")
         self._start_sequencer()
 
@@ -242,7 +271,116 @@ class Connection:
             name=f"mcremote-wire-{self.address}:{self.port}",
             daemon=True,
         )
+        self._multiplexed = callable(getattr(self.socket, 'recv', None))
+        self._last_received = getattr(self, '_clock', time.monotonic)()
+        self._waiting_since = self._last_received
         self._worker.start()
+        if self._multiplexed:
+            self._receiver = threading.Thread(
+                target=self._receive_loop, args=(self.epoch,),
+                name='mcremote-receive', daemon=True,
+            )
+            self._receiver.start()
+
+    def _configure_keepalive(self):
+        policy = self.options.liveness
+        self.keepalive_applied = {}
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, int(policy.enabled))
+        self.keepalive_applied['enabled'] = policy.enabled
+        if not policy.enabled:
+            return
+        for names, value in ((('TCP_KEEPIDLE', 'TCP_KEEPALIVE'), policy.idle),
+                             (('TCP_KEEPINTVL',), policy.interval),
+                             (('TCP_KEEPCNT',), policy.probes)):
+            name = next((name for name in names if hasattr(socket, name)), None)
+            if name is not None:
+                try:
+                    self.socket.setsockopt(socket.IPPROTO_TCP, getattr(socket, name), value)
+                    self.keepalive_applied[name] = value
+                except OSError:
+                    pass
+        if hasattr(socket, 'SIO_KEEPALIVE_VALS'):
+            try:
+                self.socket.ioctl(socket.SIO_KEEPALIVE_VALS, (1, policy.idle * 1000, policy.interval * 1000))
+                self.keepalive_applied['SIO_KEEPALIVE_VALS'] = True
+            except (OSError, AttributeError):
+                pass
+
+    def _receive_loop(self, epoch):
+        frames = _JsonRpcFrames()
+        while epoch == self.epoch and self._failure is None and not self._closed:
+            try:
+                if hasattr(self.socket, 'fileno'):
+                    readable, _, _ = select.select([self.socket], [], [], 0.1)
+                    if not readable:
+                        self._check_response_timeout()
+                        continue
+                data = self.socket.recv(65536)
+                if not data:
+                    self._fail_connection(CompletionUnknownError('Connection closed by server'))
+                    return
+                self._last_received = self._clock()
+                for frame in frames.feed(data):
+                    self._dispatch_response(frame)
+            except TimeoutError:
+                self._check_response_timeout()
+            except OSError:
+                if epoch == self.epoch:
+                    self._fail_connection(CompletionUnknownError('Socket no longer receives data'))
+                return
+            except Exception:
+                if epoch == self.epoch:
+                    self._fail_connection(CompletionUnknownError('Invalid response stream'))
+                return
+
+    def _check_response_timeout(self):
+        with self._state_lock:
+            waiting = [p for p in self._pending.values() if p.sent]
+            if not waiting or self._failure is not None:
+                return
+            budget = max(p.response_timeout for p in waiting)
+            expired = self._clock() - max(self._last_received, self._waiting_since) > budget
+            method = waiting[0].method
+        if expired:
+            self._fail_connection(RequestTimeoutError(method))
+
+    def _dispatch_response(self, frame):
+        request_id = frame.get('id')
+        with self._state_lock:
+            try:
+                pending = self._pending.get(request_id)
+            except TypeError:
+                return
+            if pending is None and request_id is None and 'error' in frame:
+                pending = next((p for p in self._pending.values() if p.sent), None)
+                request_id = next((i for i, p in self._pending.items() if p is pending), None)
+            if pending is None or not pending.sent:
+                return
+        try:
+            result = self._parse_response(json.dumps(frame), request_id)
+        except McRpcError as exc:
+            self._notify_observer('observe_error', pending.method, exc, request_id)
+            pending.set_error(exc)
+            with self._state_lock:
+                self._pending.pop(request_id, None)
+            return
+        self._notify_observer('observe_result', pending.method, result, request_id)
+        if pending.method == 'hello':
+            self._hello_completed = True
+        if pending.flush_target is not None and result is None:
+            with self._state_lock:
+                self._flushed_serial = max(self._flushed_serial, pending.flush_target)
+        callback = getattr(self, '_result_callback', None)
+        try:
+            if callback is not None:
+                callback(pending.method, result)
+        except Exception as exc:
+            pending.set_error(exc)
+        else:
+            pending.set_result(result)
+        finally:
+            with self._state_lock:
+                self._pending.pop(request_id, None)
 
     def reconnect(self):
         """Open a fresh stream to the same server, resetting the id counter.
@@ -346,12 +484,20 @@ class Connection:
                 raise flush_error
 
     def _stop_worker(self):
-        worker = getattr(self, "_worker", None)
-        if worker is None or not worker.is_alive():
-            return
-        self._send_queue.put(_STOP)
-        if threading.current_thread() is not worker:
-            worker.join()
+        worker = getattr(self, '_worker', None)
+        if worker is not None and worker.is_alive():
+            try:
+                self._send_queue.put_nowait(_STOP)
+            except queue.Full:
+                pass
+            if threading.current_thread() is not worker:
+                worker.join()
+        # Graceful close reaches this point only after its flush. Release an
+        # idle recv before joining it, including when the sender already died.
+        self._shutdown_socket()
+        receiver = getattr(self, '_receiver', None)
+        if receiver is not None and threading.current_thread() is not receiver:
+            receiver.join()
 
     def _shutdown_socket(self):
         try:
@@ -389,9 +535,17 @@ class Connection:
         ):
             return False
         try:
+            if getattr(self, '_multiplexed', False) and not hasattr(socket, 'MSG_DONTWAIT'):
+                # The receiver owns reads. Avoid a blocking peek racing it on
+                # platforms without a per-call nonblocking recv flag.
+                return True
             readable, _, _ = select.select([self.socket], [], [], 0)
             if readable:
-                data = self.socket.recv(1, socket.MSG_PEEK)
+                flags = socket.MSG_PEEK | getattr(socket, 'MSG_DONTWAIT', 0)
+                try:
+                    data = self.socket.recv(1, flags)
+                except BlockingIOError:
+                    return True
                 if not data:
                     return False
             return True
@@ -488,6 +642,10 @@ class Connection:
             self._id -= 1
             raise
         pending = _PendingResult()
+        pending.method = method
+        pending.flush_target = flush_target
+        default = getattr(self, 'request_timeout', DEFAULT_REQUEST_TIMEOUT_SECONDS)
+        pending.response_timeout = max(default, _response_budget.get() or default)
         call = _QueuedCall(
             method,
             frozen_params,
@@ -522,11 +680,11 @@ class Connection:
 
     def _ensure_accepting_locked(self, *, allow_closing=False):
         if self._failure is not None:
-            raise ConnectionLostError(
+            raise RequestNotSentError(
                 "Connection failed before transmission"
             ) from self._failure
         if not self._accepting and not allow_closing:
-            raise ConnectionLostError("Connection is closing or closed")
+            raise RequestNotSentError("Connection is closing or closed")
 
     @classmethod
     def _freeze_payload(cls, method, params, request_id):
@@ -548,7 +706,7 @@ class Connection:
                 if self._failure is not None:
                     return
             finally:
-                if call is not _STOP and call.pending is not None:
+                if not self._multiplexed and call is not _STOP and call.pending is not None:
                     with self._state_lock:
                         self._pending.pop(call.request_id, None)
                 self._send_queue.task_done()
@@ -567,6 +725,8 @@ class Connection:
                 if self._failure is not None:
                     raise ConnectionLostError("Connection was closed before transmission")
                 if call.pending is not None:
+                    if not any(item.sent for item in self._pending.values()):
+                        self._waiting_since = getattr(self, '_clock', time.monotonic)()
                     call.pending.sent = True
             try:
                 self.socket.sendall(call.payload)
@@ -575,7 +735,7 @@ class Connection:
                     f"Failed to send to the server: {exc}"
                 ) from exc
 
-            if call.pending is None:
+            if call.pending is None or self._multiplexed:
                 return
 
             try:
@@ -597,6 +757,9 @@ class Connection:
                     self._flushed_serial = max(
                         self._flushed_serial, call.flush_target
                     )
+            callback = getattr(self, '_result_callback', None)
+            if callback is not None:
+                callback(call.method, result)
             call.pending.set_result(result)
         except Exception as exc:
             failure = (
@@ -612,8 +775,9 @@ class Connection:
 
     def _fail_connection(self, failure):
         with self._state_lock:
-            if self._failure is None:
-                self._failure = failure
+            if self._failure is not None:
+                return
+            self._failure = failure
             self._accepting = False
             pending = list(self._pending.values())
             self._pending.clear()
@@ -621,10 +785,11 @@ class Connection:
             if item.sent:
                 error = self._copy_failure(failure)
                 if not isinstance(error, ConnectionLostError):
-                    error = ConnectionLostError("Connection closed; completion is unknown")
-                error.completion_unknown = True
+                    error = CompletionUnknownError("Connection closed; completion is unknown")
+                if not isinstance(error, CompletionUnknownError):
+                    error = CompletionUnknownError(str(error))
             else:
-                error = ConnectionLostError("Connection closed before transmission")
+                error = RequestNotSentError("Connection closed before transmission")
             item.set_error(error)
         with self._enqueue_lock:
             while True:
@@ -639,11 +804,20 @@ class Connection:
                     self._send_queue.task_done()
         self._shutdown_socket()
         self._close_resources()
+        # Wake an idle sender too; failures discovered while idle must not leak it.
+        try:
+            self._send_queue.put_nowait(_STOP)
+        except queue.Full:
+            pass
 
     @staticmethod
     def _copy_failure(failure):
         if isinstance(failure, RequestTimeoutError):
             return RequestTimeoutError(failure.method)
+        if isinstance(failure, CompletionUnknownError):
+            return CompletionUnknownError(str(failure))
+        if isinstance(failure, RequestNotSentError):
+            return RequestNotSentError(str(failure), cause=failure.cause)
         if isinstance(failure, ConnectionLostError):
             return ConnectionLostError(
                 str(failure), completion_unknown=failure.completion_unknown
@@ -689,9 +863,9 @@ class Connection:
             except TimeoutError as exc:
                 raise RequestTimeoutError(method) from exc
             except OSError as exc:
-                raise ConnectionLostError("Failed to receive from the server", completion_unknown=True) from exc
+                raise CompletionUnknownError("Failed to receive from the server") from exc
             if not line:
-                raise ConnectionLostError("Connection closed by server", completion_unknown=True)
+                raise CompletionUnknownError("Connection closed by server")
             if self.debug:
                 sys.stderr.write(f"<- {line!r}")
             for frame in frames.feed(line.encode("utf8")):

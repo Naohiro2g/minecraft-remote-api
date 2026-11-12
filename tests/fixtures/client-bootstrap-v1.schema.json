@@ -21,13 +21,16 @@
           "enum": [
             "308a2a441060265e10af3d5e8e97c826c86b4ed8",
             "5e00768911feb7be1e54ae3b7e9c2d776b88927a",
-            "562b5c008c7a4e391f04a79ed4496bbd44670896"
+            "562b5c008c7a4e391f04a79ed4496bbd44670896",
+            "076a127a22eaf0188c1d13822bfd55bfeee9ec38",
+            "cd2ba766576215924ef2e8182b100c6be8c78aaf"
           ]
         },
         "instructions": {
           "enum": [
             "00-hub/polyglot-f1-fixture-instructions_ja.md",
-            "00-hub/polyglot-f1-e2-fixture-instructions_ja.md"
+            "00-hub/polyglot-f1-e2-fixture-instructions_ja.md",
+            "00-hub/polyglot-f1-e2-ops-fixture-instructions_ja.md"
           ]
         }
       },
@@ -269,6 +272,19 @@
               "pairing_attempts": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "application_failure": {
+                "type": "object",
+                "required": ["source", "kind"],
+                "properties": {
+                  "source": {
+                    "const": "client"
+                  },
+                  "kind": {
+                    "const": "incompatible_protocol"
+                  }
+                },
+                "additionalProperties": false
               }
             }
           },

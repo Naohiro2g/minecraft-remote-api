@@ -12,7 +12,7 @@
     "- シグネチャの * より後はキーワード専用引数です。型の書き分けにはoverloadを表示します。型注釈がない引数・戻り値は実装の表記を保ち、説明で補います。",
     "- getBlock()の結果は [BlockValue](#type-BlockValue) なのでvalue.block_idやvalue.stateで読みます。getPos()やgetPose()の結果はdictなのでresult[\"pos\"]で読みます。",
     "- worldを変える操作の効果はサーバー上に残ります。作例ではブロックの復元やエンティティの削除も示します。パーティクルは自然に消えます。",
-    "- 通常のAPI操作は自動再試行しません。接続時のpairing処理と、手動でAPIをもう一度呼ぶ操作は各項目を参照してください。"
+    "- 通常のAPI操作は自動再試行しません。切断後の次の呼び出しでは、既定で接続を回復してから新しい操作を送ります。前に失敗した操作は再送しません。"
   ],
   "groups": [
     {"id": "connection", "title": "接続と終了"},
@@ -27,6 +27,33 @@
     {"id": "advanced", "title": "接続処理を組み立てるとき"}
   ],
   "methods": {
+    "connection_epoch": {
+      "group": "connection",
+      "purpose": "現在の接続epochを読む",
+      "returns": "int。読み取り専用property。",
+      "protocol": [],
+      "notes": [
+        "再接続で増えます。旧接続のhandleやflushの保証を区別します。"
+      ]
+    },
+    "catalog_cache_matches": {
+      "group": "catalog",
+      "purpose": "最後に確認したcacheが現在のhelloのcatalogHashと一致するかを読む",
+      "returns": "bool。読み取り専用property。",
+      "protocol": [],
+      "notes": [
+        "hashが変わったらsync_constants()で補完を更新します。接続中のhash照合であり、オフラインの適合を保証するものではありません。"
+      ]
+    },
+    "call_options": {
+      "group": "connection",
+      "purpose": "このcontextから送る呼び出しの応答待ちを延ばす",
+      "returns": "context manager。",
+      "protocol": [],
+      "notes": [
+        "with mc.call_options(response_idle_timeout=...)で秒を指定します。接続既定値より短くしません。複数threadではcontextごとに独立し、同じ接続の待機中callの最長値を使います。"
+      ]
+    },
     "create": {
       "group": "connection",
       "purpose": "サーバーへ接続し、認証と必要なpairing、カタログ同期を進める",
@@ -42,6 +69,7 @@
         "保存済みtokenでhelloを試します。無効なtokenを捨てたらtokenなしhelloへ戻り、auth_requiredのときだけpairing commandを表示してMinecraft内の承認を待ちます。pair=Falseはこの待機を行わず、必要ならPairingRequiredErrorを返します。",
         "sync_catalog=Trueでは接続後に補完を生成します。生成が失敗した場合はCatalogProjectionWarningを出し、接続したオブジェクトを返します。",
         "wirescope=Trueは同梱WireScopeをlocalhostで開く設定です。WireScopeStation.local()も渡せます。NoneまたはFalseで無効です。",
+        "connection_optionsで応答待機・keepalive・再接続を設定します。on_reconnectは回復を知らせるcallbackです。buildにdimensionとoriginを指定すると初回helloへ渡します。",
         "handshake=Falseは接続処理を自分で組み立てる用途です。sandboxはローカルtoken保存先のkeyを指定する互換引数です。"
       ]
     },
@@ -367,9 +395,39 @@
   },
   "values": [
     {
+      "name": "ConnectionOptions",
+      "source": "mc_remote/connection_options.py",
+      "import": "mc_remote.minecraft",
+      "purpose": "応答待機、connect期限、生存確認、再接続の設定です。"
+    },
+    {
+      "name": "LivenessOptions",
+      "source": "mc_remote/connection_options.py",
+      "import": "mc_remote.minecraft",
+      "purpose": "TCP keepaliveの設定です。無通信だけで切断とは判定しません。"
+    },
+    {
+      "name": "ReconnectOptions",
+      "source": "mc_remote/connection_options.py",
+      "import": "mc_remote.minecraft",
+      "purpose": "再接続の有効／無効、jitter付きbackoffと全体budgetを指定します。"
+    },
+    {
+      "name": "ReconnectInfo",
+      "source": "mc_remote/connection_options.py",
+      "import": "mc_remote.minecraft",
+      "purpose": "新旧hello、epochとserver／session／catalogの変更、event lossと旧FASTの完了不明を知らせます。"
+    },
+    {
+      "name": "FlushInfo",
+      "source": "mc_remote/connection_options.py",
+      "import": "mc_remote.minecraft",
+      "purpose": "成功したflushのepochと、前のflush以降の再接続を示します。"
+    },
+    {
       "name": "BuildMode", "source": "mc_remote/minecraft.py", "import": "mc_remote.minecraft",
       "purpose": "setBlock()/setBlocks()の実行方法を選ぶEnumです。",
-      "notes": ["DEBUGは応答を待つrequest、TRACEはrequest後に待ち時間を入れるモード、FASTはnotificationで送るモードです。FASTの完了はflush()/close()で確認します。"]
+      "notes": ["DEBUGは応答を待つrequest、TRACEはrequest後に待ち時間を入れるモード、FASTはnotificationで送るモードです。FASTの完了は同じepochのflush()/close()で確認します。再接続した後のflushは、旧接続で送った分を保証しません。last_flushとlast_reconnectも確認してください。"]
     },
     {
       "name": "BlockValue", "source": "mc_remote/block_value.py", "import": "mc_remote.minecraft",
@@ -484,6 +542,9 @@
     "Python内の引数チェックではValueError/TypeErrorも発生します。ConnectionLostErrorのcompletion_unknownがtrueのときやRequestTimeoutErrorでは、操作が実行されなかったとは限りません。PairingExpiredErrorはclientが判断した承認待ちの期限切れで、serverのcode／reasonはありません。"
   ],
   "errors": [
+    {"name": "CompletionUnknownError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "送信済みの要求が完了したか不明。ConnectionLostErrorの子で、serverのcode／reasonは持たない"},
+    {"name": "RequestNotSentError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "この呼び出しは未送信。causeで再接続失敗／認証待ち／版不一致などを区別するlocal error"},
+    {"name": "StaleEpochError", "source": "mc_remote/reconnect.py", "import": "mc_remote.minecraft", "purpose": "前の接続epochのentity handleを使おうとしたlocal error"},
     {"name": "McRemoteError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "クライアント例外の基底"},
     {"name": "McRpcError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "サーバーのJSON-RPC error。reasonで理由を読む"},
     {"name": "ConnectionLostError", "source": "mc_remote/connection.py", "import": "mc_remote.minecraft", "purpose": "接続が失われた。completion_unknownで送信後の完了不明と送信前の失敗を区別"},

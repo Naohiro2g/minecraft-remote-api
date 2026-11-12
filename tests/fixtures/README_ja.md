@@ -23,10 +23,10 @@
 ## F1 bootstrap fixture（F3・E2）
 
 同じProtocol fixture directoryのMIT Licenseに基づき、tooling
-`36ebe9e63e4f0afcf949eae998832f68209b8119`へ固定し直したF1の6本、`client-bootstrap-v1.schema.json`、参照先の`block-value-v22.json`を保持しています。
+`335c604f859d6dfad04f0434bfa4eb6445761430`へ固定し直したF1 v1の6本とv2 operations、v1/v2 schema、参照先の`block-value-v22.json`を保持しています。
 同梱LICENSEの全文bytesはこのcommitのLICENSEとも一致します。
-各fileのbytes/SHA-256は`client-bootstrap.source.json`、48caseの接続状況は
-[`docs/polyglot-f1-e2_ja.md`](../../docs/polyglot-f1-e2_ja.md)を参照してください。
+各fileのbytes/SHA-256は`client-bootstrap.source.json`、v1 54case／v2 12caseの接続状況は
+[`docs/polyglot-e2-reconnect_ja.md`](../../docs/polyglot-e2-reconnect_ja.md)を参照してください。
 従来7本のpinと履歴は変更していません。
 
 ## その他のfixture

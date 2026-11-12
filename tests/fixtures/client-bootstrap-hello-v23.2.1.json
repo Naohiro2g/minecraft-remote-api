@@ -3,8 +3,8 @@
   "protocol": "23.2.1",
   "suite": "hello",
   "knowledge_contract": {
-    "commit": "5e00768911feb7be1e54ae3b7e9c2d776b88927a",
-    "instructions": "00-hub/polyglot-f1-fixture-instructions_ja.md"
+    "commit": "076a127a22eaf0188c1d13822bfd55bfeee9ec38",
+    "instructions": "00-hub/polyglot-f1-e2-ops-fixture-instructions_ja.md"
   },
   "cases": [
     {
@@ -755,6 +755,176 @@
       "related_cases": ["F1-HE-09"],
       "preconditions": [
         "McRemote 2321.1.0までのcode -32600を受ける移行対応の例。clientはdata.reasonで判定し、-32600を契約上のcodeとして新たに採用しない。"
+      ]
+    },
+    {
+      "id": "F1-HE-11",
+      "title": "応答protocol 24.2.1のclient側互換判定で次のrequestを送らず自発closeしapplicationへ失敗",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-11-12-01"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "24.2.1",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_close",
+          "note": "helloの処理結果として自発closeを観測する。次のrequestを送らずapplicationへ失敗を返す。"
+        }
+      ],
+      "expected": {
+        "compatible": false,
+        "connection": "closed",
+        "pending_ids": [],
+        "application_failure": {
+          "kind": "incompatible_protocol",
+          "source": "client"
+        }
+      },
+      "preconditions": [
+        "helloのbootstrapを開始する。client_closeは互換判定からclientが自発的に閉じたことの観測であり、testが強制するcloseではない。"
+      ]
+    },
+    {
+      "id": "F1-HE-12",
+      "title": "応答protocol 23.1.9のclient側互換判定で次のrequestを送らず自発closeしapplicationへ失敗",
+      "basis": [
+        {
+          "path": "10-protocol/wire-format-design_ja.md",
+          "section": "§6.1–6.4"
+        },
+        {
+          "path": "10-protocol/versioning-design_ja.md",
+          "section": "§8.2–8.3"
+        },
+        {
+          "path": "00-hub/DECISIONS_ja.md",
+          "section": "2026-11-12-01"
+        }
+      ],
+      "steps": [
+        {
+          "op": "connect",
+          "connection": "c1"
+        },
+        {
+          "op": "client_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "hello",
+            "params": {
+              "protocol": "23.2.1",
+              "client": {
+                "name": "fixture-client",
+                "version": "2321.1.0",
+                "locale": "ja"
+              },
+              "auth": {
+                "token": "mcrs_fixture_only_not_a_real_credential"
+              }
+            }
+          }
+        },
+        {
+          "op": "peer_send",
+          "message": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+              "protocol": "23.1.9",
+              "mc_version": "1.21.11",
+              "supported_mc_versions": ["1.21.11", "26.3"],
+              "catalogHash": null,
+              "world_constants": {
+                "y_sea": 62
+              },
+              "session": "fixture-session",
+              "player": "00000000-0000-4000-8000-000000000001",
+              "dimension": "minecraft:overworld",
+              "origin": [200, 0, 200],
+              "permissions": {
+                "online": true,
+                "offline": false,
+                "buildRange": 100
+              },
+              "server": "fixture-server"
+            }
+          }
+        },
+        {
+          "op": "client_close",
+          "note": "helloの処理結果として自発closeを観測する。次のrequestを送らずapplicationへ失敗を返す。"
+        }
+      ],
+      "expected": {
+        "compatible": false,
+        "connection": "closed",
+        "pending_ids": [],
+        "application_failure": {
+          "kind": "incompatible_protocol",
+          "source": "client"
+        }
+      },
+      "preconditions": [
+        "helloのbootstrapを開始する。client_closeは互換判定からclientが自発的に閉じたことの観測であり、testが強制するcloseではない。"
       ]
     }
   ]

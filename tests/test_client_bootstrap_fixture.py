@@ -38,13 +38,16 @@ def wire_connection(messages):
 def test_f1_hello(case):
     request = next(s['message'] for s in case['steps'] if s['op']=='client_send')
     replies = [s['message'] for s in case['steps'] if s['op']=='peer_send']
-    conn = wire_connection(replies)
+    conn = ScriptedConnection(case) if case["id"] in ("F1-HE-11","F1-HE-12") else wire_connection(replies)
     mc = Minecraft(conn)
     expected = case['expected']
     if expected.get('compatible') is False or 'reason' in expected:
         with pytest.raises(McRpcError) as caught:
             mc.hello(request['params'].get('auth',{}).get('token'))
-        assert caught.value.reason == expected['reason']
+        if 'reason' in expected:
+            assert caught.value.reason == expected['reason']
+        if 'application_failure' in expected:
+            assert conn.socket.closed and not conn._pending
         if 'error' in replies[0]:
             error = replies[0]['error']
             assert caught.value.code == error['code']
@@ -138,7 +141,7 @@ class ScriptedConnection(Connection):
                 assert actual['id'] == expected['id']
                 assert actual['method'] == expected['method']
                 if actual['method']=='hello':
-                    # client/build are optional hello metadata, absent from Python's API.
+                    # This wire-level consumer may omit optional client/build metadata.
                     assert actual['params'] in (expected['params'], {k:v for k,v in expected['params'].items() if k in ('protocol','auth')})
                 else:
                     assert actual['params'] == expected['params']
@@ -228,6 +231,20 @@ def test_f1_pairing(case, monkeypatch):
                             conn.rpc(msg['method'], msg.get('params'))
                         except McRpcError as exc:
                             failure = exc
+            elif case['id']=='F1-AU-12':
+                for step in case['steps']:
+                    if step['op']=='connect' and conn.socket.sent:
+                        conn.reconnect()
+                    elif step['op']=='client_send':
+                        msg=step['message']
+                        try:
+                            conn.rpc(msg['method'], msg.get('params'))
+                        except McRpcError:
+                            pass
+                        except Exception as exc:
+                            assert exc.completion_unknown and not hasattr(exc,'reason')
+                            assert msg['id']==case['expected']['unanswered_ids'][0]
+                assert not conn._pending
             elif case['id']=='F1-AU-07':
                 result = mc._hello_attempt('key',store['key'])
             elif initial['method']=='auth.pairBegin':
@@ -277,6 +294,33 @@ def test_f1_close(case, monkeypatch):
             Minecraft.create(sync_catalog=False, pair=False)
         assert case['expected']['completed_ids']==[]
         return
+    if case['id']=='F1-CL-08':
+        from bootstrap_peer import Harness, eventually
+        h=Harness(monkeypatch)
+        ids=[]
+        try:
+            for step in case['steps']:
+                if step['op']=='connect':
+                    h.start('open',h.connect)
+                    h.expect_connect(step['connection'])
+                elif step['op']=='client_send':
+                    msg=step['message']
+                    if msg['method']!='hello':
+                        ids.append(msg['id'])
+                        h.start(str(msg['id']),lambda:h.mc.getBlock(0,0,0))
+                    h.expect_send('c1',msg)
+                elif step['op']=='peer_send':
+                    h.send('c1',step['message'])
+                    eventually(lambda:h.calls['open']['done'])
+                elif step['op']=='client_close':
+                    h.mc.close()
+            eventually(lambda:all(h.calls[str(i)]['done'] for i in ids))
+            assert ids==case['expected']['unanswered_ids']
+            assert [{'id':i,'outcome':'completion_unknown'} for i in ids if h.calls[str(i)]['error'].completion_unknown]==case['expected']['local_failures']
+            assert not h.transport._pending and h.peers['c1'].closed
+        finally:
+            h.finish()
+        return
     conn = ScriptedConnection(case)
     completed, unanswered, local_failures = [], [], []
     last = None
@@ -314,10 +358,10 @@ def test_f1_close(case, monkeypatch):
         conn.close()
 
 
-def test_f1_pinned_identity_schema_and_48_case_inventory():
+def test_f1_pinned_identity_schema_and_54_case_inventory():
     import hashlib
     source = json.loads((ROOT/'client-bootstrap.source.json').read_text())
-    assert source['commit']=='36ebe9e63e4f0afcf949eae998832f68209b8119'
+    assert source['commit']=='335c604f859d6dfad04f0434bfa4eb6445761430'
     for file in source['files']:
         body = (ROOT/file['file']).read_bytes()
         assert len(body)==file['bytes']
@@ -332,8 +376,8 @@ def test_f1_pinned_identity_schema_and_48_case_inventory():
         for case in fixture['cases']:
             assert set(schema['properties']['cases']['items']['required'])<=case.keys()
             ids.append(case['id'])
-    assert len(ids)==len(set(ids))==48
-    assert {name:len(f['cases']) for name,f in SUITES.items()}=={'framing':7,'hello':10,'pairing':10,'blocks':12,'errors':3,'close':6}
+    assert len(ids)==len(set(ids))==54
+    assert {name:len(f['cases']) for name,f in SUITES.items()}=={'framing':7,'hello':12,'pairing':12,'blocks':12,'errors':3,'close':8}
 
 
 @pytest.mark.parametrize('case_id', ['F1-HE-04','F1-HE-05'])
@@ -383,6 +427,8 @@ def test_tcp_reader_explicitly_uses_utf8(monkeypatch):
     import mc_remote.connection as connection
     recorded = {}
     class Socket(WireSocket):
+        def setsockopt(self, *args):
+            pass
         def settimeout(self, timeout):
             pass
         def connect(self, address):

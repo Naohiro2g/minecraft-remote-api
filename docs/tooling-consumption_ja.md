@@ -50,9 +50,9 @@ LICENSEはcopyと同じ`tests/fixtures/LICENSE`へ配置（1,070 bytes、SHA-256
 
 ## F1 bootstrap fixture（F3・E2）
 
-`tests/fixtures/client-bootstrap.source.json`は、toolingのF1の6本、schema、block-value参照先、LICENSEの取得元と全identityをまとめます。
-固定元は`36ebe9e63e4f0afcf949eae998832f68209b8119`です。従来の9件とは別の追加で、Protocol directoryのMIT Licenseに従います。
-[E2返却](polyglot-f1-e2_ja.md)に、48caseの接続状況、認証・切断の修正、実機pulseと次のAPI案を記載します。
+`tests/fixtures/client-bootstrap.source.json`は、toolingのF1 v1の6本とv2 operations、2つのschema、block-value参照先、LICENSEの取得元と全identityをまとめます。
+固定元は`335c604f859d6dfad04f0434bfa4eb6445761430`です。従来の9件とは別の追加で、Protocol directoryのMIT Licenseに従います。
+[E2返却](polyglot-e2-reconnect_ja.md)に、v1 54case／v2 12caseの接続状況、認証・切断の修正、実機pulseと次のAPI案を記載します。
 [F3返却](polyglot-f3_ja.md)は前の45case時点の履歴です。
 
 ## 同梱WireScope
