@@ -27,7 +27,7 @@ permissions:
 jobs:
   promote:
     if: github.event_name == 'release'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Resolve the commit the release tag points to
         env:
@@ -135,7 +135,7 @@ jobs:
     if: >-
       ${{ !cancelled() && (needs.promote.result == 'success' ||
       (github.event_name == 'workflow_dispatch' && needs.promote.result == 'skipped')) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     outputs:
@@ -229,7 +229,7 @@ jobs:
     if: >-
       ${{ !cancelled() && needs.prepare-publication.result == 'success' &&
       (github.event_name == 'release' || inputs.channel == 'testpypi' || inputs.channel == '') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: testpypi
       url: https://test.pypi.org/p/minecraft-remote-api
@@ -263,7 +263,7 @@ jobs:
       needs.prepare-publication.result == 'success' &&
       needs.prepare-publication.outputs.pypi_eligible == 'true' &&
       (github.event_name == 'release' || inputs.channel == 'pypi') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: pypi
       url: https://pypi.org/p/minecraft-remote-api

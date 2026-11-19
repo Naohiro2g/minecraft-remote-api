@@ -72,9 +72,9 @@ def observer_source():
 
 
 def test_current_package_version_and_protocol():
-    assert PROTOCOL == "23.2.1"
+    assert PROTOCOL == "24.0.0"
     project = (Path(__file__).parents[1] / "pyproject.toml").read_text()
-    assert 'version = "2321.1.0"' in project
+    assert 'version = "2400.0.0rc1"' in project
 
 
 @pytest.mark.parametrize("events", [

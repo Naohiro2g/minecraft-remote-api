@@ -46,7 +46,7 @@ class FakeConn:
 # Live server hello: catalog is a single catalogHash scalar; y_sea is bundled
 # under world_constants (knowledge DECISIONS 2026-07-02-02).
 HELLO = {
-    "protocol": "22.0.0",
+    "protocol": "24.0.0",
     "mc_version": "1.21.11",
     "supported_mc_versions": ["1.21.11"],
     "world_constants": {"y_sea": 63},
@@ -65,7 +65,7 @@ def test_hello_declares_protocol_and_caches():
     resp = mc.hello()
     assert resp == HELLO
     assert conn.calls == [("hello", {"protocol": PROTOCOL})]  # §6.1 object params
-    assert mc.protocol == "22.0.0"
+    assert mc.protocol == "24.0.0"
     assert mc.mc_version == "1.21.11"
     assert mc.supported_mc_versions == ["1.21.11"]
     assert mc.y_sea == 63
@@ -74,8 +74,8 @@ def test_hello_declares_protocol_and_caches():
     assert (mc._origin.x, mc._origin.y, mc._origin.z) == (200, 0, 200)
 
 
-@pytest.mark.parametrize("server_protocol", ["23.2.0", "23.2.1"])
-def test_rc1_client_accepts_compatible_hello_response(server_protocol):
+@pytest.mark.parametrize("server_protocol", ["24.0.0", "24.0.1", "24.1.0"])
+def test_client_accepts_compatible_hello_response(server_protocol):
     from mc_remote.minecraft import PROTOCOL
 
     conn = FakeConn({"hello": {**HELLO, "protocol": server_protocol}})
@@ -83,8 +83,34 @@ def test_rc1_client_accepts_compatible_hello_response(server_protocol):
 
     assert mc.hello()["protocol"] == server_protocol
     assert mc.protocol == server_protocol
-    assert conn.calls == [("hello", {"protocol": "23.2.1"})]
-    assert PROTOCOL == "23.2.1"
+    assert conn.calls == [("hello", {"protocol": "24.0.0"})]
+    assert PROTOCOL == "24.0.0"
+
+
+@pytest.mark.parametrize("server_protocol", ["23.2.1", "23.3.0", "25.0.0"])
+def test_client_rejects_incompatible_successful_hello(server_protocol):
+    from mc_remote.minecraft import PROTOCOL
+
+    class Peer(FakeConn):
+        closed = False
+
+        def _close_epoch(self, *, flush):
+            assert flush is False
+            self.closed = True
+
+    conn = Peer({"hello": {**HELLO, "protocol": server_protocol}})
+    mc = Minecraft(conn)
+    with pytest.raises(McRpcError) as caught:
+        mc.hello()
+    assert caught.value.reason == "protocol_mismatch"
+    assert caught.value.data == {
+        "reason": "protocol_mismatch",
+        "server": server_protocol,
+        "client_requires": PROTOCOL,
+    }
+    assert conn.closed
+    assert mc.protocol is None
+    assert conn.calls == [("hello", {"protocol": PROTOCOL})]
 
 
 def test_invalid_hello_build_context_is_not_cached():

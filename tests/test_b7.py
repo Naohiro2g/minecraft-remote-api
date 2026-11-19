@@ -63,7 +63,7 @@ def test_owner_fixture_identity_protocol_and_93_case_ledger():
     assert source["bytes"] == FIXTURE_PATH.stat().st_size
     assert FIXTURE["schema"] == "mcremote.direction-lightning.v23.1"
     assert FIXTURE["protocol"] == "23.1.0"
-    assert PROTOCOL == "23.2.1"
+    assert PROTOCOL == "24.0.0"
     assert FIXTURE["knowledge_contract"] == {
         "commit": "2bddadd1114e05a9076911de83aec0836df36345",
         "path": "10-protocol/wire-format-design_ja.md",
@@ -76,7 +76,7 @@ def test_owner_fixture_identity_protocol_and_93_case_ledger():
 def test_hello_permission_snapshot_remains_an_uninterpreted_server_fact():
     case = FIXTURE["session_admission"]["hello_snapshot_cases"][0]
     hello = {
-        "protocol": "23.1.0",
+        "protocol": PROTOCOL,
         "mc_version": "1.21.11",
         "supported_mc_versions": ["1.21.11"],
         "catalogHash": None,

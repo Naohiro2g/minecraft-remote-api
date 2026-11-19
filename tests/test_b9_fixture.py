@@ -9,7 +9,7 @@ import pytest
 
 from mc_remote.block_value import BlockValue
 from mc_remote.connection import McRemoteError
-from mc_remote.minecraft import Minecraft, PROTOCOL
+from mc_remote.minecraft import Minecraft
 from mc_remote.observer import validate_snapshot
 
 from test_b9 import FakeConn, observer_source
@@ -56,7 +56,7 @@ def test_shared_fixture_identity_and_33_case_inventory():
     assert SOURCE["commit"] == "21a2a9a0aed8b4d9c715da46616aad86f1174b4c"
     assert SOURCE["path"] == "packages/protocol/test/fixtures/chat-event-compat-v23.2.1.json"
     assert FIXTURE["schema"] == "mcremote.chat-event-compat.v23.2.1"
-    assert FIXTURE["protocol"] == PROTOCOL == "23.2.1"
+    assert FIXTURE["protocol"] == "23.2.1"
     assert FIXTURE["knowledge_contract"] == SOURCE["knowledge_contract"]
     assert FIXTURE["knowledge_contract"]["commit"] == "900f6f4b8027d265a62ba7f139d4f3b1bbe78100"
     assert FIXTURE["knowledge_contract"]["decisions"] == ["2026-10-03-01", "2026-10-03-02"]

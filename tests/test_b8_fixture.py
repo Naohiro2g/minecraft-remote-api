@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from mc_remote.connection import McRpcError
-from mc_remote.minecraft import Minecraft, PROTOCOL
+from mc_remote.minecraft import Minecraft
 from mc_remote.observer import validate_snapshot
 
 from test_b8 import FakeConn, observer_source
@@ -32,7 +32,7 @@ def test_owner_fixture_exact_identity_and_111_case_inventory():
     assert SOURCE["commit"] == "21a2a9a0aed8b4d9c715da46616aad86f1174b4c"
     assert SOURCE["path"] == "packages/protocol/test/fixtures/entity-particle-v23.2.1.json"
     assert FIXTURE["schema"] == "mcremote.entity-particle.v23.2.1"
-    assert FIXTURE["protocol"] == PROTOCOL == "23.2.1"
+    assert FIXTURE["protocol"] == "23.2.1"
     assert FIXTURE["knowledge_contract"] == SOURCE["knowledge_contract"]
     assert FIXTURE["knowledge_contract"]["decisions"] == ["2026-09-30-01", "2026-09-30-02", "2026-09-30-06"]
     ids = [case["id"] for section, key in (

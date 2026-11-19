@@ -148,7 +148,7 @@ __all__ = [
 
 # Wire protocol version this client speaks (sent in the hello handshake and
 # checked by the server). Distinct from the PyPI/distribution version.
-PROTOCOL = "23.2.1"
+PROTOCOL = "24.0.0"
 
 CatalogProjectionError = _projection.CatalogProjectionError
 CatalogProjectionWarning = _projection.CatalogProjectionWarning
@@ -203,7 +203,7 @@ def _env_first(*names):
 class Minecraft:
     """Client for a running Minecraft server speaking protocol 23.x.
 
-    protocol 23.2.1 surface: ``hello`` handshake (carrying an optional
+    protocol 24.0.0 surface: ``hello`` handshake (carrying an optional
     ``auth`` token, §6.1) plus ``setBlock`` / ``getBlock`` / ``setBlocks`` over
     structured block values, ``postToChat`` (wire ``chat.post``), paired-player
     position and pose helpers (``getPos`` / ``setPos`` / ``getPose`` /
@@ -301,6 +301,41 @@ class Minecraft:
         resp = self.conn.rpc("hello", params)
         if not isinstance(resp, dict):
             raise McRemoteError("hello result must be an object")
+        server_protocol = resp.get("protocol")
+        try:
+            if not isinstance(server_protocol, str):
+                raise ValueError
+            parts = server_protocol.split(".")
+            if len(parts) != 3 or not all(
+                part.isascii() and part.isdecimal() for part in parts
+            ):
+                raise ValueError
+            server_major, server_minor, _ = map(int, parts)
+            client_major, client_minor, _ = map(int, PROTOCOL.split("."))
+        except ValueError:
+            error = McRemoteError("hello result.protocol must be major.minor.patch")
+        else:
+            error = None
+            if server_major != client_major or server_minor < client_minor:
+                error = McRpcError(
+                    -32000,
+                    "Server protocol does not satisfy the client requirement",
+                    {"reason": "protocol_mismatch", "server": server_protocol,
+                     "client_requires": PROTOCOL},
+                )
+        if error is not None:
+            try:
+                abort = getattr(self.conn, "_close_epoch", None)
+                if abort is None:
+                    self.conn.close()
+                else:
+                    abort(flush=False)
+            except Exception as cleanup_error:
+                _add_exception_note(error, "Failed to close incompatible connection", cause=cleanup_error)
+            finally:
+                self._closed = True
+                self._close_wirescope_runtime()
+            raise error
         dimension = require_dimension_key(
             resp.get("dimension"), "hello result.dimension"
         )
